@@ -1,0 +1,26 @@
+---
+description: Camp ping invariants — do not flood, do not mix factions, three slots only
+alwaysApply: true
+---
+
+# S'more Skills camp sync
+
+## Never
+
+- Reuse Guildie Crafts prefixes (`GuildieCft`, `GCftV2`, `GCftF`, `GCftFV2`)
+- Send camp pings outside the guild until a dedicated channel is designed
+- Apply a camp from the other faction
+- Let more than three object slots exist on a camp
+- Dump every stored camp with no cap or cooldown (freezes clients)
+- Treat newest packet as truth when `updatedAt` is older
+- Scan the whole continent for fires — addons only see what is in range or what others share
+
+## Required
+
+- Prefix `SmoreSk`. Payload under 250 bytes: `C:map:x:y:fac:own:p1:o1:p2:o2:p3:o3:t`
+- Same-faction only
+- Three slots. Each player places at most one object (enforced by the game; we display it)
+- Login asks (`Q`) then others share, rate-limited, newest first, cap 12
+- Forget camps older than 30 minutes
+- Manual `/smores here` until we can enumerate a campfire object
+- `## Interface:` and `_forever_` path are placeholders until beta FrameXML is known

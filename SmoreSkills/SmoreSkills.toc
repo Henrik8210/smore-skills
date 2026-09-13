@@ -1,0 +1,12 @@
+## Interface: 11509
+## Title: S'more Skills
+## Notes: Find Forever campsites — fire location, three object slots, and which professions are set up.
+## Author: Henrik8210
+## Version: 0.1.0
+## SavedVariables: SmoreSkillsDB
+
+Core.lua
+Camps.lua
+Sync.lua
+UI.lua
+Commands.lua

@@ -1,0 +1,37 @@
+---
+description: CurseForge releases use git tags + GitHub Actions — only push tags when the user explicitly asks
+alwaysApply: true
+---
+
+# CurseForge release tags
+
+Full workflow: [GUIDELINES.md](../../GUIDELINES.md) → **CurseForge release**.
+
+This is **S'more Skills** (Forever camping). Do not tag Guildie Crafts (TBC) or Guildie Crafts Forever.
+
+## The right way
+
+Publishing is **GitHub Actions**, not the CurseForge webhook (webhook must stay **inactive**):
+
+1. Create a **new** CurseForge project for S'more Skills.
+2. Put `## X-Curse-Project-ID:` in `SmoreSkills/SmoreSkills.toc`.
+3. User must have **`CF_API_KEY`** set in **this** repo’s Secrets. Do not paste the token in chat.
+4. Push a version tag (`v0.1.0`) → `.github/workflows/release.yml` runs.
+5. Workflow uses `.pkgmeta` `move-folders` (no flatten) → `BigWigsMods/packager@v2` uploads to CurseForge.
+6. Verify **GitHub Actions → Release** succeeds; check CurseForge **Files**.
+
+Pushing to `main` alone is **not** a release. Do **not** delete/re-push tags to retry — bump patch version instead.
+
+## Do not tag unless asked
+
+Never create or push a CurseForge release tag unless the user **explicitly** requests publishing.
+
+## When the user asks for CurseForge
+
+1. Bump `SmoreSkills/SmoreSkills.toc` `## Version:` and `Core.lua` `SmoreSkills.VERSION`.
+2. Add `## vX.Y.Z` to `CHANGELOG.md`.
+3. Commit and push to `main`.
+4. `git tag v<version>` and `git push origin v<version>` (tag matches toc, with `v` prefix).
+5. Confirm GitHub Actions **Release** job succeeded; remind user to check CurseForge **Files**.
+
+Do **not** tag when the user only asked to commit, push, or update docs.
