@@ -1,37 +1,80 @@
 # S'more Skills — dev guidelines
 
-Forever camping finder. Not Guildie Crafts.
+Forever camping finder. Protocol and UX are documented in [CAMPING.md](CAMPING.md).
 
 - **Remote:** https://github.com/Henrik8210/smore-skills
 - **Addon folder:** `SmoreSkills/` (no apostrophe — WoW toc/folder rule)
 - **Title:** S'more Skills
-- **TBC workshops:** https://github.com/Henrik8210/guildie-crafts (frozen)
-- **Forever workshops:** https://github.com/Henrik8210/guildie-crafts-forever
+- **Version:** 0.5.7 (GitHub only until Forever beta validates — **no CurseForge tag yet**)
 
-## WoW install path
+## WoW install paths
 
-`C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\`
-
-Confirm the client folder and `## Interface:` from Forever `FrameXML.toc` before a CurseForge upload. `11509` is a Classic Era placeholder.
+| Client | Folder | Interface (Sep 2026) |
+| --- | --- | --- |
+| **TBC Anniversary** (testbed) | `_anniversary_\Interface\AddOns\` | `20505`, `20506` |
+| **Forever** (beta 17 Sep) | `_forever_\Interface\AddOns\` | TBD from `FrameXML.toc` |
 
 ```powershell
-.\scripts\deploy-to-wow.ps1
+# Testing on TBC Anniversary (default until Forever beta)
+.\scripts\deploy-to-wow.ps1 -Client anniversary
+
+# Forever when the client exists
+.\scripts\deploy-to-wow.ps1 -Client forever
 ```
+
+After Forever beta lands: read `## Interface:` from the client’s `FrameXML.toc`, update `SmoreSkills.toc`, and re-test map hooks. **Forever world map layout and Thursday smoke test:** [FOREVER.md](FOREVER.md).
+
+## Source layout
+
+| File | Role |
+| --- | --- |
+| `Core.lua` | Version, constants, saved vars, init |
+| `Camps.lua` | Camp cache, matching, profession detection |
+| `Sync.lua` | Channel join, seek/host/share, rate limits |
+| `Map.lua` | World map pins, Find button, custom camp tooltip |
+| `Settings.lua` | Minimap button, settings popup (General / Host / Seeker) |
+| `UI.lua` | Legacy camp list window (minimal; camps live on map) |
+| `Commands.lua` | Slash commands |
+| `Art/` | `SmoreSkillsLogo` (512, addon list) + `SmoreSkillsIcon` (256, UI) |
+
+Logo paths: `SmoreSkills.LOGO` (full art), `SmoreSkills.ICON` (cropped, minimap/map/pins).
 
 ## Commands
 
 | Command | Action |
-|---------|--------|
-| `/smores`, `/sms`, `/smoreskills` | Toggle the window |
-| `/smores here` | Pin and share a camp at your position |
-| `/smores ask` | Ask the guild for camps they have |
+| --- | --- |
+| `/smores`, `/sms`, `/smoreskills` | Toggle settings popup |
+| `/smores here` | Share camp snapshot at your location |
 | `/smores list` | Print stored camps |
+| `/smores find` | Seek camps in zone |
+| `/smores host` | Host signal at your location |
+| `/smores stop` | Stop hosting rebroadcasts |
+| `/smores slot 1 bs` | Set object slot (TBC testing) |
+| `/smores prof lw` | Set profession for matching |
+| `/smores want any` | Professions host accepts |
+| `/smores test on\|off` | Toggle Ashenvale sample camp on seek |
+
+## TBC Anniversary testing
+
+TBC has no camping. Use two characters in the **same zone and faction** (e.g. Ashenvale):
+
+1. Deploy with `-Client anniversary`
+2. **Host:** `/smores host` at a landmark (or `/smores here` for a camp snapshot)
+3. **Seeker:** left-click minimap fire, map Find button, or `/smores find`
+4. Confirm bonfire pin on **zone** map; hover shows three sockets
+5. Verify opposite faction does not see the ping
+6. Verify cooldowns (see [CAMPING.md](CAMPING.md) load limits)
+7. Use `/smores slot 1 bs` etc. to simulate filled object slots
+
+Optional: `/smores test on` injects a sample Ashenvale camp when seeking (single-client smoke test).
 
 ## CurseForge release
 
+**Hold until Forever beta works.** Do not tag or publish until the user explicitly asks after beta validation.
+
 Publishing is **GitHub Actions**, not the CurseForge webhook.
 
-1. Create a **new** CurseForge project (do not reuse Guildie Crafts).
+1. Create a **new** CurseForge project for S'more Skills.
 2. Put `## X-Curse-Project-ID:` in `SmoreSkills/SmoreSkills.toc`.
 3. Add GitHub secret **`CF_API_KEY`** (authors.curseforge.com → API tokens). Never paste the token in chat.
 4. Leave the GitHub → CurseForge webhook **inactive**.
@@ -51,4 +94,4 @@ Pushing `main` is not a release. Do not delete/re-push tags — bump the patch.
 
 ## Sync
 
-See [CAMPING.md](CAMPING.md) and `.cursor/rules/camp-sync.mdc`. Guild addon messages only. Same faction. Three slots. Rate-limit shares.
+See [CAMPING.md](CAMPING.md) and `.cursor/rules/camp-sync.mdc`. Hidden community channel (`SmoreSkills`). Same faction. Three slots. Share is opt-in. Do not dump on login. Guild mark is optional.

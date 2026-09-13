@@ -5,25 +5,85 @@ SmoreSkills.MAX_SLOTS = 3
 
 -- Short wire codes. Gathering is included — Herbalism incense is a camp object.
 SmoreSkills.PROFESSIONS = {
-    { id = "alchemy", code = "alch", label = "Alchemy" },
-    { id = "blacksmithing", code = "bs", label = "Blacksmithing" },
-    { id = "enchanting", code = "enc", label = "Enchanting" },
-    { id = "engineering", code = "eng", label = "Engineering" },
-    { id = "herbalism", code = "herb", label = "Herbalism" },
-    { id = "leatherworking", code = "lw", label = "Leatherworking" },
-    { id = "mining", code = "mine", label = "Mining" },
-    { id = "skinning", code = "skin", label = "Skinning" },
-    { id = "tailoring", code = "tail", label = "Tailoring" },
-    { id = "cooking", code = "cook", label = "Cooking" },
-    { id = "firstaid", code = "fa", label = "First Aid" },
+    { id = "alchemy", code = "alch", label = "Alchemy", icon = "Interface\\Icons\\Trade_Alchemy" },
+    { id = "blacksmithing", code = "bs", label = "Blacksmithing", icon = "Interface\\Icons\\Trade_Blacksmithing" },
+    { id = "enchanting", code = "enc", label = "Enchanting", icon = "Interface\\Icons\\Trade_Engraving" },
+    { id = "engineering", code = "eng", label = "Engineering", icon = "Interface\\Icons\\Trade_Engineering" },
+    { id = "herbalism", code = "herb", label = "Herbalism", icon = "Interface\\Icons\\Spell_Nature_NatureTouchGrow" },
+    { id = "leatherworking", code = "lw", label = "Leatherworking", icon = "Interface\\Icons\\Trade_LeatherWorking" },
+    { id = "mining", code = "mine", label = "Mining", icon = "Interface\\Icons\\Trade_Mining" },
+    { id = "skinning", code = "skin", label = "Skinning", icon = "Interface\\Icons\\INV_Misc_Pelt_Wolf_01" },
+    { id = "tailoring", code = "tail", label = "Tailoring", icon = "Interface\\Icons\\Trade_Tailoring" },
+    { id = "cooking", code = "cook", label = "Cooking", icon = "Interface\\Icons\\INV_Misc_Food_15" },
+    { id = "firstaid", code = "fa", label = "First Aid", icon = "Interface\\Icons\\Spell_Holy_SealOfSacrifice" },
 }
 
 local CODE_TO_PROF = {}
 local ID_TO_PROF = {}
+local LABEL_TO_ID = {}
+local SKILL_NAME_TO_ID = {}
 for _, row in ipairs(SmoreSkills.PROFESSIONS) do
     CODE_TO_PROF[row.code] = row
     ID_TO_PROF[row.id] = row
+    LABEL_TO_ID[row.label:lower()] = row.id
+    LABEL_TO_ID[row.id] = row.id
+    LABEL_TO_ID[row.code] = row.id
+    SKILL_NAME_TO_ID[row.label:lower()] = row.id
 end
+-- TBC profession specializations keep the base trade for matching.
+local TBC_SPEC_ALIASES = {
+    ["spellfire tailoring"] = "tailoring",
+    ["shadoweave tailoring"] = "tailoring",
+    ["mooncloth tailoring"] = "tailoring",
+    ["goblin engineering"] = "engineering",
+    ["gnomish engineering"] = "engineering",
+    ["dragonscale leatherworking"] = "leatherworking",
+    ["elemental leatherworking"] = "leatherworking",
+    ["tribal leatherworking"] = "leatherworking",
+}
+for alias, id in pairs(TBC_SPEC_ALIASES) do
+    SKILL_NAME_TO_ID[alias] = id
+end
+
+function SmoreSkills_ProfessionIdFromSkillName(skillName)
+    if not skillName or skillName == "" then
+        return nil
+    end
+    local lower = strlower(strtrim(skillName))
+    if SKILL_NAME_TO_ID[lower] then
+        return SKILL_NAME_TO_ID[lower]
+    end
+    for alias, id in pairs(TBC_SPEC_ALIASES) do
+        if lower:find(alias, 1, true) then
+            return id
+        end
+    end
+    for _, row in ipairs(SmoreSkills.PROFESSIONS) do
+        if lower == row.label:lower() or lower == row.id or lower == row.code then
+            return row.id
+        end
+    end
+    return nil
+end
+
+function SmoreSkills_GetPlayerProfessions()
+    local list = {}
+    local seen = {}
+    if GetNumSkillLines then
+        for i = 1, GetNumSkillLines() do
+            local skillName = GetSkillLineInfo(i)
+            local id = SmoreSkills_ProfessionIdFromSkillName(skillName)
+            if id and not seen[id] then
+                seen[id] = true
+                table.insert(list, id)
+            end
+        end
+    end
+    return list
+end
+
+SmoreSkills.SIGNAL_TTL = 3 * 60
+SmoreSkills.MAX_PINS_PER_ZONE = 12
 
 function SmoreSkills_ProfessionFromCode(code)
     return code and CODE_TO_PROF[code] or nil
@@ -36,6 +96,328 @@ end
 function SmoreSkills_ProfessionLabel(idOrCode)
     local row = SmoreSkills_ProfessionFromId(idOrCode) or SmoreSkills_ProfessionFromCode(idOrCode)
     return row and row.label or (idOrCode or "")
+end
+
+function SmoreSkills_ProfessionIcon(idOrCode)
+    local row = SmoreSkills_ProfessionFromId(idOrCode) or SmoreSkills_ProfessionFromCode(idOrCode)
+    return row and row.icon or "Interface\\Icons\\INV_Misc_QuestionMark"
+end
+
+function SmoreSkills_NormalizeProfession(idOrCode)
+    local row = SmoreSkills_ProfessionFromId(idOrCode) or SmoreSkills_ProfessionFromCode(idOrCode)
+    return row and row.id or nil
+end
+
+function SmoreSkills_GetPlayerProfession()
+    local settings = SmoreSkillsDB and SmoreSkillsDB.settings
+    if settings and settings.profession then
+        return SmoreSkills_NormalizeProfession(settings.profession)
+    end
+    local profs = SmoreSkills_GetPlayerProfessions()
+    return profs[1]
+end
+
+function SmoreSkills_FormatPlayerProfessions()
+    local profs = SmoreSkills_GetPlayerProfessions()
+    if #profs == 0 then
+        return nil
+    end
+    local active = SmoreSkills_GetPlayerProfession()
+    if #profs == 1 then
+        return SmoreSkills_ProfessionLabel(profs[1])
+    end
+    local parts = {}
+    for _, id in ipairs(profs) do
+        local label = SmoreSkills_ProfessionLabel(id)
+        if id == active then
+            table.insert(parts, label .. " (seeking)")
+        else
+            table.insert(parts, label)
+        end
+    end
+    return table.concat(parts, ", ")
+end
+
+function SmoreSkills_SetPlayerProfession(idOrCode)
+    SmoreSkillsDB.settings = SmoreSkillsDB.settings or {}
+    local id = SmoreSkills_NormalizeProfession(idOrCode)
+    if not id then
+        return false
+    end
+    SmoreSkillsDB.settings.profession = id
+    return true
+end
+
+function SmoreSkills_EnsureSettings()
+    SmoreSkillsDB.settings = SmoreSkillsDB.settings or { dataVersion = 1 }
+    local s = SmoreSkillsDB.settings
+    if s.hostFilterEnabled == nil then
+        s.hostFilterEnabled = false
+    end
+    if s.seekerFilterEnabled == nil then
+        s.seekerFilterEnabled = false
+    end
+    if s.autoHostOnCampfire == nil then
+        s.autoHostOnCampfire = false
+    end
+    if s.hostWant == nil then
+        s.hostWant = "any"
+    end
+    if s.seekerWant == nil then
+        s.seekerWant = "any"
+    end
+    if s.minimapAngle == nil then
+        s.minimapAngle = 220
+    end
+    return s
+end
+
+function SmoreSkills_GetHostFilterEnabled()
+    return SmoreSkills_EnsureSettings().hostFilterEnabled == true
+end
+
+function SmoreSkills_SetHostFilterEnabled(enabled)
+    local s = SmoreSkills_EnsureSettings()
+    s.hostFilterEnabled = enabled and true or false
+    if s.hostFilterEnabled and (not s.hostWant or s.hostWant == "any") then
+        s.hostWant = ""
+    end
+end
+
+function SmoreSkills_GetSeekerFilterEnabled()
+    return SmoreSkills_EnsureSettings().seekerFilterEnabled == true
+end
+
+function SmoreSkills_SetSeekerFilterEnabled(enabled)
+    local s = SmoreSkills_EnsureSettings()
+    s.seekerFilterEnabled = enabled and true or false
+    if s.seekerFilterEnabled and (not s.seekerWant or s.seekerWant == "any") then
+        s.seekerWant = ""
+    end
+end
+
+function SmoreSkills_GetAutoHostOnCampfire()
+    return SmoreSkills_EnsureSettings().autoHostOnCampfire == true
+end
+
+function SmoreSkills_SetAutoHostOnCampfire(enabled)
+    SmoreSkills_EnsureSettings().autoHostOnCampfire = enabled and true or false
+end
+
+function SmoreSkills_GetHostWant()
+    local want = SmoreSkills_EnsureSettings().hostWant
+    if want == nil or want == "" then
+        return ""
+    end
+    return want
+end
+
+function SmoreSkills_GetSeekerWant()
+    local want = SmoreSkills_EnsureSettings().seekerWant
+    if want == nil or want == "" then
+        return ""
+    end
+    return want
+end
+
+function SmoreSkills_GetEffectiveHostWant()
+    if not SmoreSkills_GetHostFilterEnabled() then
+        return "any"
+    end
+    local want = SmoreSkills_GetHostWant()
+    if want == "" or want == "any" then
+        return "none"
+    end
+    return want
+end
+
+function SmoreSkills_GetEffectiveSeekerWant()
+    if not SmoreSkills_GetSeekerFilterEnabled() then
+        return "any"
+    end
+    local want = SmoreSkills_GetSeekerWant()
+    if want == "" or want == "any" then
+        return "none"
+    end
+    return want
+end
+
+function SmoreSkills_SetHostWant(want)
+    SmoreSkillsDB.settings = SmoreSkillsDB.settings or {}
+    want = strlower(strtrim(want or ""))
+    if want == "" or want == "any" then
+        SmoreSkillsDB.settings.hostWant = "any"
+        return true
+    end
+    local codes = {}
+    for token in string.gmatch(want, "[^,%s]+") do
+        local id = SmoreSkills_NormalizeProfession(token)
+        if not id then
+            return false
+        end
+        local row = SmoreSkills_ProfessionFromId(id)
+        table.insert(codes, row.code)
+    end
+    if #codes == 0 then
+        return false
+    end
+    SmoreSkillsDB.settings.hostWant = table.concat(codes, ",")
+    return true
+end
+
+function SmoreSkills_SetSeekerWant(want)
+    SmoreSkillsDB.settings = SmoreSkillsDB.settings or {}
+    want = strlower(strtrim(want or ""))
+    if want == "" or want == "any" then
+        SmoreSkillsDB.settings.seekerWant = "any"
+        return true
+    end
+    local codes = {}
+    for token in string.gmatch(want, "[^,%s]+") do
+        local id = SmoreSkills_NormalizeProfession(token)
+        if not id then
+            return false
+        end
+        local row = SmoreSkills_ProfessionFromId(id)
+        table.insert(codes, row.code)
+    end
+    if #codes == 0 then
+        return false
+    end
+    SmoreSkillsDB.settings.seekerWant = table.concat(codes, ",")
+    return true
+end
+
+function SmoreSkills_WantHasProfession(wantKey, profId)
+    local want = wantKey == "seekerWant" and SmoreSkills_GetSeekerWant() or SmoreSkills_GetHostWant()
+    if not want or want == "" or want == "any" then
+        return false
+    end
+    return SmoreSkills_WantAccepts(want, profId)
+end
+
+function SmoreSkills_ToggleWantProfession(wantKey, profId)
+    SmoreSkills_EnsureSettings()
+    local row = SmoreSkills_ProfessionFromId(profId)
+    if not row then
+        return false
+    end
+    local want = wantKey == "seekerWant" and SmoreSkills_GetSeekerWant() or SmoreSkills_GetHostWant()
+    local codes = {}
+    local found = false
+    if want and want ~= "" and want ~= "any" then
+        for token in string.gmatch(want, "[^,]+") do
+            if token == row.code or token == row.id then
+                found = true
+            else
+                table.insert(codes, token)
+            end
+        end
+    end
+    if not found then
+        table.insert(codes, row.code)
+    end
+    if wantKey == "seekerWant" then
+        SmoreSkillsDB.settings.seekerWant = #codes > 0 and table.concat(codes, ",") or ""
+    else
+        SmoreSkillsDB.settings.hostWant = #codes > 0 and table.concat(codes, ",") or ""
+    end
+    return true
+end
+
+function SmoreSkills_FormatWant(want)
+    if not want or want == "any" then
+        return "Anyone"
+    end
+    if want == "none" or want == "" then
+        return "None selected"
+    end
+    local labels = {}
+    for token in string.gmatch(want, "[^,]+") do
+        local id = SmoreSkills_NormalizeProfession(token)
+        table.insert(labels, SmoreSkills_ProfessionLabel(id or token))
+    end
+    return table.concat(labels, ", ")
+end
+
+function SmoreSkills_WantAccepts(want, professionId)
+    want = want or "any"
+    if want == "any" then
+        return true
+    end
+    if want == "none" or want == "" then
+        return false
+    end
+    if not professionId then
+        return false
+    end
+    local prof = SmoreSkills_ProfessionFromId(professionId)
+    if not prof then
+        return false
+    end
+    for token in string.gmatch(want, "[^,]+") do
+        if token == prof.code or token == prof.id then
+            return true
+        end
+    end
+    return false
+end
+
+function SmoreSkills_CountEmptySlots(camp)
+    return SmoreSkills.MAX_SLOTS - SmoreSkills_CountFilledSlots(camp)
+end
+
+function SmoreSkills_HostMatchesSeeker(host, mapId, seekerProfession)
+    if not host or not mapId then
+        return false
+    end
+    if host.faction and host.faction ~= SmoreSkills_PlayerFaction() then
+        return false
+    end
+    if host.mapId ~= mapId then
+        return false
+    end
+    if SmoreSkills_CountEmptySlots(host) < 1 then
+        return false
+    end
+    local hostWant = host.want or "any"
+    return SmoreSkills_WantAccepts(hostWant, seekerProfession)
+end
+
+function SmoreSkills_SeekerWantsCamp(camp, seekerWant)
+    if not seekerWant or seekerWant == "any" then
+        return true
+    end
+    if seekerWant == "none" or seekerWant == "" then
+        return false
+    end
+    SmoreSkills_EnsureSlots(camp)
+    for i = 1, SmoreSkills.MAX_SLOTS do
+        local slot = camp.slots[i]
+        if slot and slot.profession and SmoreSkills_WantAccepts(seekerWant, slot.profession) then
+            return true
+        end
+    end
+    local hostWant = camp.want or "any"
+    if hostWant ~= "any" and hostWant ~= "none" and hostWant ~= "" then
+        for token in string.gmatch(seekerWant, "[^,]+") do
+            local id = SmoreSkills_NormalizeProfession(token)
+            if id and SmoreSkills_WantAccepts(hostWant, id) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function SmoreSkills_CampVisibleToSeeker(camp, mapId, seekerProfession)
+    if not camp or not mapId then
+        return false
+    end
+    if not SmoreSkills_HostMatchesSeeker(camp, mapId, seekerProfession) then
+        return false
+    end
+    return SmoreSkills_SeekerWantsCamp(camp, SmoreSkills_GetEffectiveSeekerWant())
 end
 
 local function EmptySlots()
@@ -101,10 +483,25 @@ function SmoreSkills_UpsertCamp(incoming)
     end
     incoming.id = id
     incoming.slots = incoming.slots or (existing and existing.slots) or EmptySlots()
+    incoming.zone = incoming.zone or (existing and existing.zone)
+    incoming.want = incoming.want or (existing and existing.want)
+    if existing and existing.source == "host" and incoming.source ~= "host" then
+        incoming.source = existing.source
+    end
+    incoming.source = incoming.source or (existing and existing.source)
     SmoreSkills_EnsureSlots(incoming)
     incoming.updatedAt = incoming.updatedAt or SmoreSkills_Now()
     SmoreSkillsDB.camps[id] = incoming
     return incoming
+end
+
+function SmoreSkills_GetLocalCamp()
+    local mapId, x, y = SmoreSkills_GetPlayerMapPos()
+    if not mapId then
+        return nil
+    end
+    local id = SmoreSkills_CampId(mapId, x, y)
+    return SmoreSkillsDB.camps and SmoreSkillsDB.camps[id] or nil
 end
 
 function SmoreSkills_MarkHere(slots)
@@ -112,16 +509,42 @@ function SmoreSkills_MarkHere(slots)
     if not mapId then
         return nil, "No map coordinates (leave an instance or wait for the map)."
     end
-    local camp = SmoreSkills_UpsertCamp({
+    local data = {
         mapId = mapId,
         x = x,
         y = y,
         zone = zone,
         faction = SmoreSkills_PlayerFaction(),
         owner = SmoreSkills_PlayerName(),
-        slots = slots or EmptySlots(),
         updatedAt = SmoreSkills_Now(),
-    })
+    }
+    if slots then
+        data.slots = slots
+    end
+    return SmoreSkills_UpsertCamp(data)
+end
+
+function SmoreSkills_SetLocalSlot(index, profession, object)
+    local camp, err = SmoreSkills_MarkHere()
+    if not camp then
+        return nil, err
+    end
+    local profId = SmoreSkills_NormalizeProfession(profession)
+    if not profId then
+        return nil, "Unknown profession."
+    end
+    SmoreSkills_SetSlot(camp, index, SmoreSkills_PlayerName(), profId, object)
+    return camp
+end
+
+function SmoreSkills_ClearLocalSlot(index)
+    local camp, err = SmoreSkills_MarkHere()
+    if not camp then
+        return nil, err
+    end
+    SmoreSkills_EnsureSlots(camp)
+    camp.slots[index] = { index = index }
+    camp.updatedAt = SmoreSkills_Now()
     return camp
 end
 
@@ -140,10 +563,10 @@ function SmoreSkills_SetSlot(camp, index, player, profession, object)
     return true
 end
 
-function SmoreSkills_ListCamps(faction)
+function SmoreSkills_ListCamps(faction, mapId)
     local list = {}
     for _, camp in pairs(SmoreSkillsDB.camps or {}) do
-        if not faction or camp.faction == faction then
+        if (not faction or camp.faction == faction) and (not mapId or camp.mapId == mapId) then
             table.insert(list, camp)
         end
     end
@@ -154,6 +577,148 @@ function SmoreSkills_ListCamps(faction)
         end
         return (a.updatedAt or 0) > (b.updatedAt or 0)
     end)
+    if mapId and #list > SmoreSkills.MAX_PINS_PER_ZONE then
+        while #list > SmoreSkills.MAX_PINS_PER_ZONE do
+            table.remove(list)
+        end
+    end
+    return list
+end
+
+function SmoreSkills_TestCampsEnabled()
+    if SmoreSkillsDB.settings and SmoreSkillsDB.settings.testCamps == false then
+        return false
+    end
+    return SmoreSkills.ENABLE_TEST_CAMPS ~= false
+end
+
+function SmoreSkills_IsAshenvale(mapId, zone)
+    if mapId == 331 then
+        return true
+    end
+    if zone and strlower(zone):find("ashenvale", 1, true) then
+        return true
+    end
+    return false
+end
+
+local function SmoreSkills_ClearTestCamps()
+    for id, camp in pairs(SmoreSkillsDB.camps or {}) do
+        if camp.owner == "TestCamper" then
+            SmoreSkillsDB.camps[id] = nil
+            if SmoreSkills.Sync and SmoreSkills.Sync.seekDiscoveredIds then
+                SmoreSkills.Sync.seekDiscoveredIds[id] = nil
+            end
+        end
+    end
+end
+
+function SmoreSkills_GetTestCampCoords()
+    SmoreSkillsDB.settings = SmoreSkillsDB.settings or {}
+    local settings = SmoreSkillsDB.settings
+    if settings.testCampX and settings.testCampY then
+        return settings.testCampX, settings.testCampY
+    end
+    local hash = 0
+    local name = UnitName("player") or "camper"
+    for i = 1, #name do
+        hash = (hash * 31 + string.byte(name, i)) % 100000
+    end
+    local x = 0.18 + (hash % 640) / 1000
+    local y = 0.18 + ((hash * 17) % 640) / 1000
+    settings.testCampX = x
+    settings.testCampY = y
+    return x, y
+end
+
+function SmoreSkills_SeedTestCamp(mapId, zone)
+    if not SmoreSkills_TestCampsEnabled() then
+        return nil
+    end
+    if not SmoreSkills_IsAshenvale(mapId, zone) then
+        return nil
+    end
+    SmoreSkills_ClearTestCamps()
+    local x, y = SmoreSkills_GetTestCampCoords()
+    local camp = SmoreSkills_UpsertCamp({
+        mapId = mapId or 331,
+        x = x,
+        y = y,
+        zone = zone or "Ashenvale",
+        faction = SmoreSkills_PlayerFaction(),
+        owner = "TestCamper",
+        want = SmoreSkills_GetEffectiveHostWant(),
+        source = "host",
+        updatedAt = SmoreSkills_Now(),
+    })
+    SmoreSkills_SetSlot(camp, 1, "TestCamper", "blacksmithing", "Anvil")
+    return camp
+end
+
+local function SmoreSkills_MaybeAddVisibleCamp(list, seen, camp, mapId, seekerProfession)
+    if not camp or not camp.id or seen[camp.id] then
+        return
+    end
+    if camp.faction and camp.faction ~= SmoreSkills_PlayerFaction() then
+        return
+    end
+    if mapId and camp.mapId ~= mapId then
+        return
+    end
+    if not SmoreSkills_CampVisibleToSeeker(camp, mapId or camp.mapId, seekerProfession) then
+        return
+    end
+    table.insert(list, camp)
+    seen[camp.id] = true
+end
+
+function SmoreSkills_ListVisibleCamps(mapId)
+    local seekerProfession = SmoreSkills_GetPlayerProfession()
+    local list = {}
+    local seen = {}
+    for _, camp in pairs(SmoreSkillsDB.camps or {}) do
+        SmoreSkills_MaybeAddVisibleCamp(list, seen, camp, mapId, seekerProfession)
+    end
+    local sync = SmoreSkills.Sync
+    local discoveries = sync and sync.seekDiscoveredIds
+    if discoveries then
+        for id in pairs(discoveries) do
+            SmoreSkills_MaybeAddVisibleCamp(list, seen, SmoreSkillsDB.camps and SmoreSkillsDB.camps[id], mapId, seekerProfession)
+        end
+    end
+    table.sort(list, function(a, b)
+        local za, zb = a.zone or "", b.zone or ""
+        if za ~= zb then
+            return za < zb
+        end
+        return (a.updatedAt or 0) > (b.updatedAt or 0)
+    end)
+    if mapId and #list > SmoreSkills.MAX_PINS_PER_ZONE then
+        while #list > SmoreSkills.MAX_PINS_PER_ZONE do
+            table.remove(list)
+        end
+    end
+    return list
+end
+
+function SmoreSkills_ListMatchedCamps(mapId, seekerProfession)
+    if not mapId then
+        return {}
+    end
+    local list = {}
+    for _, camp in pairs(SmoreSkillsDB.camps or {}) do
+        if SmoreSkills_CampVisibleToSeeker(camp, mapId, seekerProfession) then
+            table.insert(list, camp)
+        end
+    end
+    table.sort(list, function(a, b)
+        return (a.updatedAt or 0) > (b.updatedAt or 0)
+    end)
+    if #list > SmoreSkills.MAX_PINS_PER_ZONE then
+        while #list > SmoreSkills.MAX_PINS_PER_ZONE do
+            table.remove(list)
+        end
+    end
     return list
 end
 
@@ -163,8 +728,57 @@ function SmoreSkills_ForgetStaleCamps(maxAge)
     for id, camp in pairs(SmoreSkillsDB.camps or {}) do
         if (now - (camp.updatedAt or 0)) > maxAge then
             SmoreSkillsDB.camps[id] = nil
+            if SmoreSkills.Sync and SmoreSkills.Sync.seekDiscoveredIds then
+                SmoreSkills.Sync.seekDiscoveredIds[id] = nil
+            end
         end
     end
+end
+
+function SmoreSkills_IsGuildie(name)
+    if not name or name == "" or not IsInGuild then
+        return false
+    end
+    if not IsInGuild() then
+        return false
+    end
+    if SmoreSkills_PlayerNamesMatch(name, SmoreSkills_PlayerName()) then
+        return true
+    end
+    if UnitIsInMyGuild and UnitIsInMyGuild(name) then
+        return true
+    end
+    local n = GetNumGuildMembers and GetNumGuildMembers() or 0
+    for i = 1, n do
+        local gname = GetGuildRosterInfo(i)
+        if gname then
+            if Ambiguate then
+                gname = Ambiguate(gname, "guild")
+            else
+                gname = strsplit("-", gname)
+            end
+            if SmoreSkills_PlayerNamesMatch(gname, name) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function SmoreSkills_CampHasGuildie(camp)
+    if not camp then
+        return false
+    end
+    if SmoreSkills_IsGuildie(camp.owner) then
+        return true
+    end
+    for i = 1, SmoreSkills.MAX_SLOTS do
+        local slot = camp.slots and camp.slots[i]
+        if slot and SmoreSkills_IsGuildie(slot.player) then
+            return true
+        end
+    end
+    return false
 end
 
 function SmoreSkills_FormatCoords(camp)
@@ -172,6 +786,38 @@ function SmoreSkills_FormatCoords(camp)
         return "?"
     end
     return string.format("%.1f, %.1f", camp.x * 100, camp.y * 100)
+end
+
+function SmoreSkills_FormatSlotTooltipLine(camp, index)
+    SmoreSkills_EnsureSlots(camp)
+    local slot = camp.slots[index]
+    if index == 1 then
+        if slot and slot.profession then
+            local line = "Host: " .. SmoreSkills_ProfessionLabel(slot.profession)
+            if slot.object and slot.object ~= "" then
+                line = line .. " (" .. slot.object .. ")"
+            end
+            if slot.player and slot.player ~= "" then
+                line = line .. " — " .. slot.player
+            elseif camp.owner and camp.owner ~= "" then
+                line = line .. " — " .. camp.owner
+            end
+            return line
+        end
+        return "Host: " .. (camp.owner or "Unknown")
+    end
+    local spot = index - 1
+    if slot and slot.profession then
+        local line = string.format("Spot %d: %s", spot, SmoreSkills_ProfessionLabel(slot.profession))
+        if slot.object and slot.object ~= "" then
+            line = line .. " (" .. slot.object .. ")"
+        end
+        if slot.player and slot.player ~= "" then
+            line = line .. " — " .. slot.player
+        end
+        return line
+    end
+    return string.format("Spot %d: Open", spot)
 end
 
 function SmoreSkills_FormatSlots(camp)

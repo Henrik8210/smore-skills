@@ -2,8 +2,8 @@ SmoreSkills = SmoreSkills or {}
 SmoreSkills.UI = SmoreSkills.UI or {}
 
 local UI = SmoreSkills.UI
-local FRAME_WIDTH = 420
-local FRAME_HEIGHT = 380
+local FRAME_WIDTH = 440
+local FRAME_HEIGHT = 400
 
 function UI:Init()
     if self.frame then
@@ -36,35 +36,43 @@ function UI:Init()
     local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", -4, -4)
 
+    local findBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    findBtn:SetSize(100, 22)
+    findBtn:SetPoint("TOPLEFT", 16, -42)
+    findBtn:SetText("Find camps")
+    findBtn:SetScript("OnClick", function()
+        SmoreSkills.Sync:SeekHere()
+    end)
+
+    local hostBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    hostBtn:SetSize(100, 22)
+    hostBtn:SetPoint("LEFT", findBtn, "RIGHT", 6, 0)
+    hostBtn:SetText("Host camp")
+    hostBtn:SetScript("OnClick", function()
+        SmoreSkills.Sync:HostHere()
+    end)
+
     local hereBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    hereBtn:SetSize(110, 22)
-    hereBtn:SetPoint("TOPLEFT", 16, -42)
-    hereBtn:SetText("Share here")
+    hereBtn:SetSize(100, 22)
+    hereBtn:SetPoint("LEFT", hostBtn, "RIGHT", 6, 0)
+    hereBtn:SetText("Share")
     hereBtn:SetScript("OnClick", function()
         SmoreSkills.Sync:ShareHere()
     end)
 
-    local askBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    askBtn:SetSize(90, 22)
-    askBtn:SetPoint("LEFT", hereBtn, "RIGHT", 8, 0)
-    askBtn:SetText("Ask guild")
-    askBtn:SetScript("OnClick", function()
-        if not IsInGuild() then
-            SmoreSkills_Print("You are not in a guild.")
-            return
-        end
-        SmoreSkills.Sync:Ask()
-        SmoreSkills_Print("Asked the guild for camps they have.")
-    end)
+    self.status = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    self.status:SetPoint("TOPLEFT", 18, -68)
+    self.status:SetPoint("RIGHT", -18, 0)
+    self.status:SetJustifyH("LEFT")
 
-    local hint = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    hint:SetPoint("TOPLEFT", 18, -70)
+    local hint = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    hint:SetPoint("TOPLEFT", 18, -84)
     hint:SetPoint("RIGHT", -18, 0)
     hint:SetJustifyH("LEFT")
-    hint:SetText("Same-faction camps. Three object slots per fire. Manual share until we can read campfires.")
+    hint:SetText("/smores slot 1 bs  ·  /smores prof lw  ·  /smores want any")
 
     local scroll = CreateFrame("ScrollFrame", "SmoreSkillsScroll", f, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", 16, -96)
+    scroll:SetPoint("TOPLEFT", 16, -102)
     scroll:SetPoint("BOTTOMRIGHT", -32, 16)
     local child = CreateFrame("Frame", nil, scroll)
     child:SetSize(FRAME_WIDTH - 56, 10)
@@ -85,12 +93,36 @@ function UI:Toggle()
     end
 end
 
+function UI:GetVisibleCamps()
+    SmoreSkills_ForgetStaleCamps()
+    local mapId, _, _, zone = SmoreSkills_GetPlayerMapPos()
+    local seeking = SmoreSkills.Sync:IsSeeking()
+    return SmoreSkills_ListVisibleCamps(mapId), zone, seeking
+end
+
 function UI:Refresh()
     if not self.frame then
         return
     end
-    SmoreSkills_ForgetStaleCamps()
-    local camps = SmoreSkills_ListCamps(SmoreSkills_PlayerFaction())
+    local camps, zone, seeking = self:GetVisibleCamps()
+    local prof = SmoreSkills_GetPlayerProfession()
+    local statusParts = {}
+    if seeking then
+        table.insert(statusParts, "|cffd4a574Seeking|r in " .. (zone or "?"))
+    elseif SmoreSkills.Sync:CanResumeSeek() then
+        table.insert(statusParts, "|cffd4a574Paused seek|r in " .. (zone or "?"))
+    elseif SmoreSkills.Sync:IsHosting() then
+        table.insert(statusParts, "|cffd4a574Hosting|r in " .. (zone or "?"))
+    else
+        table.insert(statusParts, "Zone: " .. (zone or "?"))
+    end
+    if prof then
+        table.insert(statusParts, SmoreSkills_ProfessionLabel(prof))
+    else
+        table.insert(statusParts, "|cffff6666set /smores prof|r")
+    end
+    self.status:SetText(table.concat(statusParts, "  ·  "))
+
     for _, row in ipairs(self.rows) do
         row:Hide()
     end
@@ -113,8 +145,12 @@ function UI:Refresh()
         row:ClearAllPoints()
         row:SetPoint("TOPLEFT", 0, -y)
         local filled = SmoreSkills_CountFilledSlots(camp)
+        local guildMark = SmoreSkills_CampHasGuildie(camp) and "|cff00ff00G|r  " or ""
+        local sourceMark = camp.source == "host" and "|cff88ccffH|r " or ""
         row.name:SetText(string.format(
-            "%s  %s   %d/%d   %s",
+            "%s%s%s  %s   %d/%d   %s",
+            sourceMark,
+            guildMark,
             camp.zone or "?",
             SmoreSkills_FormatCoords(camp),
             filled,
@@ -130,8 +166,14 @@ function UI:Refresh()
         if not self.empty then
             self.empty = self.list:CreateFontString(nil, "OVERLAY", "GameFontDisable")
             self.empty:SetPoint("TOPLEFT", 0, 0)
+            self.empty:SetWidth(FRAME_WIDTH - 56)
+            self.empty:SetJustifyH("LEFT")
         end
-        self.empty:SetText("No camps yet. Stand at a fire and click Share here.")
+        if seeking then
+            self.empty:SetText("No matching camps in this zone. Hosts re-broadcast when you seek.")
+        else
+            self.empty:SetText("No camps in this zone. Find camps, or host at your fire.")
+        end
         self.empty:Show()
     elseif self.empty then
         self.empty:Hide()

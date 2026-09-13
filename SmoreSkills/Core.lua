@@ -7,7 +7,12 @@ if not strtrim then
 end
 
 SmoreSkills = SmoreSkills or {}
-SmoreSkills.VERSION = "0.1.0"
+SmoreSkills.VERSION = "0.5.7"
+SmoreSkills.LOGO = "Interface\\AddOns\\SmoreSkills\\Art\\SmoreSkillsLogo"
+SmoreSkills.ICON = "Interface\\AddOns\\SmoreSkills\\Art\\SmoreSkillsIcon"
+
+-- TBC testbed: inject a sample Ashenvale camp when seeking. /smores test off to disable.
+SmoreSkills.ENABLE_TEST_CAMPS = true
 
 SmoreSkillsDB = SmoreSkillsDB or {
     camps = {},
@@ -22,7 +27,7 @@ function SmoreSkills_Now()
 end
 
 function SmoreSkills_Print(msg)
-    print("|cffd4a574S'more Skills|r " .. (msg or ""))
+    print("|cffffff00S'more Skills|r " .. (msg or ""))
 end
 
 function SmoreSkills_PlayerFaction()
@@ -58,5 +63,12 @@ frame:SetScript("OnEvent", function(_, event, name)
         if SmoreSkills.Sync and SmoreSkills.Sync.OnLogin then
             SmoreSkills.Sync:OnLogin()
         end
+        if SmoreSkills.Map and SmoreSkills.Map.EnsureInit then
+            SmoreSkills.Map:EnsureInit()
+        end
+        if SmoreSkills.Settings and SmoreSkills.Settings.EnsureInit then
+            SmoreSkills.Settings:EnsureInit()
+        end
+        SmoreSkills_EnsureSettings()
     end
 end)

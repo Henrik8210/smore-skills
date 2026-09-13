@@ -1,26 +1,38 @@
 ---
-description: Camp ping invariants — do not flood, do not mix factions, three slots only
+description: Community camp shares — seeker/host signals, not a guild addon
 alwaysApply: true
 ---
 
 # S'more Skills camp sync
 
+This is a **community** addon. Guild is only a small marker (“a guildie is at this fire”), not how camps travel.
+
+Design: [CAMPING.md](../../CAMPING.md). TBC Anniversary is the test client until Forever beta.
+
 ## Never
 
-- Reuse Guildie Crafts prefixes (`GuildieCft`, `GCftV2`, `GCftF`, `GCftFV2`)
-- Send camp pings outside the guild until a dedicated channel is designed
+- Use GUILD / PARTY / RAID as the share channel
+- Ask the guild (or anyone) to dump camps on login
+- Auto-broadcast stored camps when someone joins
+- Reuse another addon's message prefix
 - Apply a camp from the other faction
 - Let more than three object slots exist on a camp
-- Dump every stored camp with no cap or cooldown (freezes clients)
-- Treat newest packet as truth when `updatedAt` is older
 - Scan the whole continent for fires — addons only see what is in range or what others share
+- Block the UI thread on addon messages — cap pins, drop stale signals
 
 ## Required
 
-- Prefix `SmoreSk`. Payload under 250 bytes: `C:map:x:y:fac:own:p1:o1:p2:o2:p3:o3:t`
+- Hidden custom channel `SmoreSkills`. Prefix `SmoreSk`
+- Payload under 250 bytes per message
+- Message types:
+  - `C:` camp snapshot — `C:map:x:y:fac:own:p1:o1:p2:o2:p3:o3:t`
+  - `S:` seeker — `S:map:fac:prof:t` (looking in zone)
+  - `H:` host — `H:map:x:y:fac:own:want:p1:o1:p2:o2:p3:o3:t` (at fire, wants company)
+- Share is **opt-in**: seek / host / `/smores here` only when the player acts
 - Same-faction only
-- Three slots. Each player places at most one object (enforced by the game; we display it)
-- Login asks (`Q`) then others share, rate-limited, newest first, cap 12
-- Forget camps older than 30 minutes
-- Manual `/smores here` until we can enumerate a campfire object
-- `## Interface:` and `_forever_` path are placeholders until beta FrameXML is known
+- Three slots. Each player places at most one object (the game enforces that; we display it)
+- Cooldowns: seek 45 s, host rebroadcast 90 s, outbound 8 s per player
+- Signal TTL ~3 min; forget camps older than 30 minutes
+- Max 12 pins per zone
+- Guild mark is optional UI, not a requirement to see or share a camp
+- TBC Anniversary (`20505`/`20506`) for testing; Forever `## Interface:` when beta FrameXML is known

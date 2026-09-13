@@ -1,12 +1,15 @@
-## Interface: 11509
+## Interface: 20505, 20506
 ## Title: S'more Skills
-## Notes: Find Forever campsites — fire location, three object slots, and which professions are set up.
+## Notes: Campsite finder — TBC Anniversary testbed until Forever beta. Share a fire, see three object slots.
 ## Author: Henrik8210
-## Version: 0.1.0
+## Version: 0.5.7
+## Icon: Art\SmoreSkillsLogo.tga
 ## SavedVariables: SmoreSkillsDB
 
 Core.lua
 Camps.lua
 Sync.lua
 UI.lua
+Map.lua
+Settings.lua
 Commands.lua
