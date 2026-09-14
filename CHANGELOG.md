@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.5.9
+
+- Draw camp pins at zone coords when WoW reports a nested city map (Elwynn canvas titled Stormwind City).
+- Find switches the world map to your zone; chat hint if you are viewing a different map.
+- Empty tooltip sockets use a faded greyscale S'more instead of a hollow circle.
+
+## v0.5.8
+
+- Keep hosting the **fire's original coords** if you step away (do not look up the camp at your current feet).
+- Match a seeker on any of their learned professions, not only the first skill-list trade.
+- Reply to Find even during the 8 s send cooldown; retry joining the hidden channel.
+- Pack-up: right-click own pin, confirm, send `X:` so seekers drop it now. Find right-click no longer packs your own fire.
+- Chat tells you when a camp was heard but filtered. `/smores status` shows channel/host/seek/map view.
+
 ## v0.5.7
 
 Release candidate for Forever beta — **GitHub only** (no CurseForge tag until beta validates).

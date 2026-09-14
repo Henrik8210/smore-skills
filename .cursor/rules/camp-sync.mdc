@@ -28,11 +28,15 @@ Design: [CAMPING.md](../../CAMPING.md). TBC Anniversary is the test client until
   - `C:` camp snapshot — `C:map:x:y:fac:own:p1:o1:p2:o2:p3:o3:t`
   - `S:` seeker — `S:map:fac:prof:t` (looking in zone)
   - `H:` host — `H:map:x:y:fac:own:want:p1:o1:p2:o2:p3:o3:t` (at fire, wants company)
+  - `X:` packed up — `X:map:x:y:own:t` (host right-clicks own pin; seekers drop it now)
 - Share is **opt-in**: seek / host / `/smores here` only when the player acts
 - Same-faction only
 - Three slots. Each player places at most one object (the game enforces that; we display it)
-- Cooldowns: seek 45 s, host rebroadcast 90 s, outbound 8 s per player
-- Signal TTL ~3 min; forget camps older than 30 minutes
+- Cooldowns: seek 45 s, host rebroadcast 90 s, outbound 8 s per player (`X:` skips the 8 s cooldown)
+- Signal TTL ~3 min; campfire pin ~5 min or until full/packed; forget camps older than 30 minutes
 - Max 12 pins per zone
+- Host pin is **local**; seekers only see it after they receive `H:`
+- Keep broadcasting the **fire coords** if the host walks away (do not key hosting to current feet)
+- Nested city maps (Elwynn/Stormwind, Dun Morogh/IF, Durotar/Org): still draw **zone** pins if `GetMapID()` is the city
 - Guild mark is optional UI, not a requirement to see or share a camp
 - TBC Anniversary (`20505`/`20506`) for testing; Forever `## Interface:` when beta FrameXML is known

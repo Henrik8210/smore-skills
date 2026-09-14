@@ -2,7 +2,7 @@
 ## Title: S'more Skills
 ## Notes: Campsite finder — TBC Anniversary testbed until Forever beta. Share a fire, see three object slots.
 ## Author: Henrik8210
-## Version: 0.5.7
+## Version: 0.5.9
 ## Icon: Art\SmoreSkillsLogo.tga
 ## SavedVariables: SmoreSkillsDB
 

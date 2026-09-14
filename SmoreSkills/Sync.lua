@@ -9,14 +9,37 @@ local CHANNEL_NAME = "SmoreSkills"
 local MSG_CAMP = "C"
 local MSG_SEEK = "S"
 local MSG_HOST = "H"
+local MSG_PACK = "X"
 local ADDON_MSG_MAX = 250
 local OUTBOUND_COOLDOWN = 8
 local SEEK_COOLDOWN = 45
 local HOST_COOLDOWN = 90
 
+local lastHandledAt = {}
+
+local function ShouldHandleMessage(text, sender)
+    local key = tostring(sender or "") .. "|" .. tostring(text or "")
+    local now = (GetTime and GetTime()) or SmoreSkills_Now()
+    local prev = lastHandledAt[key]
+    if prev and (now - prev) < 2 then
+        return false
+    end
+    lastHandledAt[key] = now
+    return true
+end
+
 local lastOutboundAt = 0
 local lastSeekAt = 0
+local lastCampfireHostAt = 0
+local lastSeekReplyPrintAt = 0
 local channelId = 0
+local joinAttempts = 0
+local MAX_JOIN_ATTEMPTS = 8
+
+-- Classic / TBC cooking fire. Forever campsite API is unknown; this is the placeholder trigger.
+local CAMPFIRE_SPELL_IDS = {
+    [818] = true,
+}
 
 Sync.seekingActive = false
 Sync.seekListenUntil = 0
@@ -50,10 +73,12 @@ local function CoordFromWire(s)
 end
 
 local function HideChannelFromChat()
-    local i = 1
-    while _G["ChatFrame" .. i] do
-        ChatFrame_RemoveChannel(_G["ChatFrame" .. i], CHANNEL_NAME)
-        i = i + 1
+    local n = NUM_CHAT_WINDOWS or 10
+    for i = 1, n do
+        local frame = _G["ChatFrame" .. i]
+        if frame then
+            ChatFrame_RemoveChannel(frame, CHANNEL_NAME)
+        end
     end
 end
 
@@ -125,11 +150,86 @@ function Sync:DismissMapPins()
     self.mapPinsDismissed = true
     self.seekDiscoveredIds = {}
     self:StopSeeking()
-    if SmoreSkills.Map and SmoreSkills.Map.ReleasePins then
-        SmoreSkills.Map:ReleasePins()
+    if SmoreSkills.Map and SmoreSkills.Map.RefreshPins then
+        SmoreSkills.Map:RefreshPins()
     end
     RefreshUI()
-    SmoreSkills_Print("Cleared camp markers from the map.")
+    local own = SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp()
+    if own then
+        SmoreSkills_Print("Cleared other camp markers. Your campsite stays until the fire ends or you pack it up.")
+    else
+        SmoreSkills_Print("Cleared camp markers from the map.")
+    end
+end
+
+function Sync:EncodePacked(camp)
+    if not camp then
+        return nil
+    end
+    return table.concat({
+        MSG_PACK,
+        tostring(camp.mapId or 0),
+        CoordWire(camp.x),
+        CoordWire(camp.y),
+        EscapeField(camp.owner),
+        tostring(SmoreSkills_Now()),
+    }, ":")
+end
+
+function Sync:DecodePacked(text)
+    local parts = { strsplit(":", text) }
+    if parts[1] ~= MSG_PACK then
+        return nil
+    end
+    return {
+        mapId = tonumber(parts[2]),
+        x = CoordFromWire(parts[3]),
+        y = CoordFromWire(parts[4]),
+        owner = DecodeField(parts[5]),
+        packedAt = tonumber(parts[6]) or SmoreSkills_Now(),
+    }
+end
+
+function Sync:ApplyPacked(info, sender)
+    if not info then
+        return
+    end
+    local id = SmoreSkills_CampId(info.mapId, info.x, info.y)
+    local camp = SmoreSkillsDB.camps and SmoreSkillsDB.camps[id]
+    if not camp then
+        return
+    end
+    if info.owner and camp.owner and not SmoreSkills_PlayerNamesMatch(info.owner, camp.owner) then
+        return
+    end
+    if sender and camp.owner and not SmoreSkills_PlayerNamesMatch(sender, camp.owner) then
+        return
+    end
+    camp.packed = true
+    camp.packedAt = info.packedAt or SmoreSkills_Now()
+    if self.seekDiscoveredIds then
+        self.seekDiscoveredIds[id] = nil
+    end
+end
+
+function Sync:PackUpCamp(camp)
+    camp = camp or SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp()
+    if not camp then
+        SmoreSkills_Print("No campsite to pack up.")
+        return
+    end
+    camp.packed = true
+    camp.packedAt = SmoreSkills_Now()
+    self:StopHosting()
+    local msg = self:EncodePacked(camp)
+    if msg then
+        self:Send(msg)
+    end
+    if self.seekDiscoveredIds and camp.id then
+        self.seekDiscoveredIds[camp.id] = nil
+    end
+    RefreshUI()
+    SmoreSkills_Print("Packed up your campsite. Other campers will no longer see it on the map.")
 end
 
 function Sync:StartListening()
@@ -156,16 +256,108 @@ function Sync:RefreshChannelId()
     return false
 end
 
+function Sync:GetChannelStatus()
+    local ok = self:RefreshChannelId()
+    return ok, channelId
+end
+
+local function GetActiveHostCamp()
+    if Sync.hostCampId and SmoreSkillsDB.camps then
+        local hosted = SmoreSkillsDB.camps[Sync.hostCampId]
+        if hosted and (not SmoreSkills_CampPinActive or SmoreSkills_CampPinActive(hosted)) then
+            return hosted
+        end
+    end
+    if SmoreSkills_GetOwnedActiveCamp then
+        local owned = SmoreSkills_GetOwnedActiveCamp()
+        if owned then
+            return owned
+        end
+    end
+    return SmoreSkills_GetLocalCamp()
+end
+
 function Sync:JoinCommunity()
     if self:RefreshChannelId() then
-        return
+        joinAttempts = 0
+        HideChannelFromChat()
+        if self.pendingHostShare then
+            local camp = self.pendingHostShare
+            self.pendingHostShare = nil
+            self:ShareHost(camp)
+        end
+        return true
     end
-    JoinChannelByName(CHANNEL_NAME)
-    if C_Timer and C_Timer.After then
-        C_Timer.After(1, function()
-            self:RefreshChannelId()
+    if joinAttempts >= MAX_JOIN_ATTEMPTS then
+        return false
+    end
+    joinAttempts = joinAttempts + 1
+    if JoinPermanentChannel then
+        pcall(function()
+            JoinPermanentChannel(CHANNEL_NAME)
         end)
     end
+    if JoinChannelByName then
+        JoinChannelByName(CHANNEL_NAME)
+    end
+    if C_Timer and C_Timer.After then
+        C_Timer.After(1.5, function()
+            if self:RefreshChannelId() then
+                joinAttempts = 0
+                HideChannelFromChat()
+                if self.pendingHostShare then
+                    local camp = self.pendingHostShare
+                    self.pendingHostShare = nil
+                    self:ShareHost(camp)
+                end
+                return
+            end
+            if joinAttempts < MAX_JOIN_ATTEMPTS then
+                self:JoinCommunity()
+            else
+                SmoreSkills_Print("Could not join the hidden S'more Skills channel. Leave a chat channel if you are at the 10-channel limit, then /reload.")
+            end
+        end)
+    end
+    return false
+end
+
+local function SpellDisplayName(spellId)
+    if not spellId then
+        return nil
+    end
+    if C_Spell and C_Spell.GetSpellName then
+        local name = C_Spell.GetSpellName(spellId)
+        if name then
+            return name
+        end
+    end
+    if GetSpellInfo then
+        return GetSpellInfo(spellId)
+    end
+    return nil
+end
+
+local function IsBasicCampfire(spellId, spellName)
+    spellId = tonumber(spellId)
+    if spellId and CAMPFIRE_SPELL_IDS[spellId] then
+        return true
+    end
+    if (not spellName or spellName == "") and spellId then
+        spellName = SpellDisplayName(spellId)
+    end
+    if not spellName or spellName == "" then
+        return false
+    end
+    local key = strlower(spellName)
+    if key == "basic campfire" or key:find("basic campfire", 1, true) then
+        return true
+    end
+    local localized = SpellDisplayName(818)
+    if localized and strlower(localized) == key then
+        return true
+    end
+    return false
 end
 
 function Sync:Init()
@@ -176,21 +368,91 @@ function Sync:Init()
     end
     local frame = CreateFrame("Frame")
     frame:RegisterEvent("CHAT_MSG_ADDON")
+    frame:RegisterEvent("CHAT_MSG_CHANNEL")
     frame:RegisterEvent("CHANNEL_UI_UPDATE")
     frame:RegisterEvent("CHAT_MSG_CHANNEL_NOTICE")
+    frame:RegisterEvent("PLAYER_ENTERING_WORLD")
     frame:SetScript("OnEvent", function(_, event, ...)
         if event == "CHAT_MSG_ADDON" then
             local prefix, text, _, sender = ...
-            if prefix == PREFIX then
+            if prefix and (prefix == PREFIX or tostring(prefix):sub(1, #PREFIX) == PREFIX) then
                 self:OnMessage(text, sender)
             end
+        elseif event == "CHAT_MSG_CHANNEL" then
+            local text, sender, _, _, _, _, _, _, chName = ...
+            if chName and strlower(chName) == strlower(CHANNEL_NAME) then
+                local payload = text or ""
+                if #payload >= #PREFIX and payload:sub(1, #PREFIX) == PREFIX then
+                    payload = strtrim(payload:sub(#PREFIX + 1))
+                    self:OnMessage(payload, sender)
+                end
+            end
+        elseif event == "PLAYER_ENTERING_WORLD" then
+            joinAttempts = 0
+            self:JoinCommunity()
         else
             self:RefreshChannelId()
         end
     end)
+    self:WatchCampfires()
+end
+
+function Sync:WatchCampfires()
+    if self.campfireFrame then
+        return
+    end
+    local f = CreateFrame("Frame")
+    if f.RegisterUnitEvent then
+        f:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+    else
+        f:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+    end
+    f:SetScript("OnEvent", function(_, _, unit, a, b)
+        self:OnUnitSpellcastSucceeded(unit, a, b)
+    end)
+    self.campfireFrame = f
+end
+
+function Sync:OnUnitSpellcastSucceeded(unit, a, b)
+    if unit ~= "player" then
+        return
+    end
+    local spellId, spellName
+    if type(b) == "number" then
+        spellId = b
+    elseif type(a) == "number" then
+        spellId = a
+    elseif type(a) == "string" then
+        spellName = a
+    end
+    if IsBasicCampfire(spellId, spellName) then
+        self:OnBasicCampfirePlaced()
+    end
+end
+
+function Sync:OnBasicCampfirePlaced()
+    if not SmoreSkills_GetAutoHostOnCampfire() then
+        return
+    end
+    local now = SmoreSkills_Now()
+    if (now - lastCampfireHostAt) < 3 then
+        return
+    end
+    lastCampfireHostAt = now
+    local function host()
+        self:HostHere()
+    end
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0.25, function()
+            host()
+        end)
+    else
+        host()
+    end
 end
 
 function Sync:OnLogin()
+    joinAttempts = 0
     self:JoinCommunity()
 end
 
@@ -213,15 +475,29 @@ function Sync:Send(msg)
             return false
         end
     end
+    HideChannelFromChat()
+    local sent = false
     if C_ChatInfo and C_ChatInfo.SendAddonMessage then
-        C_ChatInfo.SendAddonMessage(PREFIX, msg, "CHANNEL", channelId)
-        return true
-    end
-    if SendAddonMessage then
+        local ok = C_ChatInfo.SendAddonMessage(PREFIX, msg, "CHANNEL", channelId)
+        if ok == false then
+            ok = C_ChatInfo.SendAddonMessage(PREFIX, msg, "CHANNEL", CHANNEL_NAME)
+        end
+        if ok ~= false then
+            sent = true
+        end
+    elseif SendAddonMessage then
         SendAddonMessage(PREFIX, msg, "CHANNEL", channelId)
-        return true
+        sent = true
     end
-    return false
+    -- Hidden custom channel chat (not guild/party/raid). Backup when CHANNEL addon messages are dropped.
+    local chatMsg = PREFIX .. " " .. msg
+    if SendChatMessage and #chatMsg <= 255 then
+        pcall(function()
+            SendChatMessage(chatMsg, "CHANNEL", nil, channelId)
+        end)
+        sent = true
+    end
+    return sent
 end
 
 local function AppendSlotParts(parts, camp)
@@ -289,16 +565,33 @@ function Sync:DecodeCamp(text)
     return camp
 end
 
--- S:map:fac:prof:t
+-- S:map:fac:prof:t  (prof may be comma-separated codes: eng,mine)
 function Sync:EncodeSeek(mapId, professionId)
-    local prof = SmoreSkills_ProfessionFromId(professionId)
+    local codes = {}
+    local seen = {}
+    local function add(id)
+        local prof = SmoreSkills_ProfessionFromId(SmoreSkills_NormalizeProfession(id))
+        if prof and not seen[prof.code] then
+            seen[prof.code] = true
+            table.insert(codes, prof.code)
+        end
+    end
+    add(professionId)
+    if SmoreSkills_GetPlayerProfessions then
+        for _, id in ipairs(SmoreSkills_GetPlayerProfessions()) do
+            add(id)
+        end
+    end
     local parts = {
         MSG_SEEK,
         tostring(mapId or 0),
         EscapeField(SmoreSkills_PlayerFaction()),
-        EscapeField(prof and prof.code or nil),
+        EscapeField(codes[1]),
         tostring(SmoreSkills_Now()),
     }
+    if #codes > 1 then
+        table.insert(parts, table.concat(codes, ","))
+    end
     return table.concat(parts, ":")
 end
 
@@ -307,12 +600,28 @@ function Sync:DecodeSeek(text)
     if parts[1] ~= MSG_SEEK then
         return nil
     end
-    local code = DecodeField(parts[4])
-    local prof = SmoreSkills_ProfessionFromCode(code)
+    local professions = {}
+    local seen = {}
+    local function addField(field)
+        field = DecodeField(field)
+        if not field then
+            return
+        end
+        for token in string.gmatch(field, "[^,]+") do
+            local prof = SmoreSkills_ProfessionFromCode(strtrim(token))
+            if prof and not seen[prof.id] then
+                seen[prof.id] = true
+                table.insert(professions, prof.id)
+            end
+        end
+    end
+    addField(parts[4])
+    addField(parts[6])
     return {
         mapId = tonumber(parts[2]),
         faction = DecodeField(parts[3]),
-        profession = prof and prof.id or nil,
+        profession = professions[1],
+        professions = professions,
         updatedAt = tonumber(parts[5]) or SmoreSkills_Now(),
     }
 end
@@ -428,7 +737,8 @@ function Sync:SeekHere()
         SmoreSkills_Print("No map coordinates (leave an instance or wait for the map).")
         return
     end
-    local profession = SmoreSkills_GetPlayerProfession()
+    local professions = SmoreSkills_CollectSeekerProfessions(SmoreSkills_GetPlayerProfession())
+    local profession = professions[1]
     if not profession then
         SmoreSkills_Print("Set your profession first: /smores prof lw (or bs, tail, …).")
         return
@@ -437,9 +747,12 @@ function Sync:SeekHere()
     if self:CanResumeSeek() then
         self.mapPinsDismissed = false
         self:StartListening()
+        if SmoreSkills.Map and SmoreSkills.Map.ShowPlayerZone then
+            SmoreSkills.Map:ShowPlayerZone(mapId)
+        end
         if SmoreSkills_SeedTestCamp then
             local testCamp = SmoreSkills_SeedTestCamp(mapId, zone)
-            if testCamp and SmoreSkills_CampVisibleToSeeker(testCamp, mapId, profession) then
+            if testCamp and SmoreSkills_CampVisibleToSeeker(testCamp, mapId, professions) then
                 self:RecordSeekDiscovery(testCamp)
             end
         end
@@ -473,34 +786,85 @@ function Sync:SeekHere()
     self.seekListenUntil = now + SmoreSkills.SIGNAL_TTL
     self.mapPinsDismissed = false
     self:StartListening()
+    if SmoreSkills.Map and SmoreSkills.Map.ShowPlayerZone then
+        SmoreSkills.Map:ShowPlayerZone(mapId)
+    end
 
     if SmoreSkills_SeedTestCamp then
         local testCamp = SmoreSkills_SeedTestCamp(mapId, zone)
-        if testCamp and SmoreSkills_CampVisibleToSeeker(testCamp, mapId, profession) then
+        if testCamp and SmoreSkills_CampVisibleToSeeker(testCamp, mapId, professions) then
             self:RecordSeekDiscovery(testCamp)
         end
     end
 
-    local matches = SmoreSkills_ListMatchedCamps(mapId, profession)
+    local matches = SmoreSkills_ListMatchedCamps(mapId, professions)
     for _, camp in ipairs(matches) do
         self:RecordSeekDiscovery(camp)
     end
     local visible = SmoreSkills_ListVisibleCamps and SmoreSkills_ListVisibleCamps(mapId) or matches
     SmoreSkills_Print(string.format(
-        "Looking for camps in %s as %s — %d match(es) right now.",
+        "Looking for camps in %s as %s — %d match(es) right now. Stay on this zone map for about a minute.",
         zone or "?",
-        SmoreSkills_ProfessionLabel(profession),
+        SmoreSkills_FormatProfessionList(professions),
         #visible
     ))
     RefreshUI()
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0.15, function()
+            if SmoreSkills.Map and SmoreSkills.Map.RefreshPins then
+                SmoreSkills.Map:RefreshPins()
+            end
+        end)
+    end
 end
 
 function Sync:StopHosting()
     self.hostingUntil = 0
-    if self.hostTickHandle and C_Timer and C_Timer.CancelTimer then
-        C_Timer.CancelTimer(self.hostTickHandle)
-    end
+    self.hostCampId = nil
+    self.pendingHostShare = nil
+    local handle = self.hostTickHandle
     self.hostTickHandle = nil
+    if not handle then
+        return
+    end
+    if type(handle) == "table" and handle.Cancel then
+        pcall(function()
+            handle:Cancel()
+        end)
+    elseif C_Timer and C_Timer.CancelTimer then
+        pcall(function()
+            C_Timer.CancelTimer(handle)
+        end)
+    end
+end
+
+function Sync:ReplyToSeeker(camp)
+    camp = camp or GetActiveHostCamp()
+    if not camp or not self:IsHosting() then
+        return
+    end
+    local function send()
+        if not self:IsHosting() then
+            return
+        end
+        local live = GetActiveHostCamp() or camp
+        if not live or (SmoreSkills_CampPinActive and not SmoreSkills_CampPinActive(live)) then
+            return
+        end
+        live.want = SmoreSkills_GetEffectiveHostWant()
+        if SmoreSkills_ApplyHostProfession then
+            SmoreSkills_ApplyHostProfession(live)
+        end
+        if self:ShareHost(live) then
+            lastOutboundAt = SmoreSkills_Now()
+        end
+    end
+    local wait = OUTBOUND_COOLDOWN - (SmoreSkills_Now() - lastOutboundAt)
+    if wait > 0 and C_Timer and C_Timer.After then
+        C_Timer.After(wait + 0.2, send)
+        return
+    end
+    send()
 end
 
 function Sync:HostHeartbeat()
@@ -508,12 +872,21 @@ function Sync:HostHeartbeat()
         self:StopHosting()
         return
     end
-    local camp = SmoreSkills_GetLocalCamp()
+    local camp = GetActiveHostCamp()
     if not camp then
+        if C_Timer and C_Timer.After then
+            self.hostTickHandle = C_Timer.After(HOST_COOLDOWN, function()
+                self:HostHeartbeat()
+            end)
+        end
+        return
+    end
+    if not SmoreSkills_CampPinActive(camp) then
         self:StopHosting()
         return
     end
     camp.want = SmoreSkills_GetEffectiveHostWant()
+    SmoreSkills_ApplyHostProfession(camp)
     self:ShareHost(camp)
     self.hostTickHandle = C_Timer and C_Timer.After(HOST_COOLDOWN, function()
         self:HostHeartbeat()
@@ -526,44 +899,73 @@ function Sync:HostHere()
         SmoreSkills_Print(err)
         return
     end
+    SmoreSkills_ApplyHostProfession(camp)
+    local wasPacked = camp.packed
+    camp.packed = nil
+    camp.packedAt = nil
     if SmoreSkills_CountEmptySlots(camp) < 1 then
         SmoreSkills_Print("All three slots are full on this camp.")
-        return
-    end
-    local ok, outboundErr = self:TryOutbound()
-    if not ok then
-        SmoreSkills_Print(outboundErr)
+        self:StopHosting()
+        RefreshUI()
         return
     end
     camp.want = SmoreSkills_GetEffectiveHostWant()
-    if not self:ShareHost(camp) then
-        SmoreSkills_Print("Could not host. Wait for the community channel.")
-        return
+    local ok, outboundErr = self:TryOutbound()
+    local sent = false
+    if ok then
+        sent = self:ShareHost(camp)
+    end
+    if sent then
+        self.pendingHostShare = nil
+    elseif not sent then
+        self.pendingHostShare = camp
+        self:JoinCommunity()
+        if not ok and outboundErr then
+            SmoreSkills_Print(outboundErr .. " Will share the camp as soon as the channel is ready.")
+        else
+            SmoreSkills_Print("Hosting locally — still joining the community channel so others can see you.")
+        end
     end
     if self.hostTickHandle and C_Timer and C_Timer.CancelTimer then
         C_Timer.CancelTimer(self.hostTickHandle)
     end
+    if self.hostTickHandle and type(self.hostTickHandle) == "table" and self.hostTickHandle.Cancel then
+        pcall(function()
+            self.hostTickHandle:Cancel()
+        end)
+    end
     self.hostTickHandle = nil
-    self.hostingUntil = SmoreSkills_Now() + SmoreSkills.SIGNAL_TTL
+    local now = SmoreSkills_Now()
+    if wasPacked or not camp.litAt or (now - camp.litAt) >= SmoreSkills.CAMPFIRE_DURATION then
+        camp.litAt = now
+    end
+    self.hostCampId = camp.id
+    self.hostingUntil = camp.litAt + SmoreSkills.CAMPFIRE_DURATION
     if C_Timer and C_Timer.After then
         self.hostTickHandle = C_Timer.After(HOST_COOLDOWN, function()
             self:HostHeartbeat()
         end)
     end
     SmoreSkills_Print(string.format(
-        "Hosting in %s (%s) — %d/%d objects, want: %s. Re-broadcasts for %d min.",
+        "Hosting in %s (%s) — %d/%d objects, want: %s. Pin lasts %d min or until the camp is full.",
         camp.zone or "?",
         SmoreSkills_FormatCoords(camp),
         SmoreSkills_CountFilledSlots(camp),
         SmoreSkills.MAX_SLOTS,
         SmoreSkills_FormatWant(camp.want),
-        math.floor(SmoreSkills.SIGNAL_TTL / 60)
+        math.floor(SmoreSkills.CAMPFIRE_DURATION / 60)
     ))
     RefreshUI()
 end
 
 function Sync:OnMessage(text, sender)
-    if not text or SmoreSkills_PlayerNamesMatch(sender, SmoreSkills_PlayerName()) then
+    if not text or text == "" then
+        return
+    end
+    if SmoreSkills_PlayerNamesMatch(sender, SmoreSkills_PlayerName()) then
+        return
+    end
+    if not ShouldHandleMessage(text, sender) then
         return
     end
     local msgType = strsub(text, 1, 1)
@@ -581,20 +983,32 @@ function Sync:OnMessage(text, sender)
         self:ApplyCamp(camp)
         if self:IsSeeking() then
             local mapId = select(1, SmoreSkills_GetPlayerMapPos())
-            local profession = SmoreSkills_GetPlayerProfession()
-            if mapId and SmoreSkills_CampVisibleToSeeker(camp, mapId, profession) then
+            local professions = SmoreSkills_CollectSeekerProfessions(SmoreSkills_GetPlayerProfession())
+            if mapId and SmoreSkills_CampVisibleToSeeker(camp, mapId, professions) then
                 self:RecordSeekDiscovery(camp)
                 SmoreSkills_Print(string.format(
-                    "Camp found: %s (%s) — %s",
+                    "Camp found: %s (%s) — %s. Switch the map to %s if the pin is missing.",
                     camp.zone or "?",
                     SmoreSkills_FormatCoords(camp),
-                    SmoreSkills_FormatSlots(camp)
+                    SmoreSkills_FormatSlots(camp),
+                    camp.zone or "that zone"
+                ))
+            elseif mapId and camp.mapId == mapId and camp.faction == SmoreSkills_PlayerFaction() then
+                SmoreSkills_Print(string.format(
+                    "Heard %s's camp in %s, but it does not match (they want: %s; you are: %s).",
+                    camp.owner or "a host",
+                    camp.zone or "this zone",
+                    SmoreSkills_FormatWant(camp.want),
+                    SmoreSkills_FormatProfessionList(professions)
                 ))
             end
         end
         RefreshUI()
+    elseif msgType == MSG_PACK then
+        local info = self:DecodePacked(text)
+        self:ApplyPacked(info, sender)
+        RefreshUI()
     elseif msgType == MSG_SEEK then
-        -- Hosts rebroadcast when someone is seeking in-zone (light nudge, not auto-spam).
         local seek = self:DecodeSeek(text)
         if not seek or seek.faction ~= SmoreSkills_PlayerFaction() then
             return
@@ -602,17 +1016,22 @@ function Sync:OnMessage(text, sender)
         if not self:IsHosting() then
             return
         end
-        local camp = SmoreSkills_GetLocalCamp()
+        local camp = GetActiveHostCamp()
         if not camp or camp.mapId ~= seek.mapId then
             return
         end
-        if not SmoreSkills_HostMatchesSeeker(camp, seek.mapId, seek.profession) then
+        local seekProfs = seek.professions
+        if not seekProfs or #seekProfs == 0 then
+            seekProfs = seek.profession
+        end
+        if not SmoreSkills_HostMatchesSeeker(camp, seek.mapId, seekProfs) then
             return
         end
-        local ok = self:TryOutbound()
-        if ok then
-            camp.want = SmoreSkills_GetEffectiveHostWant()
-            self:ShareHost(camp)
+        local now = SmoreSkills_Now()
+        if now - lastSeekReplyPrintAt > 10 then
+            lastSeekReplyPrintAt = now
+            SmoreSkills_Print("Someone is looking for camps in this zone — sharing yours.")
         end
+        self:ReplyToSeeker(camp)
     end
 end

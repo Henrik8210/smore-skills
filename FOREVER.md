@@ -2,7 +2,7 @@
 
 Reference for **Forever beta** (opens **17 Sep 2026**). TBC Anniversary remains the day-to-day testbed until then.
 
-**Release policy:** code is on GitHub at v0.5.7. **No CurseForge publish** until beta smoke test passes.
+**Release policy:** code is on GitHub at v0.5.9. **No CurseForge publish** until beta smoke test passes.
 
 Screenshots from the pre-beta client (Sep 2026) show how the **world map** differs from retail and from TBC Anniversary.
 
@@ -77,11 +77,11 @@ Player: 42.6, 23.6 (Zephras Isle)
 
 | Topic | Current behaviour | Beta check |
 | --- | --- | --- |
-| **Pin visibility** | Pins only when `WorldMapFrame:GetMapID()` equals `camp.mapId` (zone id). | At **World** or **Continent** zoom, pins may **not** show — expected until we add parent-map projection. |
+| **Pin visibility** | Zone pins; if `GetMapID()` is a nested city (Stormwind while standing in Elwynn), still draw **zone** coords. | At **World** or **Continent** zoom, pins may **not** show — expected until parent-map projection is confirmed. Nested cities: confirm Forever breadcrumb vs TBC. |
 | **Find button** | Anchored to map canvas (`ScrollContainer` / `GetCanvas()`). | Confirm button still visible at zone + continent + world. |
 | **Map hooks** | `OnShow`, `OnMapChanged`, canvas `OnSizeChanged`. | Log `GetMapID()` at each breadcrumb level; note ids for test zones. |
 | **Camp tooltip** | Custom frame (not GameTooltip): opaque dialog background, three circular gold-ring profession sockets. | Verify TBC-safe color APIs still work; no silent fallback to text-only tooltip. |
-| **Seek pulse** | Find button and minimap fire icon fade while seeking. | Confirm animation on Forever map frame. |
+| **Seek pulse** | World map Find button fades while seeking. | Confirm animation on Forever map frame. |
 | **New zones** | — | Names like **Zephras Isle** may not exist on TBC — verify `C_Map.GetBestMapForUnit("player")` returns stable ids. |
 
 ---
@@ -90,9 +90,10 @@ Player: 42.6, 23.6 (Zephras Isle)
 
 | | TBC Anniversary | Forever |
 | --- | --- | --- |
-| Basic campfire / campsite | **Not in game** | Real mechanic (see [CAMPING.md](CAMPING.md)) |
+| Basic campfire / campsite | **Cooking Basic Campfire** as a **placeholder** host ping (not a Forever campsite) | Real mechanic (see [CAMPING.md](CAMPING.md)); keep spell-818 host until API exists |
 | Three object slots | Manual `/smores slot` | Auto-read when API exposed |
-| Auto host on campfire | Setting saved; manual `/smores host` on TBC | Toggle in minimap settings → General |
+| Auto host on campfire | Lights **Basic Campfire** → `H:` at your coords (General setting, on by default) | Same placeholder; replace with campfire/object events when exposed |
+| Pin lifetime | Hide after **5 min** (Classic fire), **3/3** slots, or host **packs up** (right-click own pin) | **TODO (beta):** how long does a Forever campsite last? Update `CAMPFIRE_DURATION` |
 | Profession specs | TBC specs mapped (Spellfire → Tailoring, etc.) | Re-verify when Forever skill names are known |
 | Who updates camp state | Host rebroadcasts (guests without addon cannot) | Host + addon users at fire when API allows |
 
@@ -108,18 +109,23 @@ Use **two same-faction characters** in the **same zone**.
 - [ ] Fix `## Interface:` in toc if addon is red
 - [ ] `/reload` both clients
 - [ ] Set professions: `/smores prof alch` / `/smores prof tail` (or your trades)
-- [ ] Confirm minimap fire icon (cropped s'more art); right-click opens **S'more skills settings** (General / Host / Seeker tabs)
+- [ ] Confirm minimap fire icon (cropped s'more art); right-click opens **S'more Skills Settings** (General / Host / Seeker tabs)
 
 ### Map & pins
 
 - [ ] Open **zone** map (not only World/continent)
-- [ ] Host: `/smores host` at a campfire (or stand-in spot if fires are scarce)
-- [ ] Seeker: left-click minimap icon or map **Find** button (or `/smores find`)
+- [ ] Host: light **Basic Campfire** (Auto host on) or `/smores host` at a campfire (or stand-in spot if fires are scarce)
+- [ ] Seeker: map **Find** button (or `/smores find`); minimap S'more icon opens map only
 - [ ] Bonfire pin appears at host coords on **zone** map
-- [ ] Hover pin: custom tooltip with host line, three gold-ring sockets (filled/empty), coords
+- [ ] Hover pin: custom tooltip with host line, three gold-ring sockets (profession or faded S'more if empty), coords
 - [ ] Minimap and Find button pulse while seeking
-- [ ] Right-click map Find button clears pins
+- [ ] Right-click map Find button clears **other** pins; **own hosted pin stays**
+- [ ] Right-click own pin → pack-up confirm; seekers lose that pin immediately (`X:`)
+- [ ] Host walks away from the fire — pin stays on the fire; late Find still gets a reply
+- [ ] Nested city (Elwynn/Stormwind): pin still shows on the Elwynn canvas; `/smores status` Zone vs Map view
+- [ ] Seeker chat: `Camp found` when the ping arrived (host seeing the pin is **not** enough)
 - [ ] Zoom out to continent/world — note whether pins hide (document map ids)
+- [ ] Time a real Forever campfire: pin should drop after fire dies **or** at 3/3 — if fires last longer than 5 min, bump `SmoreSkills.CAMPFIRE_DURATION`
 
 ### Matching & settings
 

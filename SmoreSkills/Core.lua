@@ -7,7 +7,7 @@ if not strtrim then
 end
 
 SmoreSkills = SmoreSkills or {}
-SmoreSkills.VERSION = "0.5.7"
+SmoreSkills.VERSION = "0.5.9"
 SmoreSkills.LOGO = "Interface\\AddOns\\SmoreSkills\\Art\\SmoreSkillsLogo"
 SmoreSkills.ICON = "Interface\\AddOns\\SmoreSkills\\Art\\SmoreSkillsIcon"
 
@@ -42,7 +42,14 @@ function SmoreSkills_PlayerNamesMatch(a, b)
     if not a or not b then
         return false
     end
-    return strlower(a) == strlower(b)
+    a = strlower(a)
+    b = strlower(b)
+    if a == b then
+        return true
+    end
+    local aShort = a:match("^([^%-]+)") or a
+    local bShort = b:match("^([^%-]+)") or b
+    return aShort == bShort
 end
 
 local frame = CreateFrame("Frame")

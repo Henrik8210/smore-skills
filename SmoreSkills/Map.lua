@@ -3,6 +3,7 @@ SmoreSkills.Map = SmoreSkills.Map or {}
 
 local Map = SmoreSkills.Map
 local ICON = SmoreSkills.ICON or "Interface\\Icons\\Spell_Fire_Fire"
+local CAMP_PIN_ICON = "Interface\\Icons\\Spell_Fire_Fire"
 -- QuestieWorldMapButtonTemplate layout (Questie/Modules/WorldMapButton).
 local BUTTON_SIZE = 32
 local MAP_OFFSET_X = 4
@@ -50,10 +51,25 @@ local function GetMapCanvas()
 end
 
 local function GetViewMapId()
-    if not WorldMapFrame or not WorldMapFrame.GetMapID then
+    if not WorldMapFrame then
         return nil
     end
-    return WorldMapFrame:GetMapID()
+    if WorldMapFrame.GetMapID then
+        local id = WorldMapFrame:GetMapID()
+        if id then
+            return id
+        end
+    end
+    return WorldMapFrame.mapID
+end
+
+local function MapName(mapId)
+    mapId = tonumber(mapId)
+    if not mapId or not C_Map or not C_Map.GetMapInfo then
+        return nil
+    end
+    local info = C_Map.GetMapInfo(mapId)
+    return info and info.name or nil
 end
 
 local function AddCircleMask(owner, texture, size)
@@ -149,28 +165,35 @@ local function CreateCircularTooltipSocket(parent, size)
     inner:SetVertexColor(TOOLTIP_FILL[1], TOOLTIP_FILL[2], TOOLTIP_FILL[3], 1)
     holder.fill = inner
 
-    local iconSize = innerSize * 0.72
+    local iconSize = innerSize * 0.80
     local icon = holder:CreateTexture(nil, "ARTWORK", nil, 1)
     icon:SetSize(iconSize, iconSize)
     icon:SetPoint("CENTER")
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     AddCircleMask(holder, icon, iconSize)
     holder.icon = icon
 
     return holder
 end
 
+local EMPTY_SOCKET_ICON = SmoreSkills.ICON or ICON
+local EMPTY_SOCKET_ALPHA = 0.22
+
 local function StyleTooltipSocket(holder, slot)
     holder.goldCircle:SetVertexColor(SOCKET_GOLD[1], SOCKET_GOLD[2], SOCKET_GOLD[3], 1)
+    holder.fill:SetVertexColor(0.14, 0.11, 0.09, 1)
+    holder.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    holder.icon:Show()
     if slot and slot.profession then
-        holder.fill:SetVertexColor(0.14, 0.11, 0.09, 1)
         holder.icon:SetTexture(SmoreSkills_ProfessionIcon(slot.profession))
-        holder.icon:SetTexCoord(0, 1, 0, 1)
-        holder.icon:Show()
         SafeDesaturate(holder.icon, false)
+        holder.icon:SetVertexColor(1, 1, 1)
         holder.icon:SetAlpha(1)
     else
-        holder.fill:SetVertexColor(TOOLTIP_FILL[1], TOOLTIP_FILL[2], TOOLTIP_FILL[3], 0.85)
-        holder.icon:Hide()
+        holder.icon:SetTexture(EMPTY_SOCKET_ICON)
+        SafeDesaturate(holder.icon, true)
+        holder.icon:SetVertexColor(0.65, 0.65, 0.65)
+        holder.icon:SetAlpha(EMPTY_SOCKET_ALPHA)
     end
 end
 
@@ -192,7 +215,7 @@ local function ApplyTooltipChrome(frame)
 end
 
 local function EnsureCampTooltip()
-    if Map.campTooltip and Map.campTooltip.tooltipVersion == 4 then
+    if Map.campTooltip and Map.campTooltip.tooltipVersion == 5 then
         return Map.campTooltip
     end
     if Map.campTooltip then
@@ -247,7 +270,7 @@ local function EnsureCampTooltip()
     tip.footer:SetJustifyH("LEFT")
     tip.footer:SetTextColor(0.55, 0.55, 0.55)
 
-    tip.tooltipVersion = 4
+    tip.tooltipVersion = 5
     Map.campTooltip = tip
     return tip
 end
@@ -272,6 +295,9 @@ local function ShowPinTooltipFallback(pin, camp)
     end
     if camp.owner == "TestCamper" then
         GameTooltip:AddLine("Test camp (local preview)", 0.55, 0.55, 0.55)
+    end
+    if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
+        GameTooltip:AddLine("Right-click to pack up this campsite.", 0.6, 0.6, 0.6)
     end
     GameTooltip:Show()
 end
@@ -302,10 +328,19 @@ local function ShowPinTooltip(pin)
             table.insert(footerLines, SmoreSkills_FormatSlotTooltipLine(camp, i))
         end
         if camp.want and camp.want ~= "any" then
-            table.insert(footerLines, "Host wants: " .. SmoreSkills_FormatWant(camp.want))
+            local want = camp.want
+            if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
+                want = SmoreSkills_GetEffectiveHostWant()
+            end
+            if want and want ~= "any" then
+                table.insert(footerLines, "Host wants: " .. SmoreSkills_FormatWant(want))
+            end
         end
         if camp.owner == "TestCamper" then
             table.insert(footerLines, "Test camp (local preview)")
+        end
+        if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
+            table.insert(footerLines, "Right-click to pack up this campsite.")
         end
         tip.footer:SetText(table.concat(footerLines, "\n"))
         tip.footer:SetWidth(math.max(260, tip.socketRow:GetWidth() + 8))
@@ -370,19 +405,51 @@ function Map:UpdateTooltip()
             GameTooltip:AddLine("Click to start searching.", 0.5, 0.9, 0.5)
         end
     end
-    GameTooltip:AddLine("Right-click to clear camp markers from the map.", 0.6, 0.6, 0.6)
+    GameTooltip:AddLine("Right-click to clear other camp markers. Your own camp stays until the fire ends.", 0.6, 0.6, 0.6)
     GameTooltip:Show()
 end
 
 function Map:GetVisibleCamps(mapId)
     local sync = SmoreSkills.Sync
-    if sync and sync.mapPinsDismissed then
-        return {}
-    end
     if not SmoreSkills_ListVisibleCamps then
         return {}
     end
-    return SmoreSkills_ListVisibleCamps(mapId)
+    local camps = SmoreSkills_ListVisibleCamps(mapId)
+    local seen = {}
+    for _, camp in ipairs(camps) do
+        if camp.id then
+            seen[camp.id] = true
+        end
+    end
+    local playerMapId = select(1, SmoreSkills_GetPlayerMapPos())
+    if playerMapId and tonumber(playerMapId) ~= tonumber(mapId) then
+        for _, camp in ipairs(SmoreSkills_ListVisibleCamps(playerMapId)) do
+            if camp.id and not seen[camp.id] then
+                table.insert(camps, camp)
+                seen[camp.id] = true
+            end
+        end
+    end
+    if sync and sync.seekDiscoveredIds and SmoreSkillsDB.camps then
+        for id in pairs(sync.seekDiscoveredIds) do
+            local camp = SmoreSkillsDB.camps[id]
+            if camp and camp.id and not seen[camp.id] and SmoreSkills_CampPinActive(camp) then
+                table.insert(camps, camp)
+                seen[camp.id] = true
+            end
+        end
+    end
+    if not (sync and sync.mapPinsDismissed) then
+        return camps
+    end
+    local mine = {}
+    local me = SmoreSkills_PlayerName()
+    for _, camp in ipairs(camps) do
+        if SmoreSkills_PlayerNamesMatch(camp.owner, me) then
+            table.insert(mine, camp)
+        end
+    end
+    return mine
 end
 
 function Map:StopTooltipTicker()
@@ -410,16 +477,21 @@ function Map:PositionPin(pin, x, y)
     if not canvas or not pin then
         return
     end
+    if pin.GetParent and pin:GetParent() ~= canvas then
+        pin:SetParent(canvas)
+    end
     local w = canvas:GetWidth()
     local h = canvas:GetHeight()
     pin:ClearAllPoints()
-    pin:SetPoint("CENTER", canvas, "BOTTOMLEFT", (tonumber(x) or 0) * w, (tonumber(y) or 0) * h)
+    -- C_Map y is 0 at the top of the map; canvas Y grows up from BOTTOMLEFT.
+    pin:SetPoint("CENTER", canvas, "TOPLEFT", (tonumber(x) or 0) * w, -(tonumber(y) or 0) * h)
 end
 
 function Map:CreatePinFrame()
     local canvas = GetMapCanvas()
     local pin = CreateFrame("Button", nil, canvas)
     pin:SetSize(PIN_HIT_SIZE, PIN_HIT_SIZE)
+    pin:SetFrameStrata("HIGH")
     pin:SetFrameLevel(PIN_FRAME_LEVEL)
 
     -- Anchor marks the exact campsite coordinate on the map.
@@ -432,7 +504,32 @@ function Map:CreatePinFrame()
     fireFrame:SetSize(QUESTIE.btn * FIRE_SCALE, QUESTIE.btn * FIRE_SCALE)
     fireFrame:SetPoint("CENTER", anchor, "CENTER")
     pin.fireFrame = fireFrame
-    pin.fireBg, pin.fireIcon, pin.fireRing = ApplyQuestieCluster(fireFrame, FIRE_SCALE, ICON)
+    pin.fireBg, pin.fireIcon, pin.fireRing = ApplyQuestieCluster(fireFrame, FIRE_SCALE, CAMP_PIN_ICON)
+    if fireFrame.EnableMouse then
+        fireFrame:EnableMouse(false)
+    end
+    pin:EnableMouse(true)
+
+    local function OnOwnPinRightClick(self)
+        local camp = self.camp
+        if not camp or not SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
+            return
+        end
+        HideCampTooltip()
+        GameTooltip:Hide()
+        Map:ConfirmPackUp(camp)
+    end
+
+    if pin.RegisterForClicks then
+        pcall(function()
+            pin:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        end)
+    end
+    pin:SetScript("OnClick", function(self, mouseButton)
+        if mouseButton == "RightButton" then
+            OnOwnPinRightClick(self)
+        end
+    end)
 
     pin:SetScript("OnEnter", function(self)
         ShowPinTooltip(self)
@@ -442,6 +539,66 @@ function Map:CreatePinFrame()
         GameTooltip:Hide()
     end)
     return pin
+end
+
+function Map:ConfirmPackUp(camp)
+    if not camp then
+        return
+    end
+    self.pendingPackCamp = camp
+    local function DoPack(target)
+        local toPack = target or Map.pendingPackCamp
+        Map.pendingPackCamp = nil
+        if toPack and SmoreSkills.Sync and SmoreSkills.Sync.PackUpCamp then
+            SmoreSkills.Sync:PackUpCamp(toPack)
+        end
+    end
+    if not StaticPopup_Show then
+        DoPack(camp)
+        return
+    end
+    if not StaticPopupDialogs then
+        StaticPopupDialogs = {}
+    end
+    StaticPopupDialogs["SMORESKILLS_PACK_CAMP"] = {
+        text = "Are you sure you wish to pack up your campsite? Other campers will not be able to find your campsite on the map if you do.",
+        button1 = YES or "Yes",
+        button2 = NO or "No",
+        OnAccept = function(self, data)
+            DoPack(data or (self and self.data) or Map.pendingPackCamp)
+        end,
+        OnCancel = function()
+            Map.pendingPackCamp = nil
+        end,
+        OnShow = function(self)
+            if WorldMapFrame and WorldMapFrame.IsShown and WorldMapFrame:IsShown() then
+                self:SetFrameStrata("TOOLTIP")
+                local level = 10000
+                if WorldMapFrame.GetFrameLevel then
+                    level = WorldMapFrame:GetFrameLevel() + 500
+                end
+                self:SetFrameLevel(level)
+            end
+        end,
+        timeout = 0,
+        whileDead = 1,
+        hideOnEscape = 1,
+        preferredIndex = 3,
+    }
+    local popup = StaticPopup_Show("SMORESKILLS_PACK_CAMP")
+    if popup then
+        popup.data = camp
+        if popup.SetFrameStrata then
+            popup:SetFrameStrata("TOOLTIP")
+        end
+        if popup.SetFrameLevel then
+            local level = 10000
+            if WorldMapFrame and WorldMapFrame.GetFrameLevel then
+                level = WorldMapFrame:GetFrameLevel() + 500
+            end
+            popup:SetFrameLevel(level)
+        end
+    end
 end
 
 function Map:AcquirePin()
@@ -463,6 +620,16 @@ function Map:ReleasePins()
     end
 end
 
+function Map:ShowPlayerZone(mapId)
+    mapId = tonumber(mapId) or select(1, SmoreSkills_GetPlayerMapPos())
+    if not mapId or not WorldMapFrame then
+        return
+    end
+    if WorldMapFrame.SetMapID then
+        WorldMapFrame:SetMapID(mapId)
+    end
+end
+
 function Map:RefreshPins()
     if not WorldMapFrame or not WorldMapFrame.IsShown or not WorldMapFrame:IsShown() then
         return
@@ -474,6 +641,8 @@ function Map:RefreshPins()
     end
     local camps = self:GetVisibleCamps(mapId)
     local wanted = {}
+    local placed = 0
+    local skippedWrongMap = 0
     for _, camp in ipairs(camps) do
         if camp.id and camp.x and camp.y then
             wanted[camp.id] = camp
@@ -496,8 +665,42 @@ function Map:RefreshPins()
             self.pins[id] = pin
         end
         pin.camp = camp
-        self:PositionPin(pin, camp.x, camp.y)
-        pin:Show()
+        if pin.fireIcon then
+            pin.fireIcon:SetTexture(CAMP_PIN_ICON)
+        end
+        local viewMapId = GetViewMapId()
+        local px, py
+        if SmoreSkills_CampPinPosOnMap then
+            px, py = SmoreSkills_CampPinPosOnMap(camp, viewMapId)
+        else
+            px, py = camp.x, camp.y
+        end
+        if not px or not py then
+            pin:Hide()
+            skippedWrongMap = skippedWrongMap + 1
+        else
+            self:PositionPin(pin, px, py)
+            pin:Show()
+            placed = placed + 1
+        end
+    end
+    if placed == 0 then
+        local playerMapId = select(1, SmoreSkills_GetPlayerMapPos())
+        local viewId = GetViewMapId()
+        if playerMapId and viewId and playerMapId ~= viewId then
+            local zoneCamps = SmoreSkills_ListVisibleCamps(playerMapId)
+            if zoneCamps and #zoneCamps > 0 then
+                local now = (GetTime and GetTime()) or 0
+                if not self.wrongMapHintAt or (now - self.wrongMapHintAt) > 15 then
+                    self.wrongMapHintAt = now
+                    SmoreSkills_Print(string.format(
+                        "Camp(s) are in %s — zoom the map to that zone (you are viewing %s).",
+                        MapName(playerMapId) or "your zone",
+                        MapName(viewId) or "another map"
+                    ))
+                end
+            end
+        end
     end
 end
 
@@ -588,18 +791,8 @@ local function ApplySeekFadeCluster(icon, border, glow, phase)
     end
 end
 
-local function GetMinimapSeekVisuals()
-    local settings = SmoreSkills.Settings
-    if not settings or not settings.minimapIcon then
-        return nil, nil, nil
-    end
-    return settings.minimapIcon, settings.minimapBorder, settings.minimapGlow
-end
-
 function Map:ResetVisuals()
     ResetSeekFadeCluster(self.icon, self.background, self.border, self.glow)
-    local miniIcon, miniBorder, miniGlow = GetMinimapSeekVisuals()
-    ResetSeekFadeCluster(miniIcon, nil, miniBorder, miniGlow)
 end
 
 function Map:StopSeekFade()
@@ -612,7 +805,7 @@ function Map:StopSeekFade()
 end
 
 function Map:FadeUpdate()
-    if not self.icon and not GetMinimapSeekVisuals() then
+    if not self.icon then
         return
     end
     if not SmoreSkills.Sync or not SmoreSkills.Sync:IsSeeking() then
@@ -621,8 +814,6 @@ function Map:FadeUpdate()
     end
     local phase = (math.sin(GetTime() * (2 * math.pi / FADE_PERIOD)) + 1) / 2
     ApplySeekFadeCluster(self.icon, self.border, self.glow, phase)
-    local miniIcon, miniBorder, miniGlow = GetMinimapSeekVisuals()
-    ApplySeekFadeCluster(miniIcon, miniBorder, miniGlow, phase)
 end
 
 function Map:StartSeekFade()
@@ -638,7 +829,7 @@ function Map:StartSeekFade()
 end
 
 function Map:RefreshState()
-    if not self.icon and not GetMinimapSeekVisuals() then
+    if not self.icon then
         return
     end
     local seeking = SmoreSkills.Sync and SmoreSkills.Sync:IsSeeking()
@@ -665,6 +856,7 @@ function Map:CreateButton()
     local icon = btn:CreateTexture(nil, "ARTWORK")
     icon:SetSize(20, 20)
     icon:SetTexture(ICON)
+    icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
     icon:SetPoint("TOPLEFT", btn, "TOPLEFT", 6, -5)
     AddCircleMask(btn, icon, 20)
 
@@ -732,12 +924,27 @@ function Map:CreateButton()
     self.glow = glow
 end
 
+function Map:StartPinWatch()
+    if self.pinWatch then
+        return
+    end
+    if not C_Timer or not C_Timer.NewTicker then
+        return
+    end
+    self.pinWatch = C_Timer.NewTicker(5, function()
+        if WorldMapFrame and WorldMapFrame.IsShown and WorldMapFrame:IsShown() then
+            Map:RefreshPins()
+        end
+    end)
+end
+
 function Map:Init()
     if self.button or not WorldMapFrame then
         return
     end
     self:CreateButton()
     self:HookMapChanges()
+    self:StartPinWatch()
     self:AnchorButton()
     self:RefreshState()
 end

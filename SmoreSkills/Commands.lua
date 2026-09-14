@@ -31,6 +31,37 @@ SlashCmdList["SMORESKILLS"] = function(msg)
         SmoreSkills_Print("Stopped hosting.")
         return
     end
+    if lower == "status" then
+        local sync = SmoreSkills.Sync
+        local chOk, chId = sync:GetChannelStatus()
+        SmoreSkills_Print("Channel: " .. (chOk and ("joined (#" .. tostring(chId) .. ")") or "NOT JOINED"))
+        if sync:IsHosting() then
+            local left = math.max(0, math.ceil((sync.hostingUntil or 0) - SmoreSkills_Now()))
+            SmoreSkills_Print(string.format("Hosting: yes (%ds left). Want: %s", left, SmoreSkills_FormatWant(SmoreSkills_GetEffectiveHostWant())))
+        else
+            SmoreSkills_Print("Hosting: no")
+        end
+        if sync:IsSeeking() then
+            SmoreSkills_Print(string.format("Seeking: yes (%ds left)", sync:GetSeekingRemaining()))
+        else
+            SmoreSkills_Print("Seeking: no")
+        end
+        local profs = SmoreSkills_CollectSeekerProfessions(SmoreSkills_GetPlayerProfession())
+        SmoreSkills_Print("Your trades: " .. SmoreSkills_FormatProfessionList(profs))
+        local _, _, _, zone = SmoreSkills_GetPlayerMapPos()
+        SmoreSkills_Print("Zone: " .. (zone or "?"))
+        if WorldMapFrame and WorldMapFrame.IsShown and WorldMapFrame:IsShown() and WorldMapFrame.GetMapID then
+            local viewId = WorldMapFrame:GetMapID()
+            local viewName = viewId
+            if C_Map and C_Map.GetMapInfo and viewId then
+                local info = C_Map.GetMapInfo(viewId)
+                viewName = info and info.name or viewId
+            end
+            SmoreSkills_Print("Map view: " .. tostring(viewName))
+        end
+        SmoreSkills_Print("Seeker filter: " .. SmoreSkills_FormatWant(SmoreSkills_GetEffectiveSeekerWant()))
+        return
+    end
     if lower == "test" then
         local enabled = SmoreSkills_TestCampsEnabled()
         SmoreSkills_Print("Test camps: " .. (enabled and "on" or "off") .. " (/smores test on | off)")

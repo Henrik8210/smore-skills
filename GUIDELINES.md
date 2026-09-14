@@ -5,7 +5,7 @@ Forever camping finder. Protocol and UX are documented in [CAMPING.md](CAMPING.m
 - **Remote:** https://github.com/Henrik8210/smore-skills
 - **Addon folder:** `SmoreSkills/` (no apostrophe — WoW toc/folder rule)
 - **Title:** S'more Skills
-- **Version:** 0.5.7 (GitHub only until Forever beta validates — **no CurseForge tag yet**)
+- **Version:** 0.5.9 (GitHub only until Forever beta validates — **no CurseForge tag yet**)
 
 ## WoW install paths
 
@@ -35,7 +35,7 @@ After Forever beta lands: read `## Interface:` from the client’s `FrameXML.toc
 | `Settings.lua` | Minimap button, settings popup (General / Host / Seeker) |
 | `UI.lua` | Legacy camp list window (minimal; camps live on map) |
 | `Commands.lua` | Slash commands |
-| `Art/` | `SmoreSkillsLogo` (512, addon list) + `SmoreSkillsIcon` (256, UI) |
+| `Art/` | `SmoreSkillsLogo` (512, addon list) + `SmoreSkillsIcon` (64, minimap/settings — sized for small circular frames) |
 
 Logo paths: `SmoreSkills.LOGO` (full art), `SmoreSkills.ICON` (cropped, minimap/map/pins).
 
@@ -49,6 +49,7 @@ Logo paths: `SmoreSkills.LOGO` (full art), `SmoreSkills.ICON` (cropped, minimap/
 | `/smores find` | Seek camps in zone |
 | `/smores host` | Host signal at your location |
 | `/smores stop` | Stop hosting rebroadcasts |
+| `/smores status` | Channel, hosting/seeking, trades, zone, map view |
 | `/smores slot 1 bs` | Set object slot (TBC testing) |
 | `/smores prof lw` | Set profession for matching |
 | `/smores want any` | Professions host accepts |
@@ -59,12 +60,14 @@ Logo paths: `SmoreSkills.LOGO` (full art), `SmoreSkills.ICON` (cropped, minimap/
 TBC has no camping. Use two characters in the **same zone and faction** (e.g. Ashenvale):
 
 1. Deploy with `-Client anniversary`
-2. **Host:** `/smores host` at a landmark (or `/smores here` for a camp snapshot)
-3. **Seeker:** left-click minimap fire, map Find button, or `/smores find`
-4. Confirm bonfire pin on **zone** map; hover shows three sockets
+2. **Host:** light **Basic Campfire** (Auto host on) or `/smores host` at a landmark (or `/smores here` for a camp snapshot)
+3. **Seeker:** map Find button or `/smores find` (minimap icon only opens the world map)
+4. Confirm bonfire pin on **zone** map; hover shows three sockets (faded S'more if empty)
 5. Verify opposite faction does not see the ping
 6. Verify cooldowns (see [CAMPING.md](CAMPING.md) load limits)
-7. Use `/smores slot 1 bs` etc. to simulate filled object slots
+7. Host walks away — pin stays on the fire; seeker Find still works
+8. Elwynn: Stormwind in the corner is still the Elwynn map — pin must show. `/smores status` if it does not.
+9. Use `/smores slot 1 bs` etc. to simulate filled object slots
 
 Optional: `/smores test on` injects a sample Ashenvale camp when seeking (single-client smoke test).
 
