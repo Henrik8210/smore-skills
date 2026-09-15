@@ -3,6 +3,7 @@
 ## Notes: Campsite finder — TBC Anniversary testbed until Forever beta. Share a fire, see three object slots.
 ## Author: Henrik8210
 ## Version: 0.5.12
+## X-Curse-Project-ID: 1696940
 ## Icon: Art\SmoreSkillsLogo.tga
 ## SavedVariables: SmoreSkillsDB
 

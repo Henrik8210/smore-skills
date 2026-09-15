@@ -78,7 +78,7 @@ Optional: `/smores test on` injects a sample Ashenvale camp when seeking (single
 Publishing is **GitHub Actions**, not the CurseForge webhook.
 
 1. Create a **new** CurseForge project for S'more Skills.
-2. Put `## X-Curse-Project-ID:` in `SmoreSkills/SmoreSkills.toc`.
+2. Put `## X-Curse-Project-ID: 1696940` in `SmoreSkills/SmoreSkills.toc`.
 3. Add GitHub secret **`CF_API_KEY`** (authors.curseforge.com → API tokens). Never paste the token in chat.
 4. Leave the GitHub → CurseForge webhook **inactive**.
 5. Push a version tag (`v0.1.0`) → `.github/workflows/release.yml` → `BigWigsMods/packager@v2`.
