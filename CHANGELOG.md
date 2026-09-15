@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.5.12
+
+- General settings: camp pin size, show/lock minimap button, chat messages, guild mark on pins.
+- Chat toggle mutes automatic addon messages (seek/host/found). `/smores` still replies.
+- Settings close button is clickable on the whole X (header no longer steals the click).
+- Drop `/smores here` and the Share button. Sharing a fire is `/smores host` (or Auto host on campfire).
+- World map pins are **hosts only**. Seekers do not appear on the map.
+- One camp at a time: wait for the 10 min expiry, or pack up from the map pin or `/smores pack`.
+- `/smores list` matches the map: hosted camps you can see, max 12 per zone.
+- `/smores pack` uses the same Yes/No confirm as right-clicking your map pin.
+- Do not strip the hidden channel from chat on every host ping (that could taint Blizzard UI).
+
+## v0.5.11
+
+- Camp pin lasts **10 minutes** (was 5) so two-client tests have more time.
+
+## v0.5.10
+
+- Settings window is larger and centered on screen (not stuck to the minimap icon). Host/Seeker filters can also pick up to 3 profession items.
+- Host `H:` want field may include items (`bs,lw/bs1,bs2`) without extra colon fields.
+
 ## v0.5.9
 
 - Draw camp pins at zone coords when WoW reports a nested city map (Elwynn canvas titled Stormwind City).

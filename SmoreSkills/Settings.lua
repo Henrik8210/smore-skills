@@ -2,27 +2,29 @@ SmoreSkills = SmoreSkills or {}
 SmoreSkills.Settings = SmoreSkills.Settings or {}
 
 local Settings = SmoreSkills.Settings
-local SETTINGS_UI_BUILD = 18
+local SETTINGS_UI_BUILD = 49
 local ICON = SmoreSkills.ICON or "Interface\\Icons\\Spell_Fire_Fire"
-local POPUP_WIDTH = 412
-local POPUP_HEIGHT = 392
+local POPUP_WIDTH = 720
+local POPUP_HEIGHT = 620
 local SIDEBAR_WIDTH = 88
 local HEADER_HEIGHT = 34
 local HEADER_INSET = 10
+local CLOSE_INSET = 48
 local BODY_PAD = 14
-local GRID_COL_GAP = 14
+local GAP_TITLE = 8
+local GAP_HINT = 3
+local GAP_SECTION = 16
+local GRID_COL_GAP = 16
 local GRID_LEFT_INSET = 2
 local GRID_RIGHT_INSET = 6
-local FILTER_GRID_GAP = 20
 local TAB_LABEL_GAP = 10
 local MINIMAP_RADIUS = 80
 local BUTTON_SIZE = 31
 local PANEL_BG = "Interface\\FrameGeneral\\UI-Background-Rock"
 local PANEL_EDGE = "Interface\\DialogFrame\\UI-DialogBox-Border"
-local BODY_BG = "Interface\\Tooltips\\UI-Tooltip-Background"
 local PANEL_FILL = { 0.24, 0.19, 0.14, 0.97 }
 local PANEL_BORDER = { 0.48, 0.40, 0.30, 1 }
-local BODY_FILL = { 0.14, 0.12, 0.10, 0.92 }
+local BODY_FILL = { 0.16, 0.13, 0.09, 0.95 }
 local TAB_ICON_SIZE = 40
 local TAB_GOLD_RING = 2
 local TAB_LABEL_HEIGHT = 14
@@ -30,6 +32,10 @@ local TAB_INACTIVE_ALPHA = 0.55
 local TAB_LABEL_ACTIVE = { 1, 0.82, 0.15 }
 local TAB_LABEL_INACTIVE = { 0.55, 0.55, 0.55 }
 local TITLE_YELLOW = "ffd200"
+local SETTINGS_TITLE_SIZE = 13
+local SETTINGS_SMALL_SIZE = 12
+local SETTINGS_CHECK_SIZE = SETTINGS_TITLE_SIZE + 3
+local SETTINGS_SMALL_CHECK = 14
 local GOLD = { 1, 0.82, 0 }
 local TAB_RING_ACTIVE = { 1, 0.82, 0, 1 }
 local TAB_RING_INACTIVE = { 0.55, 0.45, 0.18, 0.9 }
@@ -66,7 +72,7 @@ local function ApplyPanelChrome(frame, inset)
     end
     local fillColor = inset and BODY_FILL or PANEL_FILL
     frame:SetBackdrop({
-        bgFile = inset and BODY_BG or PANEL_BG,
+        bgFile = inset and "Interface\\Buttons\\WHITE8X8" or PANEL_BG,
         edgeFile = PANEL_EDGE,
         tile = true,
         tileSize = inset and 16 or 32,
@@ -159,6 +165,72 @@ local function IsRightClick(mouseButton)
     return mouseButton == "RightButton" or mouseButton == "RightButtonUp"
 end
 
+local function ApplyFontSize(fs, size)
+    if not fs or not fs.SetFont then
+        return
+    end
+    local fontPath, _, flags = fs:GetFont()
+    fs:SetFont(fontPath or "Fonts\\FRIZQT__.TTF", size, flags)
+end
+
+local function ApplyTitleFont(fs)
+    ApplyFontSize(fs, SETTINGS_TITLE_SIZE)
+end
+
+local function ApplySmallFont(fs)
+    ApplyFontSize(fs, SETTINGS_SMALL_SIZE)
+end
+
+local CHECK_NATIVE = 32
+
+local function MakeCheckButton(parent, size)
+    local hold = CreateFrame("Frame", nil, parent)
+    hold:SetSize(size, size)
+    local cb = CreateFrame("CheckButton", nil, hold, "UICheckButtonTemplate")
+    cb:SetSize(CHECK_NATIVE, CHECK_NATIVE)
+    cb:ClearAllPoints()
+    cb:SetPoint("TOPLEFT", hold, "TOPLEFT", 0, 0)
+    cb:SetScale(size / CHECK_NATIVE)
+    hold.checkbox = cb
+    return hold, cb
+end
+
+local function ClickCheck(cb)
+    if cb and cb.Click then
+        cb:Click()
+    end
+end
+
+local function MakeCheckLabel(parent, cb, applyFont)
+    local btn = CreateFrame("Button", nil, parent)
+    if btn.RegisterForClicks then
+        btn:RegisterForClicks("LeftButtonUp")
+    end
+    local text = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    text:SetPoint("LEFT", 0, 0)
+    text:SetPoint("RIGHT", 0, 0)
+    text:SetJustifyH("LEFT")
+    text:SetJustifyV("MIDDLE")
+    if applyFont then
+        applyFont(text)
+    end
+    btn:SetScript("OnClick", function()
+        ClickCheck(cb)
+    end)
+    btn:SetScript("OnEnter", function()
+        if cb and cb.LockHighlight then
+            cb:LockHighlight()
+        end
+    end)
+    btn:SetScript("OnLeave", function()
+        if cb and cb.UnlockHighlight then
+            cb:UnlockHighlight()
+        end
+    end)
+    btn.label = text
+    return btn, text
+end
+
 local function CreateSectionTitle(parent, text, y)
     local label = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     label:SetPoint("TOPLEFT", BODY_PAD, y)
@@ -168,38 +240,184 @@ local function CreateSectionTitle(parent, text, y)
     return label
 end
 
+local function CreateItemHeading(parent, text, anchor, yOff)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, yOff or -GAP_SECTION)
+    row:SetPoint("RIGHT", parent, "RIGHT", -BODY_PAD, 0)
+
+    local label = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    label:SetPoint("TOPLEFT", 0, 0)
+    label:SetPoint("TOPRIGHT", 0, 0)
+    label:SetJustifyH("LEFT")
+    label:SetJustifyV("TOP")
+    if label.SetWordWrap then
+        label:SetWordWrap(true)
+    end
+    ApplyTitleFont(label)
+    label:SetTextColor(1, 1, 1)
+    label:SetText(text)
+    row.label = label
+
+    local function sizeHeading()
+        local h = math.max(22, (label:GetStringHeight() or 18) + 6)
+        if math.abs((row:GetHeight() or 0) - h) > 0.5 then
+            row:SetHeight(h)
+        end
+    end
+    row:SetScript("OnSizeChanged", sizeHeading)
+    sizeHeading()
+    return row
+end
+
 local function CreateHint(parent, text, anchor, yOff)
     local hint = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    hint:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, yOff or -4)
-    hint:SetPoint("RIGHT", parent, "RIGHT", -12, 0)
+    local attach = anchor and anchor.label or anchor
+    hint:SetPoint("TOPLEFT", attach, "BOTTOMLEFT", 0, yOff or -GAP_HINT)
+    hint:SetPoint("RIGHT", parent, "RIGHT", -BODY_PAD, 0)
     hint:SetJustifyH("LEFT")
     hint:SetText(text)
     hint:SetTextColor(0.65, 0.65, 0.65)
     return hint
 end
 
+local COMMAND_HELP = {
+    { "/smores", "Open these settings. Also /sms or /smoreskills." },
+    { "/smores find", "Look for camps in this zone. Also /smores seek." },
+    { "/smores host", "Share your campfire with seekers." },
+    { "/smores stop", "Stop hosting." },
+    { "/smores pack", "Pack up your camp (asks you to confirm, same as the map pin)." },
+    { "/smores status", "Show channel, hosting, and seeking status." },
+    { "/smores list", "List camps stored for this zone." },
+    { "/smores prof <code>", "Set the profession you seek as, e.g. lw, bs, tail." },
+    { "/smores want <list>", "Host want list, e.g. any or bs,lw." },
+}
+
+local function CreateCommandHelp(parent, anchor)
+    local block = CreateFrame("Frame", nil, parent)
+    block:SetPoint("LEFT", parent, "LEFT", BODY_PAD, 0)
+    block:SetPoint("RIGHT", parent, "RIGHT", -BODY_PAD, 0)
+    block:SetPoint("TOP", anchor, "BOTTOM", 0, -GAP_SECTION)
+
+    local heading = block:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    heading:SetPoint("TOPLEFT", 0, 0)
+    heading:SetPoint("RIGHT", 0, 0)
+    heading:SetJustifyH("LEFT")
+    ApplyTitleFont(heading)
+    heading:SetTextColor(1, 1, 1)
+    heading:SetText("Commands")
+
+    local lines = {}
+    for i, row in ipairs(COMMAND_HELP) do
+        local line = block:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        ApplySmallFont(line)
+        line:SetJustifyH("LEFT")
+        if line.SetWordWrap then
+            line:SetWordWrap(true)
+        end
+        line:SetText("|cff" .. TITLE_YELLOW .. row[1] .. "|r  |cffbcbcbc" .. row[2] .. "|r")
+        lines[i] = line
+    end
+
+    local function layoutHelp()
+        local y = (heading:GetStringHeight() or 14) + GAP_TITLE
+        for _, line in ipairs(lines) do
+            line:ClearAllPoints()
+            line:SetPoint("TOPLEFT", 0, -y)
+            line:SetPoint("RIGHT", 0, 0)
+            y = y + (line:GetStringHeight() or SETTINGS_SMALL_SIZE) + 4
+        end
+        block:SetHeight(math.max(y, 20))
+    end
+    block:SetScript("OnSizeChanged", layoutHelp)
+    layoutHelp()
+    return block
+end
+
 local function CreateCheckbox(parent, label, anchor, yOff)
     local row = CreateFrame("Frame", nil, parent)
-    row:SetPoint("TOP", anchor, "BOTTOM", 0, yOff or -6)
+    row:SetPoint("TOP", anchor, "BOTTOM", 0, yOff or -GAP_SECTION)
     row:SetPoint("LEFT", parent, "LEFT", BODY_PAD, 0)
     row:SetPoint("RIGHT", parent, "RIGHT", -BODY_PAD, 0)
 
-    local cb = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-    cb:SetSize(24, 24)
-    cb:SetPoint("TOPLEFT", 0, 0)
+    local hold, cb = MakeCheckButton(row, SETTINGS_CHECK_SIZE)
+    hold:SetPoint("TOPLEFT", 0, 0)
 
-    local text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    text:SetPoint("TOPLEFT", cb, "TOPRIGHT", 4, -2)
-    text:SetPoint("RIGHT", row, "RIGHT", 0, 0)
-    text:SetJustifyH("LEFT")
+    local labelBtn, text = MakeCheckLabel(row, cb, ApplyTitleFont)
+    labelBtn:SetPoint("TOPLEFT", hold, "TOPRIGHT", 4, 0)
+    labelBtn:SetPoint("RIGHT", row, "RIGHT", 0, 0)
     text:SetJustifyV("TOP")
     if text.SetWordWrap then
         text:SetWordWrap(true)
     end
+    text:SetTextColor(1, 1, 1)
     text:SetText(label)
-    row:SetHeight(math.max(26, (text:GetStringHeight() or 16) + 6))
+    local h = math.max(SETTINGS_CHECK_SIZE + 2, (text:GetStringHeight() or SETTINGS_TITLE_SIZE) + 4)
+    row:SetHeight(h)
+    labelBtn:SetHeight(h)
 
     row.checkbox = cb
+    row.label = text
+    return row
+end
+
+local function CreatePercentSlider(parent, label, anchor, yOff, minV, maxV, step)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, yOff or -GAP_SECTION)
+    row:SetPoint("RIGHT", parent, "RIGHT", -BODY_PAD, 0)
+
+    local title = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    title:SetPoint("TOPLEFT", 0, 0)
+    title:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+    title:SetJustifyH("LEFT")
+    ApplyTitleFont(title)
+    title:SetTextColor(1, 1, 1)
+    title:SetText(label)
+
+    local slider = CreateFrame("Slider", nil, row)
+    slider:SetHeight(16)
+    slider:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -GAP_TITLE)
+    slider:SetPoint("RIGHT", row, "RIGHT", -52, 0)
+    slider:SetOrientation("HORIZONTAL")
+    slider:EnableMouse(true)
+    slider:SetMinMaxValues(minV, maxV)
+    slider:SetValueStep(step)
+    if slider.SetObeyStepOnDrag then
+        slider:SetObeyStepOnDrag(true)
+    end
+    local track = slider:CreateTexture(nil, "BACKGROUND")
+    track:SetAllPoints()
+    if track.SetColorTexture then
+        track:SetColorTexture(0.10, 0.08, 0.06, 0.95)
+    else
+        track:SetTexture("Interface\\Buttons\\WHITE8X8")
+        track:SetVertexColor(0.10, 0.08, 0.06, 0.95)
+    end
+    local thumb = slider:CreateTexture(nil, "OVERLAY")
+    if thumb.SetColorTexture then
+        thumb:SetColorTexture(0.85, 0.72, 0.28, 0.95)
+    else
+        thumb:SetTexture("Interface\\Buttons\\WHITE8X8")
+        thumb:SetVertexColor(0.85, 0.72, 0.28, 0.95)
+    end
+    thumb:SetSize(14, 22)
+    slider:SetThumbTexture(thumb)
+
+    local value = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    value:SetPoint("LEFT", slider, "RIGHT", 8, 0)
+    value:SetWidth(44)
+    value:SetJustifyH("LEFT")
+
+    local low = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    low:SetPoint("TOPLEFT", slider, "BOTTOMLEFT", 0, -GAP_HINT)
+    low:SetText(tostring(minV) .. "%")
+    local high = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    high:SetPoint("TOPRIGHT", slider, "BOTTOMRIGHT", 0, -GAP_HINT)
+    high:SetText(tostring(maxV) .. "%")
+
+    row.slider = slider
+    row.value = value
+    local titleH = title:GetStringHeight() or SETTINGS_TITLE_SIZE
+    row:SetHeight(titleH + GAP_TITLE + 16 + GAP_HINT + 12)
     return row
 end
 
@@ -207,62 +425,79 @@ local function LayoutProfGrid(panel)
     if not panel or not panel.checks then
         return
     end
-    local w = panel:GetWidth()
-    if not w or w < 80 then
-        local parent = panel:GetParent()
-        w = parent and parent:GetWidth() or 280
+    local rowHeight = SETTINGS_SMALL_CHECK + 4
+    local maxLabel = 40
+    for _, row in ipairs(panel.checks) do
+        local w = row.label and row.label.GetStringWidth and row.label:GetStringWidth()
+        if w and w > maxLabel then
+            maxLabel = w
+        end
     end
+    local colW = SETTINGS_SMALL_CHECK + 4 + maxLabel + 2
     local gap = GRID_COL_GAP
-    local innerW = math.max(200, w - GRID_LEFT_INSET - GRID_RIGHT_INSET)
-    local colW = math.floor((innerW - gap) / 2)
-    local rowHeight = 24
-    local col, row = 0, 0
-    for _, cb in ipairs(panel.checks) do
+    local col, gridRow = 0, 0
+    for _, row in ipairs(panel.checks) do
         local x = GRID_LEFT_INSET + col * (colW + gap)
-        cb:ClearAllPoints()
-        cb:SetSize(22, 22)
-        cb:SetPoint("TOPLEFT", panel, "TOPLEFT", x, -row * rowHeight)
-        cb.text:ClearAllPoints()
-        cb.text:SetPoint("LEFT", cb, "RIGHT", 4, 0)
-        cb.text:SetPoint("RIGHT", panel, "TOPLEFT", x + colW, 0)
-        cb.text:SetJustifyH("LEFT")
-        if cb.text.SetWordWrap then
-            cb.text:SetWordWrap(false)
-        end
-        if cb.text.SetNonSpaceWrap then
-            cb.text:SetNonSpaceWrap(false)
-        end
+        row:ClearAllPoints()
+        row:SetSize(colW, rowHeight)
+        row:SetPoint("TOPLEFT", panel, "TOPLEFT", x, -gridRow * rowHeight)
         col = col + 1
         if col > 1 then
             col = 0
-            row = row + 1
+            gridRow = gridRow + 1
         end
     end
-    panel:SetHeight((row + 1) * rowHeight + 4)
+    local rows = gridRow + (col == 0 and 0 or 1)
+    if rows < 1 then
+        rows = 1
+    end
+    panel:SetHeight(rows * rowHeight + 4)
+    local area = panel:GetParent()
+    if area and area.SetHeight then
+        area:SetHeight(panel:GetHeight() or 1)
+    end
 end
 
 local function CreateProfGrid(parent, wantKey)
     local panel = CreateFrame("Frame", nil, parent)
     panel:SetPoint("TOPLEFT", 0, 0)
-    panel:SetPoint("BOTTOMRIGHT", 0, 0)
+    panel:SetPoint("TOPRIGHT", 0, 0)
     panel.checks = {}
     panel.wantKey = wantKey
     for i, prof in ipairs(SmoreSkills.PROFESSIONS) do
-        local cb = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-        cb:SetSize(22, 22)
-        cb.text = cb:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        cb.text:SetText(prof.label)
-        cb.text:SetTextColor(0.92, 0.92, 0.92)
-        cb.profId = prof.id
+        local row = CreateFrame("Frame", nil, panel)
+        row:SetHeight(SETTINGS_SMALL_CHECK + 4)
+        row.profId = prof.id
+        local hold, cb = MakeCheckButton(row, SETTINGS_SMALL_CHECK)
+        hold:SetPoint("LEFT", 0, 0)
+        local labelBtn, text = MakeCheckLabel(row, cb, ApplySmallFont)
+        labelBtn:SetPoint("LEFT", hold, "RIGHT", 4, 0)
+        labelBtn:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+        labelBtn:SetPoint("TOP", row, "TOP", 0, 0)
+        labelBtn:SetPoint("BOTTOM", row, "BOTTOM", 0, 0)
+        text:SetText(prof.label)
+        text:SetTextColor(0.92, 0.92, 0.92)
+        row.checkbox = cb
+        row.label = text
         cb:SetScript("OnClick", function()
-            SmoreSkills_ToggleWantProfession(wantKey, cb.profId)
+            SmoreSkills_ToggleWantProfession(wantKey, row.profId)
             Settings:RefreshProfessionGrid(panel, wantKey)
+            if wantKey == "seekerWant" then
+                Settings:LayoutSeekerPage()
+            else
+                Settings:LayoutHostPage()
+            end
             RefreshAll()
         end)
-        panel.checks[i] = cb
+        panel.checks[i] = row
     end
     panel:SetScript("OnSizeChanged", function()
+        if panel._layouting then
+            return
+        end
+        panel._layouting = true
         LayoutProfGrid(panel)
+        panel._layouting = nil
     end)
     LayoutProfGrid(panel)
     return panel
@@ -303,9 +538,273 @@ function Settings:RefreshProfessionGrid(panel, wantKey)
     if not panel or not panel.checks then
         return
     end
-    for _, cb in ipairs(panel.checks) do
-        cb:SetChecked(SmoreSkills_WantHasProfession(wantKey, cb.profId))
+    for _, row in ipairs(panel.checks) do
+        local cb = row.checkbox or row
+        local id = row.profId or cb.profId
+        cb:SetChecked(SmoreSkills_WantHasProfession(wantKey, id))
     end
+end
+
+local ITEM_ROW_H = SETTINGS_SMALL_CHECK + 4
+local PAGE_SCROLLBAR_W = 14
+
+local function SyncPageScroll(page)
+    if not page or not page.scroll or not page.bar then
+        return
+    end
+    local view = page.scroll:GetHeight() or 0
+    local content = page.content and page.content:GetHeight() or 0
+    local maxScroll = math.max(0, content - view)
+    page._syncingBar = true
+    page.bar:SetMinMaxValues(0, maxScroll)
+    page.bar:SetValue(page.scroll:GetVerticalScroll() or 0)
+    page._syncingBar = false
+    page.bar:SetShown(maxScroll > 1)
+end
+
+local function WheelPage(page, delta)
+    if not page or not page.scroll or not page.content then
+        return
+    end
+    local view = page.scroll:GetHeight() or 0
+    local maxScroll = math.max(0, (page.content:GetHeight() or 0) - view)
+    local cur = page.scroll:GetVerticalScroll() or 0
+    page.scroll:SetVerticalScroll(math.max(0, math.min(maxScroll, cur - delta * 36)))
+    SyncPageScroll(page)
+end
+
+local function CreatePageScroll(parent)
+    local page = {}
+    local scroll = CreateFrame("ScrollFrame", nil, parent)
+    scroll:SetPoint("TOPLEFT", 0, 0)
+    scroll:SetPoint("BOTTOMRIGHT", -PAGE_SCROLLBAR_W - 4, 0)
+    scroll:EnableMouseWheel(true)
+    page.scroll = scroll
+
+    local content = CreateFrame("Frame", nil, scroll)
+    content:SetWidth(200)
+    content:SetHeight(40)
+    scroll:SetScrollChild(content)
+    page.content = content
+
+    local bar = CreateFrame("Slider", nil, parent)
+    bar:SetWidth(PAGE_SCROLLBAR_W)
+    bar:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -2, -2)
+    bar:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -2, 2)
+    bar:SetOrientation("VERTICAL")
+    bar:SetMinMaxValues(0, 0)
+    bar:SetValue(0)
+    bar:SetValueStep(12)
+    if bar.SetObeyStepOnDrag then
+        bar:SetObeyStepOnDrag(true)
+    end
+    local track = bar:CreateTexture(nil, "BACKGROUND")
+    track:SetAllPoints()
+    track:SetColorTexture(0.10, 0.08, 0.06, 0.95)
+    local thumb = bar:CreateTexture(nil, "OVERLAY")
+    thumb:SetColorTexture(0.85, 0.72, 0.28, 0.95)
+    thumb:SetSize(PAGE_SCROLLBAR_W - 2, 36)
+    bar:SetThumbTexture(thumb)
+    bar:Hide()
+    page.bar = bar
+
+    parent:EnableMouseWheel(true)
+    parent:SetScript("OnMouseWheel", function(_, delta)
+        WheelPage(page, delta)
+    end)
+    scroll:SetScript("OnMouseWheel", function(_, delta)
+        WheelPage(page, delta)
+    end)
+    bar:SetScript("OnValueChanged", function(_, value)
+        if page._syncingBar then
+            return
+        end
+        scroll:SetVerticalScroll(value or 0)
+    end)
+    return page
+end
+
+local function CreateItemPicker(parent, wantKey)
+    local wrap = CreateFrame("Frame", nil, parent)
+    wrap:SetPoint("TOPLEFT", 0, 0)
+    wrap:SetPoint("TOPRIGHT", 0, 0)
+    wrap.wantKey = wantKey
+    wrap.groups = {}
+    wrap.child = wrap
+
+    local empty = wrap:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    empty:SetPoint("TOPLEFT", 2, -2)
+    empty:SetPoint("RIGHT", wrap, "RIGHT", 0, 0)
+    empty:SetJustifyH("LEFT")
+    empty:SetText("Tick a profession above to pick items.")
+    wrap.empty = empty
+
+    for _, prof in ipairs(SmoreSkills.PROFESSIONS) do
+        local group = { profId = prof.id, rows = {} }
+        local header = wrap:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        header:SetJustifyH("LEFT")
+        ApplySmallFont(header)
+        header:SetText("|cff" .. TITLE_YELLOW .. prof.label .. "|r")
+        group.header = header
+        for _, item in ipairs(SmoreSkills_ItemsForProfession(prof.id)) do
+            local row = CreateFrame("Frame", nil, wrap)
+            row:SetHeight(ITEM_ROW_H)
+            row.itemId = item.id
+            local hold, cb = MakeCheckButton(row, SETTINGS_SMALL_CHECK)
+            hold:SetPoint("LEFT", 0, 0)
+            local labelBtn, text = MakeCheckLabel(row, cb, ApplySmallFont)
+            labelBtn:SetPoint("LEFT", hold, "RIGHT", 4, 0)
+            labelBtn:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+            labelBtn:SetPoint("TOP", row, "TOP", 0, 0)
+            labelBtn:SetPoint("BOTTOM", row, "BOTTOM", 0, 0)
+            local label = item.label
+            if item.note then
+                label = label .. " — " .. item.note
+            end
+            text:SetText(label)
+            text:SetTextColor(0.92, 0.92, 0.92)
+            row.checkbox = cb
+            cb:SetScript("OnClick", function()
+                if not SmoreSkills_ToggleWantItem(wantKey, item.id) then
+                    cb:SetChecked(SmoreSkills_WantHasItem(wantKey, item.id))
+                end
+                Settings:RefreshItemPicker(wantKey)
+                RefreshAll()
+            end)
+            table.insert(group.rows, row)
+        end
+        table.insert(wrap.groups, group)
+    end
+    return wrap
+end
+
+function Settings:LayoutItemPicker(picker)
+    if not picker or not picker.groups then
+        return
+    end
+    local wantKey = picker.wantKey
+    local host = picker.child or picker
+    local y = 0
+    local shown = 0
+    local firstGroup = true
+    for _, group in ipairs(picker.groups) do
+        local profOn = SmoreSkills_WantHasProfession(wantKey, group.profId)
+        group.header:SetShown(profOn)
+        if profOn then
+            if not firstGroup then
+                y = y + GAP_SECTION
+            end
+            firstGroup = false
+            group.header:ClearAllPoints()
+            group.header:SetPoint("TOPLEFT", host, "TOPLEFT", 0, -y)
+            group.header:SetPoint("RIGHT", host, "RIGHT", 0, 0)
+            y = y + (group.header:GetStringHeight() or SETTINGS_SMALL_SIZE) + GAP_TITLE
+            for _, row in ipairs(group.rows) do
+                row:Show()
+                row:ClearAllPoints()
+                row:SetPoint("TOPLEFT", host, "TOPLEFT", 4, -y)
+                row:SetPoint("RIGHT", host, "RIGHT", 0, 0)
+                if row.checkbox then
+                    row.checkbox:SetChecked(SmoreSkills_WantHasItem(wantKey, row.itemId))
+                end
+                y = y + ITEM_ROW_H
+                shown = shown + 1
+            end
+        else
+            for _, row in ipairs(group.rows) do
+                row:Hide()
+            end
+        end
+    end
+    if picker.empty then
+        picker.empty:SetShown(shown == 0)
+    end
+    local h = shown == 0 and 22 or (y + 8)
+    picker:SetHeight(h)
+    local area = picker:GetParent()
+    if area and area ~= picker then
+        area:SetHeight(h)
+    end
+end
+
+function Settings:RefreshItemPicker(wantKey)
+    local picker = wantKey == "seekerWant" and self.seekerItemPicker or self.hostItemPicker
+    self:LayoutItemPicker(picker)
+end
+
+function Settings:LayoutPage(page)
+    if not page or not page.scroll or not page.content then
+        return
+    end
+    local w = page.scroll:GetWidth() or 400
+    if w > 20 then
+        page.content:SetWidth(w)
+    end
+    if page.layoutItems then
+        page.layoutItems()
+    end
+    local last = page.bottom
+    local h = 80
+    if last then
+        local top = page.content.GetTop and page.content:GetTop()
+        local bot = last.GetBottom and last:GetBottom()
+        if top and bot and top > bot then
+            h = top - bot + 18
+        else
+            h = 300 + (last.GetHeight and last:GetHeight() or 0)
+        end
+    end
+    page.content:SetHeight(math.max(h, 1))
+    SyncPageScroll(page)
+end
+
+function Settings:LayoutHostPage()
+    if not self.hostPage then
+        return
+    end
+    if self.hostGrid then
+        LayoutProfGrid(self.hostGrid)
+    end
+    self:RefreshItemPicker("hostWant")
+    local last = self.hostFilter
+    if SmoreSkills_GetHostFilterEnabled() and self.hostItemArea then
+        last = self.hostItemArea
+    end
+    self.hostPage.bottom = last
+    self:LayoutPage(self.hostPage)
+end
+
+function Settings:LayoutSeekerPage()
+    if not self.seekerPage then
+        return
+    end
+    if self.seekerGrid then
+        LayoutProfGrid(self.seekerGrid)
+    end
+    self:RefreshItemPicker("seekerWant")
+    local last = self.seekerFilter
+    if SmoreSkills_GetSeekerFilterEnabled() and self.seekerItemArea then
+        last = self.seekerItemArea
+    end
+    self.seekerPage.bottom = last
+    self:LayoutPage(self.seekerPage)
+end
+
+function Settings:LayoutGeneralPage()
+    if not self.generalPage then
+        return
+    end
+    if self.pinScaleRow and self.autoHostHint then
+        local after = self.autoHostHint
+        if self.hostNowBtn and self.hostNowBtn:IsShown() then
+            after = self.hostNowBtn
+        end
+        self.pinScaleRow:ClearAllPoints()
+        self.pinScaleRow:SetPoint("TOPLEFT", after, "BOTTOMLEFT", 0, -GAP_SECTION)
+        self.pinScaleRow:SetPoint("RIGHT", self.generalPage.content, "RIGHT", -BODY_PAD, 0)
+    end
+    self.generalPage.bottom = self.commandHelp or self.guildHint or self.guildMark or self.chatHint or self.hostNowBtn
+    self:LayoutPage(self.generalPage)
 end
 
 function Settings:SelectTab(tabKey)
@@ -339,6 +838,13 @@ function Settings:SelectTab(tabKey)
             end
         end
     end
+    if tabKey == "host" then
+        self:LayoutHostPage()
+    elseif tabKey == "seeker" then
+        self:LayoutSeekerPage()
+    elseif tabKey == "general" then
+        self:LayoutGeneralPage()
+    end
 end
 
 function Settings:RefreshHostProfessionPicker()
@@ -352,7 +858,8 @@ function Settings:RefreshHostProfessionPicker()
         learnedSet[id] = true
     end
     local active = SmoreSkills_GetHostProfession()
-    local y = -16
+    local headingH = (block.heading and block.heading:GetStringHeight()) or 20
+    local y = -(headingH + GAP_TITLE)
     local shown = 0
     for _, row in ipairs(block.rows) do
         local show = learnedSet[row.profId] == true
@@ -362,30 +869,38 @@ function Settings:RefreshHostProfessionPicker()
             row:SetPoint("TOPLEFT", block, "TOPLEFT", 0, y)
             row:SetPoint("RIGHT", block, "RIGHT", 0, 0)
             row.checkbox:SetChecked(row.profId == active)
-            y = y - 22
+            y = y - (SETTINGS_SMALL_CHECK + 4)
             shown = shown + 1
         end
     end
     if block.empty then
         block.empty:SetShown(shown == 0)
+        if shown == 0 then
+            block.empty:ClearAllPoints()
+            block.empty:SetPoint("TOPLEFT", block.heading or block, "BOTTOMLEFT", 0, -GAP_TITLE)
+            block.empty:SetPoint("RIGHT", 0, 0)
+        end
     end
-    block:SetHeight(math.max(32, 18 + math.max(shown, shown == 0 and 1 or 0) * 22))
+    block:SetHeight(math.max(headingH + 14, headingH + GAP_TITLE + math.max(shown, shown == 0 and 1 or 0) * (SETTINGS_SMALL_CHECK + 4)))
 end
 
 function Settings:BuildHostProfessionPicker(parent, anchor)
     local block = CreateFrame("Frame", nil, parent)
-    block:SetPoint("TOP", anchor, "BOTTOM", 0, -8)
+    block:SetPoint("TOP", anchor, "BOTTOM", 0, -GAP_TITLE)
     block:SetPoint("LEFT", parent, "LEFT", BODY_PAD, 0)
     block:SetPoint("RIGHT", parent, "RIGHT", -BODY_PAD, 0)
 
-    local label = block:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    local label = block:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     label:SetPoint("TOPLEFT", 0, 0)
     label:SetPoint("RIGHT", 0, 0)
     label:SetJustifyH("LEFT")
+    ApplyTitleFont(label)
+    label:SetTextColor(1, 1, 1)
     label:SetText("Profession you are using at this camp")
+    block.heading = label
 
     local empty = block:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    empty:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -6)
+    empty:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -GAP_TITLE)
     empty:SetPoint("RIGHT", 0, 0)
     empty:SetJustifyH("LEFT")
     empty:SetText("No professions detected yet.")
@@ -395,19 +910,23 @@ function Settings:BuildHostProfessionPicker(parent, anchor)
     block.rows = {}
     for i, prof in ipairs(SmoreSkills.PROFESSIONS) do
         local row = CreateFrame("Frame", nil, block)
-        row:SetHeight(22)
+        row:SetHeight(SETTINGS_SMALL_CHECK + 4)
         row.profId = prof.id
-        local cb = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
-        cb:SetSize(22, 22)
-        cb:SetPoint("LEFT", 0, 0)
-        local text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        text:SetPoint("LEFT", cb, "RIGHT", 4, 0)
+        local hold, cb = MakeCheckButton(row, SETTINGS_SMALL_CHECK)
+        hold:SetPoint("LEFT", 0, 0)
+        local labelBtn, text = MakeCheckLabel(row, cb, ApplySmallFont)
+        labelBtn:SetPoint("LEFT", hold, "RIGHT", 4, 0)
+        labelBtn:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+        labelBtn:SetPoint("TOP", row, "TOP", 0, 0)
+        labelBtn:SetPoint("BOTTOM", row, "BOTTOM", 0, 0)
         text:SetText(prof.label)
         row.checkbox = cb
+        row.label = text
         cb:SetScript("OnClick", function()
             SmoreSkills_SetHostProfession(prof.id)
             Settings:RefreshHostProfessionPicker()
-            local camp = SmoreSkills_GetLocalCamp and SmoreSkills_GetLocalCamp()
+            local camp = (SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp())
+                or (SmoreSkills_GetLocalCamp and SmoreSkills_GetLocalCamp())
             if camp then
                 SmoreSkills_ApplyHostProfession(camp)
             end
@@ -424,6 +943,7 @@ function Settings:RefreshHostButton()
     if self.hostNowBtn then
         self.hostNowBtn:SetShown(not SmoreSkills_GetAutoHostOnCampfire())
     end
+    self:LayoutGeneralPage()
 end
 
 function Settings:RefreshFilterVisibility()
@@ -432,8 +952,29 @@ function Settings:RefreshFilterVisibility()
     if self.hostGridArea then
         self.hostGridArea:SetShown(hostOn)
     end
+    if self.hostFilterHint then
+        self.hostFilterHint:SetShown(hostOn)
+    end
+    if self.hostItemHint then
+        self.hostItemHint:SetShown(hostOn)
+    end
+    if self.hostItemArea then
+        self.hostItemArea:SetShown(hostOn)
+    end
     if self.seekerGridArea then
         self.seekerGridArea:SetShown(seekerOn)
+    end
+    if self.seekerFilterHint then
+        self.seekerFilterHint:SetShown(seekerOn)
+    end
+    if self.seekerItemHint then
+        self.seekerItemHint:SetShown(seekerOn)
+    end
+    if self.seekerItemSubtext then
+        self.seekerItemSubtext:SetShown(seekerOn)
+    end
+    if self.seekerItemArea then
+        self.seekerItemArea:SetShown(seekerOn)
     end
 end
 
@@ -446,6 +987,27 @@ function Settings:Refresh()
     if self.autoHost and self.autoHost.checkbox then
         self.autoHost.checkbox:SetChecked(SmoreSkills_GetAutoHostOnCampfire())
     end
+    if self.showMinimap and self.showMinimap.checkbox then
+        self.showMinimap.checkbox:SetChecked(SmoreSkills_GetShowMinimapButton())
+    end
+    if self.lockMinimap and self.lockMinimap.checkbox then
+        self.lockMinimap.checkbox:SetChecked(SmoreSkills_GetLockMinimapButton())
+    end
+    if self.chatToggle and self.chatToggle.checkbox then
+        self.chatToggle.checkbox:SetChecked(SmoreSkills_GetChatEnabled())
+    end
+    if self.guildMark and self.guildMark.checkbox then
+        self.guildMark.checkbox:SetChecked(SmoreSkills_GetShowGuildMark())
+    end
+    if self.pinScaleRow and self.pinScaleRow.slider then
+        local pct = SmoreSkills_GetPinScalePct()
+        self.pinScaleRow._syncing = true
+        self.pinScaleRow.slider:SetValue(pct)
+        if self.pinScaleRow.value then
+            self.pinScaleRow.value:SetText(tostring(pct) .. "%")
+        end
+        self.pinScaleRow._syncing = false
+    end
     if self.hostFilter and self.hostFilter.checkbox then
         self.hostFilter.checkbox:SetChecked(SmoreSkills_GetHostFilterEnabled())
     end
@@ -457,15 +1019,22 @@ function Settings:Refresh()
     self:RefreshHostProfessionPicker()
     self:RefreshProfessionGrid(self.hostGrid, "hostWant")
     self:RefreshProfessionGrid(self.seekerGrid, "seekerWant")
+    self:LayoutHostPage()
+    self:LayoutSeekerPage()
+    self:LayoutGeneralPage()
+    self:ApplyMinimapButtonVisibility()
 end
 
-function Settings:AnchorPopup()
-    if not self.frame or not self.minimapButton then
+function Settings:CenterPopup()
+    if not self.frame then
+        return
+    end
+    if self.popupPlaced then
         return
     end
     self.frame:ClearAllPoints()
-    self.frame:SetPoint("TOPRIGHT", self.minimapButton, "BOTTOMRIGHT", 0, -4)
-    self.frame:SetFrameLevel(self.minimapButton:GetFrameLevel() + 20)
+    self.frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    self.popupPlaced = true
 end
 
 function Settings:HidePopup()
@@ -478,15 +1047,12 @@ function Settings:ShowPopup()
     self:Init()
     self:Refresh()
     self:SelectTab(self.activeTab or "general")
-    self:AnchorPopup()
+    self:CenterPopup()
     self.frame:Show()
     local function relayout()
-        if Settings.hostGrid then
-            LayoutProfGrid(Settings.hostGrid)
-        end
-        if Settings.seekerGrid then
-            LayoutProfGrid(Settings.seekerGrid)
-        end
+        Settings:LayoutHostPage()
+        Settings:LayoutSeekerPage()
+        Settings:LayoutGeneralPage()
     end
     relayout()
     if C_Timer and C_Timer.After then
@@ -516,8 +1082,17 @@ function Settings:UpdateMinimapButton()
     local y = math.sin(angle) * MINIMAP_RADIUS
     self.minimapButton:ClearAllPoints()
     self.minimapButton:SetPoint("CENTER", Minimap, "CENTER", x, y)
-    if self.frame and self.frame:IsShown() then
-        self:AnchorPopup()
+end
+
+function Settings:ApplyMinimapButtonVisibility()
+    if not self.minimapButton then
+        return
+    end
+    if SmoreSkills_GetShowMinimapButton() then
+        self.minimapButton:Show()
+        self:UpdateMinimapButton()
+    else
+        self.minimapButton:Hide()
     end
 end
 
@@ -584,6 +1159,9 @@ function Settings:CreateMinimapButton()
     end)
 
     btn:SetScript("OnDragStart", function(selfBtn)
+        if SmoreSkills_GetLockMinimapButton() then
+            return
+        end
         selfBtn:LockHighlight()
         selfBtn:SetScript("OnUpdate", function(s)
             local mx, my = Minimap:GetCenter()
@@ -605,7 +1183,11 @@ function Settings:CreateMinimapButton()
         GameTooltip:SetText("S'more Skills", 1, 1, 1)
         GameTooltip:AddLine("Left-click: open world map.", 1, 0.82, 0)
         GameTooltip:AddLine("Right-click: campsite settings.", 1, 0.82, 0)
-        GameTooltip:AddLine("Drag to move icon.", 1, 0.82, 0)
+        if SmoreSkills_GetLockMinimapButton() then
+            GameTooltip:AddLine("Minimap icon is locked.", 0.7, 0.7, 0.7)
+        else
+            GameTooltip:AddLine("Drag to move icon.", 1, 0.82, 0)
+        end
         GameTooltip:Show()
     end)
 
@@ -619,7 +1201,7 @@ function Settings:CreateMinimapButton()
     self.minimapBorder = border
     self.minimapGlow = glow
     self:UpdateMinimapButton()
-    btn:Show()
+    self:ApplyMinimapButtonVisibility()
     if SmoreSkills.Map and SmoreSkills.Map.RefreshState then
         SmoreSkills.Map:RefreshState()
     end
@@ -628,7 +1210,7 @@ end
 function Settings:EnsureMinimapButton()
     self:RemoveLegacyMinimapSeekButton()
     if self.minimapButton then
-        self:UpdateMinimapButton()
+        self:ApplyMinimapButtonVisibility()
         return true
     end
     if Minimap then
@@ -652,14 +1234,20 @@ end
 function Settings:BuildGeneralPanel(parent)
     local panel = CreateFrame("Frame", nil, parent)
     panel:SetAllPoints()
+    local page = CreatePageScroll(panel)
+    panel:SetScript("OnSizeChanged", function()
+        Settings:LayoutGeneralPage()
+    end)
+    self.generalPage = page
+    local content = page.content
 
-    local title = CreateSectionTitle(panel, "General", -8)
-    self.autoHost = CreateCheckbox(panel, "Auto host when lighting a campfire", title, -10)
+    local title = CreateSectionTitle(content, "General", -GAP_TITLE)
+    self.autoHost = CreateCheckbox(content, "Auto host when lighting a campfire", title, -GAP_TITLE)
     self.autoHostHint = CreateHint(
-        panel,
-        "Placeholder: lighting Basic Campfire broadcasts this location to seekers. Replace with Forever's campsite API later.",
+        content,
+        "Placeholder: lighting Basic Campfire broadcasts your location to seekers. Replace with Forever's campsite API later.",
         self.autoHost,
-        -2
+        -GAP_HINT
     )
     self.autoHost.checkbox:SetScript("OnClick", function(selfCb)
         SmoreSkills_SetAutoHostOnCampfire(selfCb:GetChecked())
@@ -667,15 +1255,82 @@ function Settings:BuildGeneralPanel(parent)
         RefreshAll()
     end)
 
-    self.hostNowBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    self.hostNowBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
     self.hostNowBtn:SetSize(120, 22)
-    self.hostNowBtn:SetPoint("TOPLEFT", self.autoHostHint, "BOTTOMLEFT", 0, -12)
+    self.hostNowBtn:SetPoint("TOPLEFT", self.autoHostHint, "BOTTOMLEFT", 0, -GAP_SECTION)
     self.hostNowBtn:SetText("Host camp")
     self.hostNowBtn:SetScript("OnClick", function()
         if SmoreSkills.Sync and SmoreSkills.Sync.HostHere then
             SmoreSkills.Sync:HostHere()
         end
     end)
+
+    self.pinScaleRow = CreatePercentSlider(
+        content,
+        "Camp icon size on the world map",
+        self.hostNowBtn,
+        -GAP_SECTION,
+        50,
+        150,
+        5
+    )
+    self.pinScaleRow.slider:SetScript("OnValueChanged", function(_, val)
+        if self.pinScaleRow._syncing then
+            return
+        end
+        local pct = SmoreSkills_SetPinScalePct(val)
+        if self.pinScaleRow.value then
+            self.pinScaleRow.value:SetText(tostring(pct) .. "%")
+        end
+        RefreshAll()
+    end)
+
+    self.showMinimap = CreateCheckbox(content, "Show minimap button", self.pinScaleRow, -GAP_SECTION)
+    self.showMinimap.checkbox:SetScript("OnClick", function(selfCb)
+        SmoreSkills_SetShowMinimapButton(selfCb:GetChecked())
+        Settings:ApplyMinimapButtonVisibility()
+    end)
+    self.showMinimapHint = CreateHint(
+        content,
+        "If hidden, /smores still opens settings.",
+        self.showMinimap,
+        -GAP_HINT
+    )
+
+    self.lockMinimap = CreateCheckbox(content, "Lock minimap button", self.showMinimapHint, -GAP_SECTION)
+    self.lockMinimap.checkbox:SetScript("OnClick", function(selfCb)
+        SmoreSkills_SetLockMinimapButton(selfCb:GetChecked())
+    end)
+
+    self.chatToggle = CreateCheckbox(content, "Show chat messages from this addon", self.lockMinimap, -GAP_SECTION)
+    self.chatToggle.checkbox:SetScript("OnClick", function(selfCb)
+        SmoreSkills_SetChatEnabled(selfCb:GetChecked())
+    end)
+    self.chatHint = CreateHint(
+        content,
+        "When off, automatic messages are hidden. Slash commands like /smores still reply in chat.",
+        self.chatToggle,
+        -GAP_HINT
+    )
+
+    self.guildMark = CreateCheckbox(content, "Show guild mark on camp pins", self.chatHint, -GAP_SECTION)
+    self.guildMark.checkbox:SetScript("OnClick", function(selfCb)
+        SmoreSkills_SetShowGuildMark(selfCb:GetChecked())
+        RefreshAll()
+        if SmoreSkills.UI and SmoreSkills.UI.Refresh then
+            SmoreSkills.UI:Refresh()
+        end
+    end)
+    self.guildHint = CreateHint(
+        content,
+        "A green G means a guildie is at that camp.",
+        self.guildMark,
+        -GAP_HINT
+    )
+
+    self.commandHelp = CreateCommandHelp(content, self.guildHint)
+
+    page.bottom = self.commandHelp
     self:RefreshHostButton()
     return panel
 end
@@ -683,48 +1338,105 @@ end
 function Settings:BuildHostPanel(parent)
     local panel = CreateFrame("Frame", nil, parent)
     panel:SetAllPoints()
+    local page = CreatePageScroll(panel)
+    page.relayout = function()
+        Settings:LayoutHostPage()
+    end
+    panel:SetScript("OnSizeChanged", function()
+        Settings:LayoutHostPage()
+    end)
+    self.hostPage = page
+    local content = page.content
 
-    local title = CreateSectionTitle(panel, "Host", -8)
-    local profBlock = self:BuildHostProfessionPicker(panel, title)
+    local title = CreateSectionTitle(content, "Host", -GAP_TITLE)
+    local profBlock = self:BuildHostProfessionPicker(content, title)
     self.hostFilter = CreateCheckbox(
-        panel,
+        content,
         "Only have your camp appear on the map to players with specific professions",
         profBlock,
-        -10
+        -GAP_SECTION
     )
     self.hostFilter.checkbox:SetScript("OnClick", function(selfCb)
         SmoreSkills_SetHostFilterEnabled(selfCb:GetChecked())
         Settings:Refresh()
         RefreshAll()
     end)
+    self.hostFilterHint = CreateHint(
+        content,
+        "Choose at least one profession or your camp won't appear to anyone.",
+        self.hostFilter,
+        -GAP_HINT
+    )
 
-    self.hostGridArea = CreateFrame("Frame", nil, panel)
-    self.hostGridArea:SetPoint("TOP", self.hostFilter, "BOTTOM", 0, -FILTER_GRID_GAP)
-    self.hostGridArea:SetPoint("LEFT", panel, "LEFT", BODY_PAD, 0)
-    self.hostGridArea:SetPoint("RIGHT", panel, "RIGHT", -BODY_PAD, 0)
-    self.hostGridArea:SetPoint("BOTTOM", panel, "BOTTOM", 0, 12)
+    self.hostGridArea = CreateFrame("Frame", nil, content)
+    self.hostGridArea:SetPoint("TOP", self.hostFilterHint, "BOTTOM", 0, -GAP_TITLE)
+    self.hostGridArea:SetPoint("LEFT", content, "LEFT", BODY_PAD, 0)
+    self.hostGridArea:SetPoint("RIGHT", content, "RIGHT", -BODY_PAD, 0)
     self.hostGrid = CreateProfGrid(self.hostGridArea, "hostWant")
+
+    self.hostItemHint = CreateItemHeading(
+        content,
+        "Optional: Request up to 3 items you want campers to bring.",
+        self.hostGridArea,
+        -GAP_SECTION
+    )
+    self.hostItemArea = CreateFrame("Frame", nil, content)
+    self.hostItemArea:SetPoint("TOP", self.hostItemHint, "BOTTOM", 0, -GAP_TITLE)
+    self.hostItemArea:SetPoint("LEFT", content, "LEFT", BODY_PAD, 0)
+    self.hostItemArea:SetPoint("RIGHT", content, "RIGHT", -BODY_PAD, 0)
+    self.hostItemPicker = CreateItemPicker(self.hostItemArea, "hostWant")
+    page.bottom = self.hostItemArea
     return panel
 end
 
 function Settings:BuildSeekerPanel(parent)
     local panel = CreateFrame("Frame", nil, parent)
     panel:SetAllPoints()
+    local page = CreatePageScroll(panel)
+    panel:SetScript("OnSizeChanged", function()
+        Settings:LayoutSeekerPage()
+    end)
+    self.seekerPage = page
+    local content = page.content
 
-    local title = CreateSectionTitle(panel, "Seeker", -8)
-    self.seekerFilter = CreateCheckbox(panel, "Only discover camps with specific professions", title, -10)
+    local title = CreateSectionTitle(content, "Seeker", -GAP_TITLE)
+    self.seekerFilter = CreateCheckbox(content, "Only discover camps with specific professions", title, -GAP_TITLE)
     self.seekerFilter.checkbox:SetScript("OnClick", function(selfCb)
         SmoreSkills_SetSeekerFilterEnabled(selfCb:GetChecked())
         Settings:Refresh()
         RefreshAll()
     end)
+    self.seekerFilterHint = CreateHint(
+        content,
+        "Choose at least one profession or you won't discover any camps.",
+        self.seekerFilter,
+        -GAP_HINT
+    )
 
-    self.seekerGridArea = CreateFrame("Frame", nil, panel)
-    self.seekerGridArea:SetPoint("TOP", self.seekerFilter, "BOTTOM", 0, -FILTER_GRID_GAP)
-    self.seekerGridArea:SetPoint("LEFT", panel, "LEFT", BODY_PAD, 0)
-    self.seekerGridArea:SetPoint("RIGHT", panel, "RIGHT", -BODY_PAD, 0)
-    self.seekerGridArea:SetPoint("BOTTOM", panel, "BOTTOM", 0, 12)
+    self.seekerGridArea = CreateFrame("Frame", nil, content)
+    self.seekerGridArea:SetPoint("TOP", self.seekerFilterHint, "BOTTOM", 0, -GAP_TITLE)
+    self.seekerGridArea:SetPoint("LEFT", content, "LEFT", BODY_PAD, 0)
+    self.seekerGridArea:SetPoint("RIGHT", content, "RIGHT", -BODY_PAD, 0)
     self.seekerGrid = CreateProfGrid(self.seekerGridArea, "seekerWant")
+
+    self.seekerItemHint = CreateItemHeading(
+        content,
+        "Optional: Only find camps that have at least one of these items (pick up to 3)",
+        self.seekerGridArea,
+        -GAP_SECTION
+    )
+    self.seekerItemSubtext = CreateHint(
+        content,
+        "If all are unchecked, you see all camps matching the professions you checked above.",
+        self.seekerItemHint,
+        -GAP_HINT
+    )
+    self.seekerItemArea = CreateFrame("Frame", nil, content)
+    self.seekerItemArea:SetPoint("TOP", self.seekerItemSubtext, "BOTTOM", 0, -GAP_TITLE)
+    self.seekerItemArea:SetPoint("LEFT", content, "LEFT", BODY_PAD, 0)
+    self.seekerItemArea:SetPoint("RIGHT", content, "RIGHT", -BODY_PAD, 0)
+    self.seekerItemPicker = CreateItemPicker(self.seekerItemArea, "seekerWant")
+    page.bottom = self.seekerItemArea
     return panel
 end
 
@@ -742,12 +1454,34 @@ function Settings:Init()
         self.seekerGrid = nil
         self.hostGridArea = nil
         self.seekerGridArea = nil
+        self.hostItemArea = nil
+        self.seekerItemArea = nil
+        self.hostItemPicker = nil
+        self.seekerItemPicker = nil
+        self.hostItemHint = nil
+        self.seekerItemHint = nil
+        self.seekerItemSubtext = nil
         self.hostFilter = nil
+        self.hostFilterHint = nil
         self.seekerFilter = nil
+        self.seekerFilterHint = nil
         self.autoHost = nil
         self.autoHostHint = nil
         self.hostNowBtn = nil
         self.hostProfBlock = nil
+        self.hostPage = nil
+        self.seekerPage = nil
+        self.generalPage = nil
+        self.pinScaleRow = nil
+        self.showMinimap = nil
+        self.showMinimapHint = nil
+        self.lockMinimap = nil
+        self.chatToggle = nil
+        self.chatHint = nil
+        self.guildMark = nil
+        self.guildHint = nil
+        self.commandHelp = nil
+        self.popupPlaced = nil
     end
 
     local f
@@ -759,6 +1493,10 @@ function Settings:Init()
     f:SetSize(POPUP_WIDTH, POPUP_HEIGHT)
     f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:EnableMouse(true)
+    f:SetMovable(true)
+    if f.SetClampedToScreen then
+        f:SetClampedToScreen(true)
+    end
     f:Hide()
     ApplyPanelChrome(f, false)
     tinsert(UISpecialFrames, "SmoreSkillsSettingsFrame")
@@ -766,8 +1504,16 @@ function Settings:Init()
     local headerBar = CreateFrame("Frame", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
     headerBar:SetHeight(HEADER_HEIGHT)
     headerBar:SetPoint("TOPLEFT", HEADER_INSET, -8)
-    headerBar:SetPoint("TOPRIGHT", -HEADER_INSET, -8)
+    headerBar:SetPoint("TOPRIGHT", -CLOSE_INSET, -8)
     ApplyPanelChrome(headerBar, true)
+    headerBar:EnableMouse(true)
+    headerBar:RegisterForDrag("LeftButton")
+    headerBar:SetScript("OnDragStart", function()
+        f:StartMoving()
+    end)
+    headerBar:SetScript("OnDragStop", function()
+        f:StopMovingOrSizing()
+    end)
 
     local title = headerBar:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("CENTER", headerBar, "CENTER", 0, 0)
@@ -775,6 +1521,11 @@ function Settings:Init()
 
     local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", -2, -2)
+    close:SetFrameLevel((headerBar:GetFrameLevel() or 1) + 20)
+    if close.SetHitRectInsets then
+        close:SetHitRectInsets(-6, -6, -6, -6)
+    end
+    close:EnableMouse(true)
     close:SetScript("OnClick", function()
         Settings:HidePopup()
     end)
@@ -801,6 +1552,8 @@ function Settings:Init()
         host = self:BuildHostPanel(body),
         seeker = self:BuildSeekerPanel(body),
     }
+
+    close:SetFrameLevel((f:GetFrameLevel() or 1) + 80)
 
     f:SetScript("OnHide", function()
         if GameTooltip:IsShown() then

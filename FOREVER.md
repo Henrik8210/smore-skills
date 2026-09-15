@@ -2,7 +2,7 @@
 
 Reference for **Forever beta** (opens **17 Sep 2026**). TBC Anniversary remains the day-to-day testbed until then.
 
-**Release policy:** code is on GitHub at v0.5.9. **No CurseForge publish** until beta smoke test passes.
+**Release policy:** code is on GitHub at v0.5.12. **No CurseForge publish** until beta smoke test passes.
 
 Screenshots from the pre-beta client (Sep 2026) show how the **world map** differs from retail and from TBC Anniversary.
 
@@ -93,7 +93,8 @@ Player: 42.6, 23.6 (Zephras Isle)
 | Basic campfire / campsite | **Cooking Basic Campfire** as a **placeholder** host ping (not a Forever campsite) | Real mechanic (see [CAMPING.md](CAMPING.md)); keep spell-818 host until API exists |
 | Three object slots | Manual `/smores slot` | Auto-read when API exposed |
 | Auto host on campfire | Lights **Basic Campfire** → `H:` at your coords (General setting, on by default) | Same placeholder; replace with campfire/object events when exposed |
-| Pin lifetime | Hide after **5 min** (Classic fire), **3/3** slots, or host **packs up** (right-click own pin) | **TODO (beta):** how long does a Forever campsite last? Update `CAMPFIRE_DURATION` |
+| Chat messages | General toggle; off mutes automatic addon chat. `/smores` still replies | Same |
+| Pin lifetime | Hide after **10 min** (TBC testbed TTL), **3/3** slots, or host **packs up** (right-click own pin) | **Unknown.** Live items: 1 hour is a **camping-feature cooldown**, not camp length. Marketing also said 1 hour **buffs**. Time the campsite on beta before changing `CAMPFIRE_DURATION`. |
 | Profession specs | TBC specs mapped (Spellfire → Tailoring, etc.) | Re-verify when Forever skill names are known |
 | Who updates camp state | Host rebroadcasts (guests without addon cannot) | Host + addon users at fire when API allows |
 
@@ -117,15 +118,17 @@ Use **two same-faction characters** in the **same zone**.
 - [ ] Host: light **Basic Campfire** (Auto host on) or `/smores host` at a campfire (or stand-in spot if fires are scarce)
 - [ ] Seeker: map **Find** button (or `/smores find`); minimap S'more icon opens map only
 - [ ] Bonfire pin appears at host coords on **zone** map
+- [ ] Seeker does **not** get a pin of their own — only hosted camps appear
 - [ ] Hover pin: custom tooltip with host line, three gold-ring sockets (profession or faded S'more if empty), coords
 - [ ] Minimap and Find button pulse while seeking
 - [ ] Right-click map Find button clears **other** pins; **own hosted pin stays**
-- [ ] Right-click own pin → pack-up confirm; seekers lose that pin immediately (`X:`)
+- [ ] Right-click own pin or `/smores pack` → pack-up confirm; seekers lose that pin immediately (`X:`)
+- [ ] Host cannot place a second camp until the first expires or is packed up
 - [ ] Host walks away from the fire — pin stays on the fire; late Find still gets a reply
 - [ ] Nested city (Elwynn/Stormwind): pin still shows on the Elwynn canvas; `/smores status` Zone vs Map view
 - [ ] Seeker chat: `Camp found` when the ping arrived (host seeing the pin is **not** enough)
 - [ ] Zoom out to continent/world — note whether pins hide (document map ids)
-- [ ] Time a real Forever campfire: pin should drop after fire dies **or** at 3/3 — if fires last longer than 5 min, bump `SmoreSkills.CAMPFIRE_DURATION`
+- [ ] Time a real Forever campsite (how long the fire/site stays up). Do **not** treat the **1 hour buff** as pin lifetime. Set `SmoreSkills.CAMPFIRE_DURATION` from the measured camp, then also note buff length separately. Pins still drop on 3/3 or pack-up.
 
 ### Matching & settings
 

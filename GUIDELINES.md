@@ -5,7 +5,7 @@ Forever camping finder. Protocol and UX are documented in [CAMPING.md](CAMPING.m
 - **Remote:** https://github.com/Henrik8210/smore-skills
 - **Addon folder:** `SmoreSkills/` (no apostrophe — WoW toc/folder rule)
 - **Title:** S'more Skills
-- **Version:** 0.5.9 (GitHub only until Forever beta validates — **no CurseForge tag yet**)
+- **Version:** 0.5.12 (GitHub only until Forever beta validates — **no CurseForge tag yet**)
 
 ## WoW install paths
 
@@ -30,7 +30,7 @@ After Forever beta lands: read `## Interface:` from the client’s `FrameXML.toc
 | --- | --- |
 | `Core.lua` | Version, constants, saved vars, init |
 | `Camps.lua` | Camp cache, matching, profession detection |
-| `Sync.lua` | Channel join, seek/host/share, rate limits |
+| `Sync.lua` | Channel join, seek/host/pack, rate limits |
 | `Map.lua` | World map pins, Find button, custom camp tooltip |
 | `Settings.lua` | Minimap button, settings popup (General / Host / Seeker) |
 | `UI.lua` | Legacy camp list window (minimal; camps live on map) |
@@ -44,11 +44,11 @@ Logo paths: `SmoreSkills.LOGO` (full art), `SmoreSkills.ICON` (cropped, minimap/
 | Command | Action |
 | --- | --- |
 | `/smores`, `/sms`, `/smoreskills` | Toggle settings popup |
-| `/smores here` | Share camp snapshot at your location |
-| `/smores list` | Print stored camps |
+| `/smores list` | Print visible hosted camps in this zone (max 12, same as map pins) |
 | `/smores find` | Seek camps in zone |
-| `/smores host` | Host signal at your location |
+| `/smores host` | Host signal at your location (one camp at a time) |
 | `/smores stop` | Stop hosting rebroadcasts |
+| `/smores pack` | Pack up your camp (same Yes/No confirm as the map pin) |
 | `/smores status` | Channel, hosting/seeking, trades, zone, map view |
 | `/smores slot 1 bs` | Set object slot (TBC testing) |
 | `/smores prof lw` | Set profession for matching |
@@ -60,7 +60,7 @@ Logo paths: `SmoreSkills.LOGO` (full art), `SmoreSkills.ICON` (cropped, minimap/
 TBC has no camping. Use two characters in the **same zone and faction** (e.g. Ashenvale):
 
 1. Deploy with `-Client anniversary`
-2. **Host:** light **Basic Campfire** (Auto host on) or `/smores host` at a landmark (or `/smores here` for a camp snapshot)
+2. **Host:** light **Basic Campfire** (Auto host on) or `/smores host` at a landmark
 3. **Seeker:** map Find button or `/smores find` (minimap icon only opens the world map)
 4. Confirm bonfire pin on **zone** map; hover shows three sockets (faded S'more if empty)
 5. Verify opposite faction does not see the ping

@@ -18,13 +18,14 @@ Paste into CurseForge → Description (Markdown mode) after the project exists.
 | Command | Action |
 | --- | --- |
 | `/smores`, `/sms`, or `/smoreskills` | Toggle the window |
-| `/smores here` | Share this location with other addon users |
+| `/smores host` | Share your campfire with seekers |
 
 ---
 
 ### Notes
 
 * Same faction only
+* World map pins are hosts only (Find shows hosted camps, not seekers)
 * You choose when to share. Nothing is dumped on login
 
 ---

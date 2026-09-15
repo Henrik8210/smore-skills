@@ -14,14 +14,14 @@ Meanwhile a blacksmith sits alone at a fire across the zone and sends a **host s
 
 All opt-in. No login dump. Community channel, not guild chat.
 
-## Status (v0.5.9)
+## Status (v0.5.12)
 
 | | |
 | --- | --- |
-| **Sync** | Seek/host/camp/pack (`S:` / `H:` / `C:` / `X:`), matching, rate limits, same-faction filter. Host keeps the **fire coords** if you walk away. |
-| **Map** | Zone pins (bonfire + sockets), Find button, custom hover tooltip, seek fade pulse. Nested city maps (Elwynn/Stormwind) still draw zone pins. |
-| **Minimap** | S'more icon opens world map; right-click settings; drag to move |
-| **Settings** | General: auto-host on Basic Campfire (placeholder). Host/Seeker profession grids |
+| **Sync** | Seek/host/pack (`S:` / `H:` / `X:`), matching, rate limits, same-faction filter. Host keeps the **fire coords** if you walk away. |
+| **Map** | Zone pins for **hosts only** (bonfire + sockets). Find button, custom hover tooltip, seek fade pulse. Nested city maps (Elwynn/Stormwind) still draw zone pins. |
+| **Minimap** | S'more icon opens world map; right-click settings; drag to move (can hide or lock in General) |
+| **Settings** | Larger centered window. General: auto-host, pin size, minimap, chat, guild mark. Host/Seeker profession + item filters |
 | **Professions** | Auto-detect all trades; TBC specs map to base (Spellfire → Tailoring, etc.) |
 | **Art** | Forever-style logo (`SmoreSkillsLogo`) + cropped icon (`SmoreSkillsIcon`) |
 | **Forever beta** | Real campfire/object API, auto-fill slots, continent/world pin projection |
@@ -30,10 +30,10 @@ All opt-in. No login dump. Community channel, not guild chat.
 
 | Control | Action |
 | --- | --- |
-| **Minimap (S'more icon)** | Left-click: open world map. Right-click: settings. Drag: reposition. |
+| **Minimap (S'more icon)** | Left-click: open world map. Right-click: settings. Drag: reposition (unless locked). Hide from General if you want. |
 | **Map Find button** | Left-click: seek in zone (switches to your zone map). Right-click: clear **other** pins; your hosted pin stays. |
 | **Own camp pin** | Right-click: pack up (confirm). Seekers drop it via `X:`. |
-| **Settings popup** | General: auto-host when lighting **Basic Campfire** (placeholder until Forever API). Host/Seeker profession grids. |
+| **Settings popup** | General: auto-host, pin size, minimap/chat/guild options. Host/Seeker profession grids. |
 | **Camp pin hover** | Custom tooltip: host, three gold-ring sockets (profession or faded S'more if empty), coords, guild hint if applicable. |
 
 ## Commands
@@ -41,11 +41,11 @@ All opt-in. No login dump. Community channel, not guild chat.
 | Command | Action |
 | --- | --- |
 | `/smores`, `/sms`, `/smoreskills` | Toggle settings popup |
-| `/smores here` | Share camp snapshot at your location |
-| `/smores list` | Print stored camps |
+| `/smores list` | Print visible hosted camps in this zone (max 12, same as map pins) |
 | `/smores find` | Seek camps in this zone |
-| `/smores host` | Signal you're at a fire and want company |
+| `/smores host` | Signal you're at a fire and want company (one camp at a time) |
 | `/smores stop` | Stop hosting rebroadcasts |
+| `/smores pack` | Pack up your camp (same Yes/No confirm as the map pin) |
 | `/smores status` | Channel, hosting/seeking, trades, zone, map view |
 | `/smores slot 1 bs` | Set slot 1 (TBC testing) |
 | `/smores prof lw` | Set profession used for seeker matching |

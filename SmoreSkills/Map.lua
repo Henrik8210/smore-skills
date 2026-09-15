@@ -35,7 +35,17 @@ local QUESTIE = {
     iconY = -5,
     border = 54,
 }
-local PIN_HIT_SIZE = math.ceil(QUESTIE.btn * FIRE_SCALE + 8)
+local function GetFireScale()
+    local pct = 100
+    if SmoreSkills_GetPinScalePct then
+        pct = SmoreSkills_GetPinScalePct()
+    end
+    return FIRE_SCALE * (pct / 100)
+end
+
+local function GetPinHitSize()
+    return math.ceil(QUESTIE.btn * GetFireScale() + 8)
+end
 
 Map.pins = Map.pins or {}
 Map.pinPool = Map.pinPool or {}
@@ -95,7 +105,7 @@ local function ApplyQuestieCluster(parent, clusterScale, iconPath)
     icon:SetSize(iconSize, iconSize)
     icon:SetTexture(iconPath or ICON)
     icon:SetPoint("TOPLEFT", parent, "TOPLEFT", QUESTIE.iconX * clusterScale, QUESTIE.iconY * clusterScale)
-    AddCircleMask(parent, icon, iconSize)
+    local mask = AddCircleMask(parent, icon, iconSize)
 
     local ring = parent:CreateTexture(nil, "OVERLAY")
     ring:SetSize(QUESTIE.border * clusterScale, QUESTIE.border * clusterScale)
@@ -105,7 +115,34 @@ local function ApplyQuestieCluster(parent, clusterScale, iconPath)
         ring:SetDrawLayer("OVERLAY", 1)
     end
 
-    return bg, icon, ring
+    return bg, icon, ring, mask
+end
+
+local function ResizeQuestieCluster(pin, clusterScale)
+    local fireFrame = pin and pin.fireFrame
+    if not fireFrame then
+        return
+    end
+    fireFrame:SetSize(QUESTIE.btn * clusterScale, QUESTIE.btn * clusterScale)
+    if pin.fireBg then
+        pin.fireBg:SetSize(QUESTIE.bg * clusterScale, QUESTIE.bg * clusterScale)
+        pin.fireBg:ClearAllPoints()
+        pin.fireBg:SetPoint("TOPLEFT", fireFrame, "TOPLEFT", QUESTIE.bgX * clusterScale, QUESTIE.bgY * clusterScale)
+    end
+    local iconSize = QUESTIE.icon * clusterScale
+    if pin.fireIcon then
+        pin.fireIcon:SetSize(iconSize, iconSize)
+        pin.fireIcon:ClearAllPoints()
+        pin.fireIcon:SetPoint("TOPLEFT", fireFrame, "TOPLEFT", QUESTIE.iconX * clusterScale, QUESTIE.iconY * clusterScale)
+    end
+    if pin.fireMask then
+        pin.fireMask:SetSize(iconSize, iconSize)
+    end
+    if pin.fireRing then
+        pin.fireRing:SetSize(QUESTIE.border * clusterScale, QUESTIE.border * clusterScale)
+        pin.fireRing:ClearAllPoints()
+        pin.fireRing:SetPoint("TOPLEFT", fireFrame, "TOPLEFT", 0, 0)
+    end
 end
 
 local function SetSolidColor(texture, r, g, b, a)
@@ -215,7 +252,7 @@ local function ApplyTooltipChrome(frame)
 end
 
 local function EnsureCampTooltip()
-    if Map.campTooltip and Map.campTooltip.tooltipVersion == 5 then
+    if Map.campTooltip and Map.campTooltip.tooltipVersion == 6 then
         return Map.campTooltip
     end
     if Map.campTooltip then
@@ -264,13 +301,13 @@ local function EnsureCampTooltip()
     end
     socketRow:SetSize(SmoreSkills.MAX_SLOTS * socketSize + (SmoreSkills.MAX_SLOTS - 1) * socketGap, socketSize)
 
-    tip.footer = tip:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    tip.footer = tip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     tip.footer:SetPoint("TOPLEFT", socketRow, "BOTTOMLEFT", 4, -8)
     tip.footer:SetPoint("RIGHT", tip, "RIGHT", -12, 0)
     tip.footer:SetJustifyH("LEFT")
-    tip.footer:SetTextColor(0.55, 0.55, 0.55)
+    tip.footer:SetTextColor(1, 1, 1)
 
-    tip.tooltipVersion = 5
+    tip.tooltipVersion = 6
     Map.campTooltip = tip
     return tip
 end
@@ -288,10 +325,26 @@ local function ShowPinTooltipFallback(pin, camp)
     end
     local filled = SmoreSkills_CountFilledSlots(camp)
     GameTooltip:SetText(camp.zone or "Camp", 1, 0.82, 0.45)
+    if SmoreSkills_GetShowGuildMark and SmoreSkills_GetShowGuildMark() and SmoreSkills_CampHasGuildie(camp) then
+        GameTooltip:AddLine("Guildie at this camp", 0, 1, 0)
+    end
     GameTooltip:AddLine(SmoreSkills_FormatCoords(camp), 0.7, 0.7, 0.7)
     GameTooltip:AddLine(string.format("%d/%d slots filled", filled, SmoreSkills.MAX_SLOTS), 0.75, 0.75, 0.75)
     for i = 1, SmoreSkills.MAX_SLOTS do
         GameTooltip:AddLine(SmoreSkills_FormatSlotTooltipLine(camp, i), 0.92, 0.92, 0.92)
+    end
+    if camp.want and camp.want ~= "any" then
+        local want = camp.want
+        local wantItems = camp.wantItems
+        if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
+            want = SmoreSkills_GetEffectiveHostWant()
+            wantItems = SmoreSkills_GetEffectiveHostWantItems()
+        end
+        local wantLines = {}
+        SmoreSkills_AppendHostWantTooltipLines(wantLines, want, wantItems)
+        for _, line in ipairs(wantLines) do
+            GameTooltip:AddLine(line, 0.92, 0.92, 0.92)
+        end
     end
     if camp.owner == "TestCamper" then
         GameTooltip:AddLine("Test camp (local preview)", 0.55, 0.55, 0.55)
@@ -314,7 +367,11 @@ local function ShowPinTooltip(pin)
     local ok, err = pcall(function()
         local tip = EnsureCampTooltip()
         local filled = SmoreSkills_CountFilledSlots(camp)
-        tip.title:SetText(camp.zone or "Camp")
+        local zoneTitle = camp.zone or "Camp"
+        if SmoreSkills_GetShowGuildMark and SmoreSkills_GetShowGuildMark() and SmoreSkills_CampHasGuildie(camp) then
+            zoneTitle = zoneTitle .. "  |cff00ff00G|r"
+        end
+        tip.title:SetText(zoneTitle)
         tip.title:SetTextColor(TITLE_YELLOW[1], TITLE_YELLOW[2], TITLE_YELLOW[3])
         tip.coords:SetText(SmoreSkills_FormatCoords(camp))
         tip.slotsLabel:SetText(string.format("%d/%d slots filled", filled, SmoreSkills.MAX_SLOTS))
@@ -329,18 +386,20 @@ local function ShowPinTooltip(pin)
         end
         if camp.want and camp.want ~= "any" then
             local want = camp.want
+            local wantItems = camp.wantItems
             if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
                 want = SmoreSkills_GetEffectiveHostWant()
+                wantItems = SmoreSkills_GetEffectiveHostWantItems()
             end
             if want and want ~= "any" then
-                table.insert(footerLines, "Host wants: " .. SmoreSkills_FormatWant(want))
+                SmoreSkills_AppendHostWantTooltipLines(footerLines, want, wantItems)
             end
         end
         if camp.owner == "TestCamper" then
-            table.insert(footerLines, "Test camp (local preview)")
+            table.insert(footerLines, "|cff888888Test camp (local preview)|r")
         end
         if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
-            table.insert(footerLines, "Right-click to pack up this campsite.")
+            table.insert(footerLines, "|cff888888Right-click to pack up this campsite.|r")
         end
         tip.footer:SetText(table.concat(footerLines, "\n"))
         tip.footer:SetWidth(math.max(260, tip.socketRow:GetWidth() + 8))
@@ -433,7 +492,7 @@ function Map:GetVisibleCamps(mapId)
     if sync and sync.seekDiscoveredIds and SmoreSkillsDB.camps then
         for id in pairs(sync.seekDiscoveredIds) do
             local camp = SmoreSkillsDB.camps[id]
-            if camp and camp.id and not seen[camp.id] and SmoreSkills_CampPinActive(camp) then
+            if camp and camp.id and not seen[camp.id] and SmoreSkills_CampPinActive(camp) and SmoreSkills_IsHostedCamp(camp) then
                 table.insert(camps, camp)
                 seen[camp.id] = true
             end
@@ -467,6 +526,11 @@ function Map:AnchorButton()
     local canvas = GetMapCanvas()
     btn:SetParent(WorldMapFrame.ScrollContainer or WorldMapFrame)
     btn:SetFrameStrata("TOOLTIP")
+    local btnLevel = 50
+    if WorldMapFrame.GetFrameLevel then
+        btnLevel = (WorldMapFrame:GetFrameLevel() or 1) + 50
+    end
+    btn:SetFrameLevel(btnLevel)
     btn:ClearAllPoints()
     btn:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMRIGHT", -MAP_OFFSET_X, MAP_OFFSET_Y)
     btn:Show()
@@ -490,7 +554,7 @@ end
 function Map:CreatePinFrame()
     local canvas = GetMapCanvas()
     local pin = CreateFrame("Button", nil, canvas)
-    pin:SetSize(PIN_HIT_SIZE, PIN_HIT_SIZE)
+    pin:SetSize(GetPinHitSize(), GetPinHitSize())
     pin:SetFrameStrata("HIGH")
     pin:SetFrameLevel(PIN_FRAME_LEVEL)
 
@@ -500,11 +564,20 @@ function Map:CreatePinFrame()
     anchor:SetPoint("CENTER")
     pin.anchor = anchor
 
+    local fireScale = GetFireScale()
     local fireFrame = CreateFrame("Frame", nil, pin)
-    fireFrame:SetSize(QUESTIE.btn * FIRE_SCALE, QUESTIE.btn * FIRE_SCALE)
+    fireFrame:SetSize(QUESTIE.btn * fireScale, QUESTIE.btn * fireScale)
     fireFrame:SetPoint("CENTER", anchor, "CENTER")
     pin.fireFrame = fireFrame
-    pin.fireBg, pin.fireIcon, pin.fireRing = ApplyQuestieCluster(fireFrame, FIRE_SCALE, CAMP_PIN_ICON)
+    pin.fireBg, pin.fireIcon, pin.fireRing, pin.fireMask = ApplyQuestieCluster(fireFrame, fireScale, CAMP_PIN_ICON)
+    local guildMark = pin:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    guildMark:SetPoint("BOTTOMRIGHT", fireFrame, "BOTTOMRIGHT", 4, -2)
+    guildMark:SetText("|cff00ff00G|r")
+    if guildMark.SetDrawLayer then
+        guildMark:SetDrawLayer("OVERLAY", 7)
+    end
+    guildMark:Hide()
+    pin.guildMark = guildMark
     if fireFrame.EnableMouse then
         fireFrame:EnableMouse(false)
     end
@@ -601,11 +674,32 @@ function Map:ConfirmPackUp(camp)
     end
 end
 
+function Map:ApplyPinScale(pin)
+    if not pin then
+        return
+    end
+    local scale = GetFireScale()
+    pin:SetSize(GetPinHitSize(), GetPinHitSize())
+    pin:SetFrameStrata("HIGH")
+    pin:SetFrameLevel(PIN_FRAME_LEVEL)
+    ResizeQuestieCluster(pin, scale)
+end
+
+function Map:UpdatePinGuildMark(pin)
+    if not pin or not pin.guildMark then
+        return
+    end
+    local show = SmoreSkills_GetShowGuildMark and SmoreSkills_GetShowGuildMark()
+        and pin.camp and SmoreSkills_CampHasGuildie(pin.camp)
+    pin.guildMark:SetShown(show and true or false)
+end
+
 function Map:AcquirePin()
     local pin = table.remove(self.pinPool)
     if not pin then
         pin = self:CreatePinFrame()
     end
+    self:ApplyPinScale(pin)
     pin:Show()
     return pin
 end
@@ -665,6 +759,8 @@ function Map:RefreshPins()
             self.pins[id] = pin
         end
         pin.camp = camp
+        self:ApplyPinScale(pin)
+        self:UpdatePinGuildMark(pin)
         if pin.fireIcon then
             pin.fireIcon:SetTexture(CAMP_PIN_ICON)
         end

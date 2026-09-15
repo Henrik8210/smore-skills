@@ -52,14 +52,6 @@ function UI:Init()
         SmoreSkills.Sync:HostHere()
     end)
 
-    local hereBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    hereBtn:SetSize(100, 22)
-    hereBtn:SetPoint("LEFT", hostBtn, "RIGHT", 6, 0)
-    hereBtn:SetText("Share")
-    hereBtn:SetScript("OnClick", function()
-        SmoreSkills.Sync:ShareHere()
-    end)
-
     self.status = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     self.status:SetPoint("TOPLEFT", 18, -68)
     self.status:SetPoint("RIGHT", -18, 0)
@@ -145,7 +137,7 @@ function UI:Refresh()
         row:ClearAllPoints()
         row:SetPoint("TOPLEFT", 0, -y)
         local filled = SmoreSkills_CountFilledSlots(camp)
-        local guildMark = SmoreSkills_CampHasGuildie(camp) and "|cff00ff00G|r  " or ""
+        local guildMark = (SmoreSkills_GetShowGuildMark() and SmoreSkills_CampHasGuildie(camp)) and "|cff00ff00G|r  " or ""
         local sourceMark = camp.source == "host" and "|cff88ccffH|r " or ""
         row.name:SetText(string.format(
             "%s%s%s  %s   %d/%d   %s",

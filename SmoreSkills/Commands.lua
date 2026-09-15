@@ -7,15 +7,15 @@ local function PrintProfessions()
     for _, row in ipairs(SmoreSkills.PROFESSIONS) do
         table.insert(parts, row.code)
     end
-    SmoreSkills_Print("Professions: " .. table.concat(parts, ", "))
+    SmoreSkills_Reply("Professions: " .. table.concat(parts, ", "))
 end
 
-SlashCmdList["SMORESKILLS"] = function(msg)
+local function HandleSlash(msg)
     msg = strtrim(msg or "")
     local lower = strlower(msg)
 
     if lower == "here" or lower == "share" then
-        SmoreSkills.Sync:ShareHere()
+        SmoreSkills_Reply("That command is gone. Use /smores host to share your campfire.")
         return
     end
     if lower == "find" or lower == "seek" then
@@ -28,28 +28,41 @@ SlashCmdList["SMORESKILLS"] = function(msg)
     end
     if lower == "stop" then
         SmoreSkills.Sync:StopHosting()
-        SmoreSkills_Print("Stopped hosting.")
+        SmoreSkills_Reply("Stopped hosting.")
+        return
+    end
+    if lower == "pack" or lower == "packup" then
+        local camp = SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp()
+        if not camp then
+            SmoreSkills_Reply("No campsite to pack up.")
+            return
+        end
+        if SmoreSkills.Map and SmoreSkills.Map.ConfirmPackUp then
+            SmoreSkills.Map:ConfirmPackUp(camp)
+        else
+            SmoreSkills.Sync:PackUpCamp(camp)
+        end
         return
     end
     if lower == "status" then
         local sync = SmoreSkills.Sync
         local chOk, chId = sync:GetChannelStatus()
-        SmoreSkills_Print("Channel: " .. (chOk and ("joined (#" .. tostring(chId) .. ")") or "NOT JOINED"))
+        SmoreSkills_Reply("Channel: " .. (chOk and ("joined (#" .. tostring(chId) .. ")") or "NOT JOINED"))
         if sync:IsHosting() then
             local left = math.max(0, math.ceil((sync.hostingUntil or 0) - SmoreSkills_Now()))
-            SmoreSkills_Print(string.format("Hosting: yes (%ds left). Want: %s", left, SmoreSkills_FormatWant(SmoreSkills_GetEffectiveHostWant())))
+            SmoreSkills_Reply(string.format("Hosting: yes (%ds left). Want: %s", left, SmoreSkills_FormatWant(SmoreSkills_GetEffectiveHostWant(), SmoreSkills_GetEffectiveHostWantItems())))
         else
-            SmoreSkills_Print("Hosting: no")
+            SmoreSkills_Reply("Hosting: no")
         end
         if sync:IsSeeking() then
-            SmoreSkills_Print(string.format("Seeking: yes (%ds left)", sync:GetSeekingRemaining()))
+            SmoreSkills_Reply(string.format("Seeking: yes (%ds left)", sync:GetSeekingRemaining()))
         else
-            SmoreSkills_Print("Seeking: no")
+            SmoreSkills_Reply("Seeking: no")
         end
         local profs = SmoreSkills_CollectSeekerProfessions(SmoreSkills_GetPlayerProfession())
-        SmoreSkills_Print("Your trades: " .. SmoreSkills_FormatProfessionList(profs))
+        SmoreSkills_Reply("Your trades: " .. SmoreSkills_FormatProfessionList(profs))
         local _, _, _, zone = SmoreSkills_GetPlayerMapPos()
-        SmoreSkills_Print("Zone: " .. (zone or "?"))
+        SmoreSkills_Reply("Zone: " .. (zone or "?"))
         if WorldMapFrame and WorldMapFrame.IsShown and WorldMapFrame:IsShown() and WorldMapFrame.GetMapID then
             local viewId = WorldMapFrame:GetMapID()
             local viewName = viewId
@@ -57,39 +70,39 @@ SlashCmdList["SMORESKILLS"] = function(msg)
                 local info = C_Map.GetMapInfo(viewId)
                 viewName = info and info.name or viewId
             end
-            SmoreSkills_Print("Map view: " .. tostring(viewName))
+            SmoreSkills_Reply("Map view: " .. tostring(viewName))
         end
-        SmoreSkills_Print("Seeker filter: " .. SmoreSkills_FormatWant(SmoreSkills_GetEffectiveSeekerWant()))
+        SmoreSkills_Reply("Seeker filter: " .. SmoreSkills_FormatWant(SmoreSkills_GetEffectiveSeekerWant(), SmoreSkills_GetEffectiveSeekerWantItems()))
         return
     end
     if lower == "test" then
         local enabled = SmoreSkills_TestCampsEnabled()
-        SmoreSkills_Print("Test camps: " .. (enabled and "on" or "off") .. " (/smores test on | off)")
+        SmoreSkills_Reply("Test camps: " .. (enabled and "on" or "off") .. " (/smores test on | off)")
         return
     end
     if lower == "test on" then
         SmoreSkillsDB.settings = SmoreSkillsDB.settings or {}
         SmoreSkillsDB.settings.testCamps = true
-        SmoreSkills_Print("Test camps enabled (Ashenvale sample on seek).")
+        SmoreSkills_Reply("Test camps enabled (Ashenvale sample on seek).")
         return
     end
     if lower == "test off" then
         SmoreSkillsDB.settings = SmoreSkillsDB.settings or {}
         SmoreSkillsDB.settings.testCamps = false
-        SmoreSkills_Print("Test camps disabled.")
+        SmoreSkills_Reply("Test camps disabled.")
         return
     end
     if lower == "list" then
         local mapId = select(1, SmoreSkills_GetPlayerMapPos())
         local camps = SmoreSkills_ListVisibleCamps(mapId)
         if #camps == 0 then
-            SmoreSkills_Print("No camps stored.")
+            SmoreSkills_Reply("No camps stored.")
             return
         end
         for _, camp in ipairs(camps) do
-            local guildMark = SmoreSkills_CampHasGuildie(camp) and " [guild] " or " "
+            local guildMark = (SmoreSkills_GetShowGuildMark() and SmoreSkills_CampHasGuildie(camp)) and " [guild] " or " "
             local tag = camp.source == "host" and "[host] " or ""
-            SmoreSkills_Print(string.format(
+            SmoreSkills_Reply(string.format(
                 "%s%s%s(%s) %d/%d — %s",
                 tag,
                 camp.zone or "?",
@@ -110,12 +123,12 @@ SlashCmdList["SMORESKILLS"] = function(msg)
             for _, id in ipairs(profs) do
                 table.insert(detected, SmoreSkills_ProfessionLabel(id))
             end
-            SmoreSkills_Print("Detected: " .. table.concat(detected, ", "))
+            SmoreSkills_Reply("Detected: " .. table.concat(detected, ", "))
         end
         if current then
-            SmoreSkills_Print("Seeking as: " .. SmoreSkills_ProfessionLabel(current) .. " (/smores prof <code> to change)")
+            SmoreSkills_Reply("Seeking as: " .. SmoreSkills_ProfessionLabel(current) .. " (/smores prof <code> to change)")
         else
-            SmoreSkills_Print("No seek profession set. /smores prof <code>")
+            SmoreSkills_Reply("No seek profession set. /smores prof <code>")
             PrintProfessions()
         end
         return
@@ -127,9 +140,9 @@ SlashCmdList["SMORESKILLS"] = function(msg)
             return
         end
         if SmoreSkills_SetPlayerProfession(code) then
-            SmoreSkills_Print("Profession set to " .. SmoreSkills_ProfessionLabel(code) .. ".")
+            SmoreSkills_Reply("Profession set to " .. SmoreSkills_ProfessionLabel(code) .. ".")
         else
-            SmoreSkills_Print("Unknown profession. Try: lw, bs, tail, …")
+            SmoreSkills_Reply("Unknown profession. Try: lw, bs, tail, …")
             PrintProfessions()
         end
         return
@@ -141,7 +154,7 @@ SlashCmdList["SMORESKILLS"] = function(msg)
         return
     end
     if lower == "want" then
-        SmoreSkills_Print("Host want list: " .. SmoreSkills_FormatWant(SmoreSkills_GetEffectiveHostWant()) .. " (/smores want any | bs,lw, …)")
+        SmoreSkills_Reply("Host want list: " .. SmoreSkills_FormatWant(SmoreSkills_GetEffectiveHostWant()) .. " (/smores want any | bs,lw, …)")
         return
     end
     if lower:match("^want ") then
@@ -152,9 +165,9 @@ SlashCmdList["SMORESKILLS"] = function(msg)
             else
                 SmoreSkills_SetHostFilterEnabled(true)
             end
-            SmoreSkills_Print("Host want list: " .. SmoreSkills_FormatWant(SmoreSkills_GetEffectiveHostWant()))
+            SmoreSkills_Reply("Host want list: " .. SmoreSkills_FormatWant(SmoreSkills_GetEffectiveHostWant()))
         else
-            SmoreSkills_Print("Unknown profession in want list.")
+            SmoreSkills_Reply("Unknown profession in want list.")
             PrintProfessions()
         end
         return
@@ -164,16 +177,16 @@ SlashCmdList["SMORESKILLS"] = function(msg)
         local indexStr, profCode, objectName = rest:match("^(%d+)%s+(%S+)(?:%s+(.+))?$")
         local index = tonumber(indexStr)
         if not index or index < 1 or index > SmoreSkills.MAX_SLOTS then
-            SmoreSkills_Print("Usage: /smores slot <1-3> <prof> [object name]")
+            SmoreSkills_Reply("Usage: /smores slot <1-3> <prof> [object name]")
             return
         end
         if profCode == "clear" or profCode == "empty" then
             local camp, err = SmoreSkills_ClearLocalSlot(index)
             if not camp then
-                SmoreSkills_Print(err)
+                SmoreSkills_Reply(err)
                 return
             end
-            SmoreSkills_Print(string.format("Cleared slot %d.", index))
+            SmoreSkills_Reply(string.format("Cleared slot %d.", index))
             if SmoreSkills.Sync:IsHosting() then
                 SmoreSkills.Sync:HostHere()
             end
@@ -181,11 +194,11 @@ SlashCmdList["SMORESKILLS"] = function(msg)
         end
         local camp, err = SmoreSkills_SetLocalSlot(index, profCode, objectName)
         if not camp then
-            SmoreSkills_Print(err)
+            SmoreSkills_Reply(err)
             PrintProfessions()
             return
         end
-        SmoreSkills_Print(string.format(
+        SmoreSkills_Reply(string.format(
             "Slot %d: %s%s",
             index,
             SmoreSkills_ProfessionLabel(profCode),
@@ -202,5 +215,18 @@ SlashCmdList["SMORESKILLS"] = function(msg)
 
     if SmoreSkills.Settings and SmoreSkills.Settings.Toggle then
         SmoreSkills.Settings:Toggle()
+    end
+end
+
+SlashCmdList["SMORESKILLS"] = function(msg)
+    SmoreSkills.forceChat = true
+    local ok, err = pcall(HandleSlash, msg)
+    SmoreSkills.forceChat = nil
+    if not ok then
+        if geterrorhandler then
+            geterrorhandler()(err)
+        else
+            error(err)
+        end
     end
 end

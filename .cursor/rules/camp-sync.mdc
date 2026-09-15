@@ -25,17 +25,20 @@ Design: [CAMPING.md](../../CAMPING.md). TBC Anniversary is the test client until
 - Hidden custom channel `SmoreSkills`. Prefix `SmoreSk`
 - Payload under 250 bytes per message
 - Message types:
-  - `C:` camp snapshot — `C:map:x:y:fac:own:p1:o1:p2:o2:p3:o3:t`
   - `S:` seeker — `S:map:fac:prof:t` (looking in zone)
   - `H:` host — `H:map:x:y:fac:own:want:p1:o1:p2:o2:p3:o3:t` (at fire, wants company)
   - `X:` packed up — `X:map:x:y:own:t` (host right-clicks own pin; seekers drop it now)
-- Share is **opt-in**: seek / host / `/smores here` only when the player acts
+  - `C:` legacy camp snapshot — still accepted if received; we no longer send it
+- Share is **opt-in**: seek / host only when the player acts
 - Same-faction only
 - Three slots. Each player places at most one object (the game enforces that; we display it)
 - Cooldowns: seek 45 s, host rebroadcast 90 s, outbound 8 s per player (`X:` skips the 8 s cooldown)
-- Signal TTL ~3 min; campfire pin ~5 min or until full/packed; forget camps older than 30 minutes
+- Signal TTL ~3 min; campfire pin ~10 min or until full/packed; forget camps older than 30 minutes
 - Max 12 pins per zone
 - Host pin is **local**; seekers only see it after they receive `H:`
+- One player, one hosted camp. Pack up or wait for expiry before hosting another.
+- World map pins are **hosts only** — seekers do not get a pin; do not show C: snapshots as pins
+- Do not call `ChatFrame_RemoveChannel` on every outbound ping (taints chat)
 - Keep broadcasting the **fire coords** if the host walks away (do not key hosting to current feet)
 - Nested city maps (Elwynn/Stormwind, Dun Morogh/IF, Durotar/Org): still draw **zone** pins if `GetMapID()` is the city
 - Guild mark is optional UI, not a requirement to see or share a camp

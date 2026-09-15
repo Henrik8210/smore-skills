@@ -7,33 +7,121 @@ A player campfire becomes a **campsite**. Same-faction players sit at the fire. 
 - A basic campfire allows **up to three** special crafted objects.
 - Each player can place **one** object.
 - Each tradeskill has its own objects (unique buff or utility).
-- First objects at **20 skill**. Better ones come from **blueprint** recipes.
+- First objects at the **associated skill level**, then a **quest**. Better ones come from **blueprint** recipes found during adventures.
 - Camping features share a **1 hour** cooldown.
 - Objects require a **campfire / campsite nearby**.
 - Buffs are variants of, and **exclusive with**, class buffs (Blessing of Might, Arcane Intellect, Strength of Earth, …).
 
-## Blacksmithing (floor / quest)
+## Deep Dive panel recap (official)
 
-From *Camping 101: Blacksmithing* (Sharpening Wheel as the quest reward):
+Source: [World of Warcraft: Forever Deep Dive Panel Recap](https://news.blizzard.com/en-us/article/24303313/world-of-warcraft-forever-deep-dive-panel-recap) (Clay Stone, Josh Greenfield / Aggrend, 14 Sep 2026). Wowhead blue-tracker mirror of the same post.
 
-| Object | Skill | Notes |
+This is the panel write-up. **Live item text wins** where they disagree (Sharpening Wheel is **Strength**, not Attack Power).
+
+- Placing a **Basic Campfire** creates a campsite. Sit for a few moments to get **rested**, then leave. Benefits named: **vendors, repairs, profession workspaces, and one-hour buffs**. Refreshing food buffs is part of the stop.
+- **Location matters:** “some parts of Azeroth are better suited for a quiet rest than others.” Matches Camping 101 (wilderness, not town square).
+- Basic fire: **up to three** crafted objects, **one per player**. Those objects share a **one-hour cooldown** (same as live item text).
+- Each profession has **three objects at different skill levels**. The profession’s **buff or utility is the same no matter which of those three is placed** (Anvil/Forge keeping the wheel’s Strength fits this). Extra objects can still add a **station** (lab, rack, forge).
+- First object at **skill 20**, from a camping NPC or the profession trainer. Later objects: **Blueprint recipes from specific dungeon bosses** (quest text said “during your adventures”; this recap names dungeon bosses).
+- Named examples beyond BS/tailor/herb:
+  - Alchemy: **Alchemy Lab**
+  - Leatherworking: **Tanning Rack** (needed for advanced LW recipes)
+  - Cooking: **upgraded campfires** that allow **five or ten** objects — not a Basic 3-slot camp. `SmoreSkills.MAX_SLOTS = 3` is Basic only; do not extend the `H:` wire until we see a 5/10 fire on beta.
+- Panel examples still say Sharpening Wheel = **Attack Power**. Live tooltip is **+34 Strength**. Keep Strength.
+
+**Addon notes from this recap**
+
+- Seekers may want a pin for **vendor / repairs / workspace**, not only a matching trade. Find currently expects a profession; revisit if people camp with cooking-only.
+- **One-hour buffs** (after sitting) and **one-hour place cooldown** can both be true. Still **not** how long the fire stays up.
+- Cooking 5/10 capacity would break three sockets and `p1:o1:p2:o2:p3:o3`. Stay at three until we measure it.
+- Forever **two-part character names** (e.g. `Ana Forever`) make `own` on the wire longer. Keep the payload under 250 bytes.
+
+## Sep 2026 blurb (profession items)
+
+Source: trade-skill / campsite copy shared 15 Sep 2026. Treat as current marketing; **beta must confirm** where it disagrees with the panel notes above.
+
+- Place a campfire in the **wilderness** while questing (cities like Stormwind are probably not the intended site).
+- Meet people and share **one-hour buffs**.
+- **Every profession gets three unique items** they can place for themselves and fellow campers.
+  - First item: reach the **associated skill level** and complete a quest (Blacksmithing: *Camping 101* from Smith Argus, reward Sharpening Wheel). Marketing said “level 20”; live requirements and this quest are **skill**, not character level.
+  - The other two: **Blueprint recipes from specific dungeon bosses** (panel recap). Quest text only said “during your adventures.”
+- Blacksmithing examples in this blurb:
+  - **Sharpening wheel** — marketing said AP; **live tooltip is Strength** (see below).
+  - **Anvil** — marketing said repairs; **live tooltip** only says wheel benefits + replace the wheel.
+
+Do not confuse **three items per profession** (your personal unlocks) with **three object slots on a camp** (three different players, one object each). The camp still has three slots.
+
+**Buffs vs camp lifetime:** the Deep Dive recap says sit a moment, then leave with **one-hour buffs**. Live item tooltips instead spell a **1 hour cooldown** on placing camping features. Those can both be true. Neither is how long the campsite stays lit. TBC Anniversary pin TTL is **10 min** (`SmoreSkills.CAMPFIRE_DURATION`) so two-client tests have room; Classic cooking fire is still 5 min in-game. On Forever beta, time the **campsite** itself.
+
+## Blacksmithing (live tooltips)
+
+In-game item text (pre-beta client, Sep 2026). This overrides Camping 101 numbers where they differ.
+
+| Object | Requires | Use |
 | --- | --- | --- |
-| Sharpening Wheel | 20 | +4 Strength, exclusive with Strength of Earth Totem |
-| Anvil | 160 | All Sharpening Wheel benefits; can replace the wheel |
-| Master Forge | 300 | Usable for recipes that need it, plus wheel benefits; can replace the wheel |
+| Sharpening Wheel | Blacksmithing (20) | Constructs a wheel; you and others **sitting nearby** get **+34 Strength**, exclusive with Strength of Earth Totem. Campfire nearby. |
+| Anvil | Blacksmithing (**140**) | Places an anvil; **all Sharpening Wheel benefits**. May be placed over a wheel to replace it. Campfire nearby. Tooltip does **not** mention repairs. |
+| Master Forge | Blacksmithing (300) | Usable for recipes that require it, **plus all wheel benefits**. May replace a wheel. Campfire nearby. |
 
-## Other examples (panel)
+All three: **All camping features share a cooldown of 1 hour.**
 
-| Profession | Object | Buff (example) |
+Camping 101 had Anvil at skill **160** and Strength **+4**. Live text is **140** and **+34**.
+
+### Camping 101: Blacksmithing (quest)
+
+Smith Argus. Completing it **teaches Sharpening Wheel** (cast on you) plus a little XP.
+
+Quest text that matters for the addon:
+
+- Test the wheel in the **wilderness**. “Most folk don't care much for camps being set up in the center of town.”
+- **No camp without a campfire.** Place the fire first, then the object.
+- **Cooks** teach the basic campfire. If you cannot cook yet, find culinary training.
+
+## Other examples (panel / recap)
+
+| Profession | Object | Buff / utility |
 | --- | --- | --- |
 | Tailoring | Faction banner | Spirit |
 | Herbalism | Incense candle | Intellect |
+| Alchemy | Alchemy Lab | Workspace (buff unknown) |
+| Leatherworking | Tanning Rack | Required for advanced LW recipes |
+| Cooking | Upgraded campfires | **5 or 10** object slots (not Basic 3) |
 
-Cooking can teach a basic campfire (quest text). That is how you **start** a site, not a third-slot specialty.
+Cooking also teaches the **Basic Campfire** that *starts* a site. That is separate from the upgraded 5/10 fires.
 
----
+## Zockify camping roundup
 
-# How S'more Skills should work (target design)
+Source: [WoW Forever Camping System](https://www.zockify.com/forever/camping-system/) (updated 14 Sep 2026). Secondary compilation of the Deep Dive recap plus live BS tooltips — not a primary Blizzard post.
+
+**Matches what we already have:** vendors / repairs / workspaces; Basic 3 vs cooking 5/10; one object per player; 1 hour place cooldown; sit to receive **1 hour buffs**; skill 20 then dungeon-boss blueprints; Alchemy Lab, Tanning Rack, Faction Banner, Incense Candle; BS Wheel **20** / Anvil **140** / Forge **300**.
+
+**Use with care:**
+
+- Their object table correctly says Sharpening Wheel = **+34 Strength**. Their buffs section still lists **Attack Power**. Keep Strength (live tooltip).
+- They skip **Field Guide**. Talent tooltip still has it (−8% place cooldown, 3 ranks).
+- They write Permanence as **50% per rank**. Unspent tooltip only shows **50%**; later ranks unverified.
+
+No new named objects beyond the recap.
+
+## Legacy perks (camping)
+
+Sources: [Legacy perks](https://classicwowforever.com/professions/legacy-perks/), [Camping](https://classicwowforever.com/professions/camping/) (pre-release tooltips). [Zockify](https://www.zockify.com/forever/camping-system/) lists Permanence and Reagent Economy only.
+
+These are **the host's (or seeker's) personal Legacy spends**. Tooltip language is “your cooldown”, “your Tier 1 features”, “benefits **you** gain from resting”. Do **not** treat them as camp-wide until beta proves otherwise.
+
+| Perk | Ranks | Camping part | Who it actually helps |
+| --- | --- | --- | --- |
+| **Reagent Economy** | 1 | Tier 1 camping features cost no reagents to craft | The **crafter**. Visitors do not get free crafts from sitting at that fire. |
+| **Field Guide** | 3 | −8% cooldown on **adding** camp features (per rank; stacking unconfirmed) | The **person placing**. A seeker filling a slot uses *their* cooldown, not the host's. |
+| **Permanence** | 2 | Benefits **you** gain from resting at a camp last 50% longer (per rank; stacking unconfirmed). Also lengthens some long-duration party/raid class buffs. | The **person with the perk**, at any camp. Host Permanence does not (from this text) make *your* Strength last longer at their fire. |
+
+Permanence extends the **buff**, not how long you must sit, and not how long the fire stays up.
+
+Deeper in Resourcefulness, the recap only names **Reagent Economy** as removing reagents from **class abilities**. The camping “Tier 1 features cost no reagents” line is from the talent tooltip, not this article.
+
+**Pin / tooltip:** optional compact line once Forever exposes a readable API (`Host Legacy: Permanence 2` — not “this camp’s buffs last 50% longer”). Opt-in. Do not add extra `H:` colon fields. Skip on TBC.
+
+## How S'more Skills should work (target design)
 
 Addons cannot scan Ashenvale for fires. Discovery is **opt-in signals** between players who have the addon — never guild chat, never a login dump.
 
@@ -45,7 +133,11 @@ Addons cannot scan Ashenvale for fires. Discovery is **opt-in signals** between 
 
 When their signals **match**, the night elf sees a **map pin**: a bonfire icon with **three rounded sockets** around it. Filled sockets show the profession (and object when known); empty sockets show a faded greyscale S'more. She sees `1/3` filled (Blacksmithing), knows she can join with Leatherworking, and that other seekers may have received the same ping.
 
-**The host's pin is local.** Lighting a fire writes the camp into *your* addon and draws it on *your* map. A seeker only draws that pin after **their** client receives your host ping (`H:`). Standing next to each other is not enough.
+**World map pins are hosts only.** Seekers never appear on the map. A pin means someone is **hosting** (`/smores host` or Auto host on campfire). Find only shows those host pings — leftover location snapshots are not pins.
+
+**One camp at a time.** A player hosts a single fire. Wait for the **10 min** pin to expire, or pack up (right-click own pin or `/smores pack` — same Yes/No confirm). Then they can host again. There is no `/smores here` snapshot command; sharing a fire is host only.
+
+**The host's pin is local.** Lighting a fire writes the camp into *your* addon and draws it on *your* map. Slot 1 and the Host tooltip line use the Host-tab profession. A seeker only draws that pin after **their** client receives your host ping (`H:`). Standing next to each other is not enough.
 
 ## Two roles
 
@@ -59,12 +151,13 @@ Signals are **addon messages** on the hidden `SmoreSkills` channel (not guild/pa
 ## Map UX (Forever target)
 
 - Small **bonfire button** on the map (corner). Tooltip: *Find campsites in this zone*.
-- **Seeker click** → one seek ping; listen for matching host pings; show pins. Switches the map to the **player's zone** (not a nested city map).
+- **Seeker click** → one seek ping; listen for matching **host** pings; show those pins only. Seekers never get a pin of their own. Switches the map to the **player's zone** (not a nested city map).
 - **Host click** (while at/near a fire) → host ping with coords + slot state + who you want. Walking away does **not** move or drop the pin; we keep broadcasting the **fire's original coords**.
 - **Find right-click** → clear *other* people's markers. Your own hosted pin stays until the fire ends, the camp is full, or you pack up.
-- **Own pin right-click** → confirm pack-up. Sends `X:` so seekers drop that pin immediately (overrides the 5 min / 3/3 lifetime).
+- **Own pin right-click** or `/smores pack` → confirm pack-up. Sends `X:` so seekers drop that pin immediately (overrides the 10 min / 3/3 lifetime).
 - **Pin art:** bonfire + three sockets (profession icon, or faded greyscale S'more if empty). Hover: zone, coords, `2/3`, owner, slot detail.
 - A green **G** on a pin or list row means a guildie is on that camp. Hint only — guild is not how data moves.
+- **`/smores list`** prints the same set as the map: hosted camps you can see, **max 12** per zone (not every camp still in memory).
 
 ## Matching (client-side)
 
@@ -75,7 +168,7 @@ A **host** ping is shown to a **seeker** when all of:
 1. Same **faction**
 2. Same **zone** (map id)
 3. Host has at least one **empty slot**, or explicitly wants the seeker's profession
-4. Host **want list** is `any`, or includes the seeker's profession. The host's **own** camp profession (slot 1) is separate — a blacksmith can still tick Blacksmithing in Host wants if they want another BS to place an object. Forever beta will tell us how stacking same-trade objects works; do not hide that checkbox.
+4. Host **want list** is `any`, or includes the seeker's profession. If the host filter is on and **no professions are ticked**, want is `none` — **nobody** sees the camp. Empty item picks still mean any item. The host's **own** camp profession (slot 1) is separate — a blacksmith can still tick Blacksmithing in Host wants if they want another BS to place an object. Forever beta will tell us how stacking same-trade objects works; do not hide that checkbox.
 5. Pin count in zone is under the **display cap**
 
 Seekers who click find at the same time may all see the same camp — that is intentional (light urgency).
@@ -87,9 +180,9 @@ Seekers who click find at the same time may all see the same camp — that is in
 | Seek cooldown | 45 s | One click ≠ spam |
 | Host rebroadcast | 90 s while “open” | Heartbeat, not flood |
 | Signal TTL | 3 min | Seek listen window; stale seek/host *signals* |
-| Campfire pin lifetime | **5 min** from first host ping (Classic cooking fire) | Hide pin when time is up **or** all 3 slots are filled **or** the host packs up (right-click own pin). **Forever beta:** campsites may last longer — measure real fire duration and change `SmoreSkills.CAMPFIRE_DURATION`. |
+| Campfire pin lifetime | **10 min** from first host ping (TBC testbed TTL) | Hide pin when time is up **or** all 3 slots are filled **or** the host packs up (right-click own pin). **Forever:** camp duration is **unknown**. Time the campsite on beta before changing `SmoreSkills.CAMPFIRE_DURATION`. |
 | Camp memory | 30 min | Same as today |
-| Max pins per zone | 12 | Cap map clutter |
+| Max pins per zone | 12 | Cap map clutter. `/smores list` uses this same cap. |
 | Payload size | &lt; 250 bytes | WoW addon message limit |
 | Share cooldown | 8 s | Per player, all outbound types except pack-up `X:` (must go out immediately) |
 
@@ -101,7 +194,7 @@ Hidden channel: `SmoreSkills`. Prefix: `SmoreSk`. Same faction only.
 
 | Type | Purpose | Shape (concept) |
 | --- | --- | --- |
-| `C:` | Legacy / manual camp snapshot | `C:map:x:y:fac:own:p1:o1:p2:o2:p3:o3:t` |
+| `C:` | Legacy camp snapshot (receive only; we do not send) | `C:map:x:y:fac:own:p1:o1:p2:o2:p3:o3:t` |
 | `S:` | Seeker — looking in zone | `S:map:fac:prof:t` |
 | `H:` | Host — at fire, wants company | `H:map:x:y:fac:own:want:p1:o1:p2:o2:p3:o3:t` |
 | `X:` | Packed up — drop this camp pin now | `X:map:x:y:own:t` |
@@ -112,6 +205,8 @@ Hidden channel: `SmoreSkills`. Prefix: `SmoreSk`. Same faction only.
 - Coords use the same fixed-point wire encoding as `C:`
 
 A late seeker (logged in after the fire is already up) does **not** get a dump on login. They click Find → `S:` → the host replies with `H:` (even if the 8 s outbound cooldown means a short delay). Host heartbeat every 90 s is the backup. Walking away from the fire does not stop hosting; we keep the **original fire coords**.
+
+Do **not** call `ChatFrame_RemoveChannel` on every outbound ping. That taints Blizzard chat and can show *Interface action failed because of an AddOn* with no click on this addon. Hide `SmoreSkills` from chat tabs only when it actually appears there. Seek/host pings are unchanged.
 
 If the seeker has **no profession** yet, Find does nothing useful (`Set your profession first`). Settings profession is **account-wide**, so another character's saved trade can leak onto a twink.
 
@@ -153,17 +248,16 @@ TBC Anniversary has **no camping mechanic**. We still use it to prove:
 6. Hammer seek repeatedly — cooldown message, no hitch
 7. Host walks ~10 yards away — pin stays on the **fire**, heartbeat still answers Find
 8. Find right-click clears the seeker's other markers, not the host's own pin
-9. Host right-clicks own pin → pack-up confirm → seeker pin vanishes (`X:`)
+9. Host packs up (right-click own pin or `/smores pack`) → confirm → seeker pin vanishes (`X:`)
 
 **Elwynn / nested city maps:** Stormwind City is a child of Elwynn Forest. The map *art* can still be Elwynn (Stormwind in the corner) while `WorldMapFrame:GetMapID()` reports Stormwind City. Pins must still draw at **Elwynn** coords. Same family: Ironforge on Dun Morogh, Orgrimmar on Durotar. **Ashenvale has no nested capital**, so that glitch does not apply there. `/smores status` prints `Zone:` vs `Map view:` so you can see a mismatch.
 
 `/smores status` — channel joined, hosting/seeking, trades, zone, map view, seeker filter.
 
-### Shipped (v0.5.9) vs Forever beta
+### Shipped (v0.5.12) vs Forever beta
 
-| Feature | v0.5.9 (TBC testbed) | Forever beta |
+| Feature | v0.5.12 (TBC testbed) | Forever beta |
 | --- | --- | --- |
-| `/smores here` camp ping (`C:`) | Yes | Kept |
 | Seeker signal `S:` (`/smores find`, map Find button) | Yes | Same |
 | Host signal `H:` (`/smores host`) | Yes | Same + auto-host on Basic Campfire (placeholder) |
 | Auto host on Basic Campfire (spell 818) | Yes (placeholder) | Keep until real campsite API; then replace |
@@ -174,7 +268,7 @@ TBC Anniversary has **no camping mechanic**. We still use it to prove:
 | Settings popup (Host/Seeker filters) | Yes | Same |
 | Minimap fire icon | Yes | Same |
 | Auto-read placed objects | No | When API exposed |
-| Pin lifetime | **5 min**, 3/3 full, or host packs up (`X:`) | **Revisit:** Forever campfires may last longer than 5 min |
+| Pin lifetime | **10 min**, 3/3 full, or host packs up (`X:`) | **Unknown.** Copy says **buffs** last 1 hour; that is not camp/pin length. Measure the campsite on beta. |
 | Nested city maps | Draw zone coords if the widget reports the city (Elwynn/Stormwind) | Confirm Forever breadcrumb / GetMapID |
 | Pins at continent/world zoom | Projected from zone coords | Confirm continent projection |
 | Occupancy: sitters vs object slots | Host broadcasts state | May need extra `H:` field |
@@ -192,7 +286,10 @@ If **only the host** has the addon, guests cannot update camp state — the host
 # Later (Forever beta onward)
 
 - Read campfire / placed-object API when exposed
-- **Pin lifetime:** Classic cooking fires last **5 min** (`SmoreSkills.CAMPFIRE_DURATION`). Forever campsites may last longer — time a real fire on beta and update that constant. Pins also drop when all **3 slots** are filled or the host packs up (`X:`).
+- **Pin lifetime:** TBC testbed pin is **10 min**. Forever copy says **buffs** last 1 hour — that is not the campsite duration. Time a real fire on beta, then set `SmoreSkills.CAMPFIRE_DURATION`. Pins also drop when **3/3** or the host packs up (`X:`).
 - Fill a slot automatically when you place an object
 - Project pins when map is zoomed to continent/world
-- Occupancy: sitters at fire vs three object slots (different numbers)
+- Occupancy: sitters at fire vs object slots (different numbers)
+- **Cooking 5/10-slot campfires:** pin sockets and `H:` slot fields are built for Basic **3**. Measure before extending the wire.
+- **Two-part character names** on `own` — keep messages under 250 bytes
+- **Learned camp objects:** if Forever exposes recipes in the profession spellbook (or a camping API), hard-filter host/seeker item picks to what that character can actually place. TBC has no camping recipes to scan.
