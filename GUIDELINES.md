@@ -5,7 +5,7 @@ Forever camping finder. Protocol and UX are documented in [CAMPING.md](CAMPING.m
 - **Remote:** https://github.com/Henrik8210/smore-skills
 - **Addon folder:** `SmoreSkills/` (no apostrophe — WoW toc/folder rule)
 - **Title:** S'more Skills
-- **Version:** 0.5.46 (GitHub only — **do not CurseForge-tag** until the two-client Elwynn retest passes)
+- **Version:** 0.5.47 (GitHub only — **do not CurseForge-tag** until the two-client Elwynn retest passes)
 
 ## WoW install paths
 
@@ -46,7 +46,7 @@ Logo paths: `SmoreSkills.LOGO` (full art), `SmoreSkills.ICON` (cropped, minimap/
 | `/smores`, `/sms`, `/smoreskills` | Toggle settings popup |
 | `/smores list` | Print visible hosted camps in this zone (max 12, same as map pins) |
 | `/smores find` | Seek camps in zone |
-| `/smores host` | Host signal at your location (one camp at a time) |
+| `/smores host` | Re-share the current fire (walk-away keeps those coords) |
 | `/smores stop` | Stop hosting rebroadcasts |
 | `/smores pack` | Pack up your camp (same Yes/No confirm as the map pin) |
 | `/smores status` | Channel, hosting/seeking, trades, zone, map view |

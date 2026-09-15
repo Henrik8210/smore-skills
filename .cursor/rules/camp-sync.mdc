@@ -33,11 +33,11 @@ Design: [CAMPING.md](../../CAMPING.md). TBC Anniversary is the test client until
 - Same-faction only
 - Three slots. Each player places at most one object (the game enforces that; we display it)
 - Cooldowns: seek 45 s, host rebroadcast 90 s, outbound 8 s per player (`X:` skips the 8 s cooldown)
-- Signal TTL ~3 min; campfire pin ~10 min from when the fire was lit (heartbeats do not extend it) or until full/packed; forget camps older than 30 minutes
+- Signal TTL ~3 min; campfire pin ~10 min from when the fire was lit (same remaining time for every seeker; heartbeats do not extend it) or until full/packed/replaced; forget camps older than 30 minutes
 - Max 12 pins per zone
 - Host pin is **local**; other host pins only after **Find** (and an `H:`). Do not show C: snapshots as pins
 - Answering a seek sends `H:` on the hidden channel 0.15 s later (not from the `CHAT_MSG_*` handler). Addon whisper only if the channel is not joined (TBC Anniversary spam: “Unable to whisper”). Do not drop channel chat when skipping whisper.
-- One player, one hosted camp. Pack up or wait for expiry before hosting another.
+- One player, one hosted camp. A **new** campfire packs the previous pin (`X:`) and hosts the new site. Walking away or `/smores host` without a new fire keeps the original fire coords.
 - World map pins are **hosts only** — seekers do not get a pin; do not show C: snapshots as pins
 - Do not call `ChatFrame_RemoveChannel` (taints chat). Auto-host must not `SendChatMessage` from UNIT_SPELLCAST / CHAT_MSG_* / OnUpdate / WorldFrame. After the fire lands, a 0.25 s timer may send the same hidden-channel `H:` as `/smores host`. Do not hook WorldFrame / UIParent or EnableKeyboard. Other host pins only after Find. Continent zoom has no pins.
 - Keep broadcasting the **fire coords** if the host walks away (do not key hosting to current feet)

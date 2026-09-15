@@ -14,7 +14,7 @@ Meanwhile a blacksmith sits alone at a fire across the zone and sends a **host s
 
 All opt-in. No login dump. Community channel, not guild chat.
 
-## Status (v0.5.46)
+## Status (v0.5.47)
 
 | | |
 | --- | --- |
@@ -44,7 +44,7 @@ All opt-in. No login dump. Community channel, not guild chat.
 | `/smores`, `/sms`, `/smoreskills` | Toggle settings popup |
 | `/smores list` | Print visible hosted camps in this zone (max 12, same as map pins) |
 | `/smores find` | Seek camps in this zone |
-| `/smores host` | Signal you're at a fire and want company (one camp at a time) |
+| `/smores host` | Re-share your current fire (does not move it). A **new** campfire replaces the old pin. |
 | `/smores stop` | Stop hosting rebroadcasts |
 | `/smores pack` | Pack up your camp (same Yes/No confirm as the map pin) |
 | `/smores status` | Channel, hosting/seeking, trades, zone, map view |

@@ -1690,6 +1690,38 @@ function SmoreSkills_GetOwnedActiveCamp()
     return best
 end
 
+function SmoreSkills_ForEachOwnedActiveCamp(callback)
+    if type(callback) ~= "function" then
+        return
+    end
+    local me = SmoreSkills_PlayerName()
+    for _, camp in pairs(SmoreSkillsDB.camps or {}) do
+        if SmoreSkills_PlayerNamesMatch(camp.owner, me) and SmoreSkills_CampPinActive(camp) and SmoreSkills_IsHostedCamp(camp) then
+            callback(camp)
+        end
+    end
+end
+
+-- Same fire, not a new campsite. Nested city maps (Stormwind vs Elwynn) are different sites.
+function SmoreSkills_CampsShareSite(camp, mapId, x, y)
+    if not camp or not mapId then
+        return false
+    end
+    local cx, cy = tonumber(camp.x), tonumber(camp.y)
+    x, y = tonumber(x), tonumber(y)
+    if not cx or not cy or not x or not y then
+        return false
+    end
+    if SmoreSkills_CampId(camp.mapId, cx, cy) == SmoreSkills_CampId(mapId, x, y) then
+        return true
+    end
+    if camp.mapId ~= mapId and not SmoreSkills_MapsShareZone(camp.mapId, mapId) then
+        return false
+    end
+    local dx, dy = cx - x, cy - y
+    return (dx * dx + dy * dy) < (0.012 * 0.012)
+end
+
 function SmoreSkills_AlreadyHaveCampMessage(camp)
     camp = camp or SmoreSkills_GetOwnedActiveCamp()
     local where = (camp and camp.zone and camp.zone ~= "") and (" in " .. camp.zone) or ""

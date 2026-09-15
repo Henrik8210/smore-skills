@@ -94,7 +94,7 @@ Player: 42.6, 23.6 (Zephras Isle)
 | Three object slots | Manual `/smores slot` | Auto-read when API exposed |
 | Auto host on campfire | Lights **Basic Campfire** → `H:` at your coords (General setting, on by default) | Same placeholder; replace with campfire/object events when exposed |
 | Chat messages | General toggle; off mutes automatic addon chat. `/smores` still replies | Same |
-| Pin lifetime | Hide after **10 min** (TBC testbed TTL), **3/3** slots, or host **packs up** (right-click own pin) | **Unknown.** Live items: 1 hour is a **camping-feature cooldown**, not camp length. Marketing also said 1 hour **buffs**. Time the campsite on beta before changing `CAMPFIRE_DURATION`. |
+| Pin lifetime | Hide after **10 min from the lit fire** (same remaining time for every seeker), **3/3** slots, pack-up, or a **new** fire | **Unknown.** Live items: 1 hour is a **camping-feature cooldown**, not camp length. Marketing also said 1 hour **buffs**. Time the campsite on beta before changing `CAMPFIRE_DURATION`. |
 | Profession specs | TBC specs mapped (Spellfire → Tailoring, etc.) | Re-verify when Forever skill names are known |
 | Who updates camp state | Host rebroadcasts (guests without addon cannot) | Host + addon users at fire when API allows |
 
@@ -123,12 +123,12 @@ Use **two same-faction characters** in the **same zone**.
 - [ ] Minimap and Find button pulse while seeking
 - [ ] Right-click map Find button clears **other** pins; **own hosted pin stays**
 - [ ] Right-click own pin or `/smores pack` → pack-up confirm; seekers lose that pin immediately (`X:`)
-- [ ] Host cannot place a second camp until the first expires or is packed up
+- [ ] Host lights a **second** fire elsewhere — old pin packs (`X:`); only the new site is hosted
 - [ ] Host walks away from the fire — pin stays on the fire; late Find still gets a reply
 - [ ] Nested city (Elwynn/Stormwind): pin still shows on the Elwynn canvas; `/smores status` Zone vs Map view
 - [ ] Seeker chat: `Camp found` when the ping arrived (host seeing the pin is **not** enough)
 - [ ] Zoom out to continent/world — note whether pins hide (document map ids)
-- [ ] Time a real Forever campsite (how long the fire/site stays up). Do **not** treat the **1 hour buff** as pin lifetime. Set `SmoreSkills.CAMPFIRE_DURATION` from the measured camp, then also note buff length separately. Pins still drop on 3/3 or pack-up.
+- [ ] Time a real Forever campsite (how long the fire/site stays up). Do **not** treat the **1 hour buff** as pin lifetime. Set `SmoreSkills.CAMPFIRE_DURATION` from the measured camp, then also note buff length separately. Pins still drop on 3/3, pack-up, or a new fire. Find at minute 7 must leave 3 min, not a new 10.
 
 ### Matching & settings
 

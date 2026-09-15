@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.47
+
+- Lighting a new campfire packs the previous pin (`X:`) and hosts the new site. Walking away still keeps the old fire coords.
+- Pin TTL is **10 minutes from when that fire was lit** for everyone — Find at minute 7 leaves 3 minutes, not a new 10.
+
 ## v0.5.46
 
 - QA before retest: Elwynn pins no longer project onto Duskwood via map translate or “player is in Elwynn”; nested city maps still work. Find replies / campfire still send hidden-channel chat.

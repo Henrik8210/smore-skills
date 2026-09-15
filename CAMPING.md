@@ -135,7 +135,7 @@ When their signals **match**, the night elf sees a **map pin**: a bonfire icon w
 
 **World map pins are hosts only.** Seekers never appear on the map. A pin means someone is **hosting** (`/smores host` or Auto host on campfire). **Your own** hosted pin is local (no Find needed). **Other** host pins appear only after you click **Find** — leftover location snapshots are not pins.
 
-**One camp at a time.** A player hosts a single fire. Wait for the **10 min** pin to expire, or pack up (right-click own pin or `/smores pack` — same Yes/No confirm). Then they can host again. There is no `/smores here` snapshot command; sharing a fire is host only.
+**One camp at a time.** Lighting a **new** campfire (Auto host) packs up the previous pin (`X:`) and hosts the new site — Elwynn then Stormwind does not leave both pins. Walking away, or `/smores host` without a new fire, keeps the **original fire coords**. Pack-up (right-click own pin or `/smores pack`) also ends the camp. There is no `/smores here` snapshot command; sharing a fire is host only.
 
 **The host's pin is local.** Lighting a fire writes the camp into *your* addon and draws it on *your* map. Slot 1 and the Host tooltip line use the Host-tab profession. A seeker only draws that pin after **their** client receives your host ping (`H:`). Standing next to each other is not enough.
 
@@ -154,7 +154,7 @@ When a host answers a seek, `H:` is sent on that hidden channel **0.15 s later**
 
 - Small **bonfire button** on the map (corner). Tooltip: *Find campsites in this zone*.
 - **Seeker click** → one seek ping; listen for matching **host** pings; show those pins only. Seekers never get a pin of their own. Switches the map to the **player's zone** (not a nested city map).
-- **Host click** (while at/near a fire) → host ping with coords + slot state + who you want. Walking away does **not** move or drop the pin; we keep broadcasting the **fire's original coords**.
+- **Host click** (while at/near a fire) → host ping with coords + slot state + who you want. Walking away does **not** move or drop the pin; we keep broadcasting the **fire's original coords**. Lighting a **new** campfire does move it: the old pin is packed (`X:`) and the new fire is the only campsite.
 - **Find right-click** → clear *other* people's markers. Your own hosted pin stays until the fire ends, the camp is full, or you pack up.
 - **Own pin right-click** or `/smores pack` → confirm pack-up. Sends `X:` so seekers drop that pin immediately (overrides the 10 min / 3/3 lifetime).
 - **Pin art:** bonfire + three sockets (profession icon, or faded greyscale S'more if empty). Hover: zone, coords, layer, `2/3`, owner, slot detail. Left-click whispers the host.
@@ -183,7 +183,7 @@ Seekers who click find at the same time may all see the same camp — that is in
 | Seek cooldown | 45 s | One click ≠ spam |
 | Host rebroadcast | 90 s while “open” | Heartbeat, not flood |
 | Signal TTL | 3 min | Seek listen window; stale seek/host *signals* |
-| Campfire pin lifetime | **10 min** from when the fire was lit (first host ping / `litAt`) | Hide pin when time is up **or** all 3 slots are filled **or** the host packs up (right-click own pin). Host heartbeats keep the signal alive for late Find clicks; they do **not** restart the 10 min pin clock. **Forever:** camp duration is **unknown**. Time the campsite on beta before changing `SmoreSkills.CAMPFIRE_DURATION`. |
+| Campfire pin lifetime | **10 min from `litAt`** (when that fire was lit) | Same clock for every seeker — Find at minute 7 means **3 min left**, not a new 10. Heartbeats do not restart it. Hide when time is up, 3/3, pack-up, or a **new** fire (`X:`). **Forever:** time the campsite on beta before changing `CAMPFIRE_DURATION`. |
 | Camp memory | 30 min | Same as today |
 | Max pins per zone | 12 | Cap map clutter. `/smores list` uses this same cap. |
 | Payload size | &lt; 250 bytes | WoW addon message limit. If `H:` would exceed it, **shrink** rather than drop the ping: (1) host item list, (2) object display names (keep profession codes), (3) shorten `own` to 24 characters. Host gets one chat line. **Revisit if Forever two-part names + full item lists still clip useful tooltip data** — seekers would still see the pin, but miss item/object names. Do not split one camp across two messages. |
@@ -246,9 +246,9 @@ TBC Anniversary has **no camping mechanic**. We still use it to prove:
 
 ### Two-client smoke test (Elwynn — retest 16 Sep 2026)
 
-v0.5.46 is GitHub-only (no CurseForge tag). Last session: Find printed “sharing yours” but the seeker never got `H:` (0.5.34 dropped channel chat with whisper). Seeker “1 match” was their **own** camp. Map view **Eastern Kingdoms** has no pins.
+v0.5.47 is GitHub-only (no CurseForge tag). Last session: Find printed “sharing yours” but the seeker never got `H:` (0.5.34 dropped channel chat with whisper). Seeker “1 match” was their **own** camp. Map view **Eastern Kingdoms** has no pins. A second fire in Stormwind still showed the Elwynn pin until 0.5.47.
 
-1. Deploy: `.\scripts\deploy-to-wow.ps1 -Client anniversary` — both `/reload`, load line **v0.5.46**
+1. Deploy: `.\scripts\deploy-to-wow.ps1 -Client anniversary` — both `/reload`, load line **v0.5.47**
 2. Both: `/smores status` — Channel joined, Cross-layer on, Host want **Anyone**, Seeker filter Anyone
 3. **Host:** light **Basic Campfire** (Auto host on). Wait for `Hosting in Elwynn Forest`. Do not interrupt the cast. Optional: `/smores host` if you need to re-share
 4. **Seeker:** open the world map, **zoom to Elwynn Forest** (not Eastern Kingdoms / continent), click **Find**
@@ -257,14 +257,15 @@ v0.5.46 is GitHub-only (no CurseForge tag). Last session: Find printed “sharin
 7. Find right-click clears the seeker's other markers, not the host's own pin
 8. Host packs up → seeker pin vanishes (`X:`)
 9. If **Interface action failed because of an AddOn** appears when lighting the fire, note it — do not click-catch the whole UI to work around it
+10. Optional: light a **second** fire in Stormwind before the 10 min is up. Host chat should pack Elwynn; the forest pin is gone. A pin on the Elwynn map in the Stormwind corner is the **new** city camp (nested map), not the old forest site.
 
 **Elwynn / nested city maps:** Stormwind City is a child of Elwynn Forest. The map *art* can still be Elwynn (Stormwind in the corner) while `WorldMapFrame:GetMapID()` reports Stormwind City. Pins must still draw at **Elwynn** coords. Same family: Ironforge on Dun Morogh, Orgrimmar on Durotar. **Ashenvale has no nested capital**, so that glitch does not apply there. `/smores status` prints `Zone:` vs `Map view:` so you can see a mismatch.
 
 `/smores status` — channel joined, hosting/seeking, trades, zone, map view, seeker filter.
 
-### Shipped (v0.5.46) vs Forever beta
+### Shipped (v0.5.47) vs Forever beta
 
-| Feature | v0.5.46 (TBC testbed) | Forever beta |
+| Feature | v0.5.47 (TBC testbed) | Forever beta |
 | --- | --- | --- |
 | Seeker signal `S:` (`/smores find`, map Find button) | Yes | Same |
 | Host signal `H:` (`/smores host`) | Yes | Same + auto-host on Basic Campfire (placeholder) |
@@ -276,7 +277,7 @@ v0.5.46 is GitHub-only (no CurseForge tag). Last session: Find printed “sharin
 | Settings popup (Host/Seeker filters) | Yes | Same |
 | Minimap fire icon | Yes | Same |
 | Auto-read placed objects | No | When API exposed |
-| Pin lifetime | **10 min**, 3/3 full, or host packs up (`X:`) | **Unknown.** Copy says **buffs** last 1 hour; that is not camp/pin length. Measure the campsite on beta. |
+| Pin lifetime | **10 min from lit fire**, 3/3, pack-up, or a **new** fire (`X:`) | **Unknown.** Copy says **buffs** last 1 hour; that is not camp/pin length. Measure the campsite on beta. |
 | Nested city maps | Draw zone coords if the widget reports the city (Elwynn/Stormwind) | Confirm Forever breadcrumb / GetMapID |
 | Pins at continent/world zoom | Hidden — zone map only (nested city still draws zone coords) | Same |
 | Occupancy: sitters vs object slots | Host broadcasts state | May need extra `H:` field |
@@ -294,7 +295,7 @@ If **only the host** has the addon, guests cannot update camp state — the host
 # Later (Forever beta onward)
 
 - Read campfire / placed-object API when exposed
-- **Pin lifetime:** TBC testbed pin is **10 min**. Forever copy says **buffs** last 1 hour — that is not the campsite duration. Time a real fire on beta, then set `SmoreSkills.CAMPFIRE_DURATION`. Pins also drop when **3/3** or the host packs up (`X:`).
+- **Pin lifetime:** TBC testbed pin is **10 min from when that fire was lit** (Find at minute 7 = 3 min left). Forever copy says **buffs** last 1 hour — that is not the campsite duration. Time a real fire on beta, then set `SmoreSkills.CAMPFIRE_DURATION`. Pins also drop when **3/3**, the host packs up (`X:`), or they light a **new** fire.
 - Fill a slot automatically when you place an object
 - Occupancy: sitters at fire vs object slots (different numbers)
 - **Cooking 5/10-slot campfires:** pin sockets and `H:` slot fields are built for Basic **3**. Measure before extending the wire.

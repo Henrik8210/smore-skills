@@ -12,7 +12,7 @@ You choose when to share. Nothing is dumped on login. Guild chat is not used —
 
 **Seek** — click the S'more on the **world map** (or `/smores find`). That looks for open camps in your zone.
 
-**Host** — light a campfire with Auto host on, or `/smores host`. Seekers in the zone can then see your pin. You host **one camp at a time**. Walk away and the pin stays on the fire until it expires, fills, or you pack up.
+**Host** — light a campfire with Auto host on, or `/smores host`. Seekers in the zone can then see your pin. You host **one camp at a time**. A new fire packs the old pin. Walk away and the pin stays on that fire until it expires, fills, you pack up, or you light another.
 
 The addon reads **this character’s professions** from the skill list. If you have Leatherworking, hosts who asked for leatherworkers can find you — you do not have to tick it yourself.
 

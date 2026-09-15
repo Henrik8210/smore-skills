@@ -221,11 +221,14 @@ function Sync:ApplyPacked(info, sender)
     end
 end
 
-function Sync:PackUpCamp(camp)
+function Sync:PackUpCamp(camp, opts)
+    opts = opts or {}
     camp = camp or SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp()
     if not camp then
-        SmoreSkills_Print("No campsite to pack up.")
-        return
+        if not opts.silent then
+            SmoreSkills_Print("No campsite to pack up.")
+        end
+        return false
     end
     camp.packed = true
     camp.packedAt = SmoreSkills_Now()
@@ -238,7 +241,10 @@ function Sync:PackUpCamp(camp)
         self.seekDiscoveredIds[camp.id] = nil
     end
     RefreshUI()
-    SmoreSkills_Print("Packed up your campsite. Other campers will no longer see it on the map.")
+    if not opts.silent then
+        SmoreSkills_Print("Packed up your campsite. Other campers will no longer see it on the map.")
+    end
+    return true
 end
 
 function Sync:StartListening()
@@ -459,7 +465,7 @@ function Sync:OnBasicCampfirePlaced()
     -- Do not SendChatMessage from UNIT_SPELLCAST. Interrupted casts never get here.
     if C_Timer and C_Timer.After then
         C_Timer.After(0.25, function()
-            self:HostHere(true)
+            self:HostHere(true, true)
         end)
     else
         pendingCampfireAt = (GetTime and GetTime() or 0) + 0.25
@@ -555,7 +561,7 @@ function Sync:StartOutboundPump()
         local now = (GetTime and GetTime()) or 0
         if pendingCampfireAt > 0 and now >= pendingCampfireAt then
             pendingCampfireAt = 0
-            Sync:HostHere(true)
+            Sync:HostHere(true, true)
         end
         local i = 1
         while i <= #pendingWhispers do
@@ -1082,8 +1088,27 @@ function Sync:HostHeartbeat()
     end)
 end
 
-function Sync:HostHere(fromHardware)
+function Sync:HostHere(fromHardware, newFire)
+    local mapId, x, y = SmoreSkills_GetPlayerMapPos()
+    local retiredFrom = nil
+    if newFire and mapId and SmoreSkills_ForEachOwnedActiveCamp then
+        local stale = {}
+        SmoreSkills_ForEachOwnedActiveCamp(function(owned)
+            if not SmoreSkills_CampsShareSite(owned, mapId, x, y) then
+                table.insert(stale, owned)
+            end
+        end)
+        for i = 1, #stale do
+            if not retiredFrom then
+                retiredFrom = stale[i].zone or "the previous zone"
+            end
+            self:PackUpCamp(stale[i], { silent = true })
+        end
+    end
     local camp, err = SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp() or nil
+    if camp and newFire and mapId and SmoreSkills_CampsShareSite and not SmoreSkills_CampsShareSite(camp, mapId, x, y) then
+        camp = nil
+    end
     if not camp then
         camp, err = SmoreSkills_MarkHere()
         if not camp then
@@ -1105,7 +1130,8 @@ function Sync:HostHere(fromHardware)
     SmoreSkills_ApplyHostWantToCamp(camp)
     camp.layer = (SmoreSkills_GetPlayerLayerId and SmoreSkills_GetPlayerLayerId()) or camp.layer
     local now = SmoreSkills_Now()
-    if wasPacked or not camp.litAt or (now - camp.litAt) >= SmoreSkills.CAMPFIRE_DURATION then
+    -- New physical fire starts a fresh 10 min pin. Walking away / slash host keep litAt.
+    if newFire or wasPacked or not camp.litAt or (now - camp.litAt) >= SmoreSkills.CAMPFIRE_DURATION then
         camp.litAt = now
     end
     self.hostShrinkNoted = nil
@@ -1144,14 +1170,19 @@ function Sync:HostHere(fromHardware)
     end
     local layerText = SmoreSkills_FormatLayer and SmoreSkills_FormatLayer(camp.layer, camp.mapId)
     local layerHint = layerText and (" · " .. layerText) or " · target an NPC to detect your layer"
+    local moved = ""
+    if retiredFrom then
+        moved = string.format(" Previous camp in %s is packed up. ", retiredFrom)
+    end
     SmoreSkills_Print(string.format(
-        "Hosting in %s (%s) — %d/%d objects, want: %s%s. Pin lasts %d min or until the camp is full.",
+        "Hosting in %s (%s) — %d/%d objects, want: %s%s. %sPin lasts %d min from this fire (same clock for every seeker).",
         camp.zone or "?",
         SmoreSkills_FormatCoords(camp),
         SmoreSkills_CountFilledSlots(camp),
         SmoreSkills.MAX_SLOTS,
         SmoreSkills_FormatWant(camp.want, camp.wantItems),
         layerHint,
+        moved,
         math.floor(SmoreSkills.CAMPFIRE_DURATION / 60)
     ))
     RefreshUI()
