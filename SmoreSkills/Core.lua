@@ -7,13 +7,10 @@ if not strtrim then
 end
 
 SmoreSkills = SmoreSkills or {}
-SmoreSkills.VERSION = "0.5.12"
+SmoreSkills.VERSION = "0.5.46"
 SmoreSkills.AUTHOR = "Weber8210"
 SmoreSkills.LOGO = "Interface\\AddOns\\SmoreSkills\\Art\\SmoreSkillsLogo"
 SmoreSkills.ICON = "Interface\\AddOns\\SmoreSkills\\Art\\SmoreSkillsIcon"
-
--- TBC testbed: inject a sample Ashenvale camp when seeking. /smores test off to disable.
-SmoreSkills.ENABLE_TEST_CAMPS = true
 
 SmoreSkillsDB = SmoreSkillsDB or {
     camps = {},
@@ -91,6 +88,9 @@ frame:SetScript("OnEvent", function(_, event, name)
         end
         if SmoreSkills.Settings and SmoreSkills.Settings.EnsureInit then
             SmoreSkills.Settings:EnsureInit()
+        end
+        if SmoreSkills_InitLayerWatch then
+            SmoreSkills_InitLayerWatch()
         end
     end
 end)

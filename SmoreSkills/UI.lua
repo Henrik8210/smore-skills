@@ -49,7 +49,7 @@ function UI:Init()
     hostBtn:SetPoint("LEFT", findBtn, "RIGHT", 6, 0)
     hostBtn:SetText("Host camp")
     hostBtn:SetScript("OnClick", function()
-        SmoreSkills.Sync:HostHere()
+        SmoreSkills.Sync:HostHere(true)
     end)
 
     self.status = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -137,7 +137,7 @@ function UI:Refresh()
         row:ClearAllPoints()
         row:SetPoint("TOPLEFT", 0, -y)
         local filled = SmoreSkills_CountFilledSlots(camp)
-        local guildMark = (SmoreSkills_GetShowGuildMark() and SmoreSkills_CampHasGuildie(camp)) and "|cff00ff00G|r  " or ""
+        local guildMark = (SmoreSkills_ShowCampGuildMark and SmoreSkills_ShowCampGuildMark(camp)) and "|cff00ff00G|r  " or ""
         local sourceMark = camp.source == "host" and "|cff88ccffH|r " or ""
         row.name:SetText(string.format(
             "%s%s%s  %s   %d/%d   %s",

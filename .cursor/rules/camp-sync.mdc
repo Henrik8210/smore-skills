@@ -23,23 +23,24 @@ Design: [CAMPING.md](../../CAMPING.md). TBC Anniversary is the test client until
 ## Required
 
 - Hidden custom channel `SmoreSkills`. Prefix `SmoreSk`
-- Payload under 250 bytes per message
+- Payload under 250 bytes per message. If `H:` is over, shrink (drop want-items, then object names, then shorten `own`) — do not fail silent
 - Message types:
-  - `S:` seeker — `S:map:fac:prof:t` (looking in zone)
-  - `H:` host — `H:map:x:y:fac:own:want:p1:o1:p2:o2:p3:o3:t` (at fire, wants company)
+  - `S:` seeker — `S:map:fac:prof:t[:codes]:layer` (looking in zone; last field is zoneUID or `0`)
+  - `H:` host — `H:map:x:y:fac:own:want:p1:o1:p2:o2:p3:o3:t:layer` (`layer` is `zoneUID` or `zoneUID/N`; optional; we detect it ourselves)
   - `X:` packed up — `X:map:x:y:own:t` (host right-clicks own pin; seekers drop it now)
   - `C:` legacy camp snapshot — still accepted if received; we no longer send it
 - Share is **opt-in**: seek / host only when the player acts
 - Same-faction only
 - Three slots. Each player places at most one object (the game enforces that; we display it)
 - Cooldowns: seek 45 s, host rebroadcast 90 s, outbound 8 s per player (`X:` skips the 8 s cooldown)
-- Signal TTL ~3 min; campfire pin ~10 min or until full/packed; forget camps older than 30 minutes
+- Signal TTL ~3 min; campfire pin ~10 min from when the fire was lit (heartbeats do not extend it) or until full/packed; forget camps older than 30 minutes
 - Max 12 pins per zone
-- Host pin is **local**; seekers only see it after they receive `H:`
+- Host pin is **local**; other host pins only after **Find** (and an `H:`). Do not show C: snapshots as pins
+- Answering a seek sends `H:` on the hidden channel 0.15 s later (not from the `CHAT_MSG_*` handler). Addon whisper only if the channel is not joined (TBC Anniversary spam: “Unable to whisper”). Do not drop channel chat when skipping whisper.
 - One player, one hosted camp. Pack up or wait for expiry before hosting another.
 - World map pins are **hosts only** — seekers do not get a pin; do not show C: snapshots as pins
-- Do not call `ChatFrame_RemoveChannel` on every outbound ping (taints chat)
+- Do not call `ChatFrame_RemoveChannel` (taints chat). Auto-host must not `SendChatMessage` from UNIT_SPELLCAST / CHAT_MSG_* / OnUpdate / WorldFrame. After the fire lands, a 0.25 s timer may send the same hidden-channel `H:` as `/smores host`. Do not hook WorldFrame / UIParent or EnableKeyboard. Other host pins only after Find. Continent zoom has no pins.
 - Keep broadcasting the **fire coords** if the host walks away (do not key hosting to current feet)
-- Nested city maps (Elwynn/Stormwind, Dun Morogh/IF, Durotar/Org): still draw **zone** pins if `GetMapID()` is the city
+- Nested city maps (Elwynn/Stormwind, Dun Morogh/IF, Durotar/Org): still draw **zone** pins if `GetMapID()` is the city. Sibling zones (Elwynn vs Duskwood) must not share 39,70-style pins.
 - Guild mark is optional UI, not a requirement to see or share a camp
 - TBC Anniversary (`20505`/`20506`) for testing; Forever `## Interface:` when beta FrameXML is known

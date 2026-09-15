@@ -1,5 +1,118 @@
 # Changelog
 
+## v0.5.46
+
+- QA before retest: Elwynn pins no longer project onto Duskwood via map translate or “player is in Elwynn”; nested city maps still work. Find replies / campfire still send hidden-channel chat.
+- Two-client retest is **16 Sep 2026** (documented in CAMPING.md). No CurseForge tag.
+
+## v0.5.45
+
+- Find replies and campfire host send hidden-channel chat again (0.5.34 had stopped that when it dropped addon-whisper). Zoom to the zone map; continent view has no pins. Duskwood no longer gets a copy of an Elwynn pin.
+
+## v0.5.34
+
+- Hosts answering Find no longer addon-whisper when the community channel is joined. That whisper was printing **Unable to whisper … Blizzard services may be unavailable** on TBC Anniversary.
+
+## v0.5.33
+
+- If a host ping would exceed 250 bytes, shrink it (item list, then object names, then shorten the name) and still send the pin. Revisit if Forever names + item lists clip tooltip data.
+- `/smores prof` lasts until reload only (testing). Matching uses this character's learned trades after logout.
+
+## v0.5.32
+
+- Camp pin lasts **10 minutes from when the fire was lit**. Host heartbeats no longer keep the pin up past that.
+- Other players' camp markers appear only after you click **Find** (your own hosted pin is still local).
+- Pins already found still respect profession / layer / seeker filters (turning a filter off later hides them).
+- Camp tooltip height grows with wrapped "host wants" lines.
+- Removed the Ashenvale sample test camp (`/smores test`).
+
+## v0.5.31
+
+- Do not nag “zoom the map to that zone” for your own camp, or unless you are seeking.
+
+## v0.5.30
+
+- **Include camps on other layers** is on by default.
+
+## v0.5.29
+
+- Camp pin hover shows a yellow **Left-click to whisper the host for an invite.** line (own pin still says right-click to pack up).
+
+## v0.5.28
+
+- Settings: **Include camps on other layers**. Off (default) = Find/Host only match your layer. On = show and answer other layers too.
+- Zoning into a new zone scans nameplates (like Nova) and prints your layer in chat when known — no target required if nameplates are on.
+
+## v0.5.27
+
+- Hosts do not see the green **G** on their own camp pin (it still shows for other players when a guildie is there).
+
+## v0.5.26
+
+- Seeker tooltip also shows the layer number: **Layer N — same as you** (N is the host's number, so it matches **Layer N — Your camp**).
+
+## v0.5.25
+
+- Seeker pin drop after hearing a host: do not treat the layer id as a timestamp (that made the camp look expired/packed). A live `H:` unpacks a previously packed camp. Chat says the real hide reason.
+
+## v0.5.24
+
+- Own camp tooltip is **Layer N — Your camp** so you can see which layer you are hosting on.
+
+## v0.5.23
+
+- Own camp tooltip says **Your camp** (not "same as you").
+- Other camps say **Same layer as you** or **Different layer**. Local Layer 1/2/3 numbers are gone — they cannot match between players (or Nova) without a shared layer table.
+
+## v0.5.22
+
+- Layer stays in the pin tooltip only (no number on the fire).
+- Tooltip shows Layer 1, 2, 3… from unique shard ids in that zone. The GUID field is a large id (e.g. 15654), not the layer count.
+
+## v0.5.21
+
+- Host's own campfire pin now shows the layer id on the fire (outlined number). Your pin is local, so it no longer waits for a seeker ping.
+- If the layer is still unknown, the pin shows `?` until you target/mouseover a nearby NPC (or a nameplate appears).
+
+## v0.5.20
+
+- Layer is detected in this addon from nearby NPC GUIDs (no Nova World Buffs). Pin is green if you are on the host's layer, orange if not.
+
+## v0.5.19
+
+- Camp pins show the host's layer (from NPC GUIDs in this addon). Green if you are on that layer, orange if not.
+- Left-click a pin to whisper the host for an invite.
+
+## v0.5.18
+
+- Fullscreen and windowed map: camp pin art draws above the map tiles (hover already worked; the fire icon was underneath).
+
+## v0.5.17
+
+- Find button sits on the visible map window (ElvUI / Leatrix zoom and shrink no longer leave it on the screen corner).
+- Fullscreen Blizzard map: pins and Find stay with the map (match map strata, relayout on maximize).
+
+## v0.5.16
+
+- Camp pins only draw on the zone map (and nested city maps). They hide when zoomed out to continent, world, or Outland.
+
+## v0.5.15
+
+- Host/seeker match is any shared profession. Extra trades on the seeker are fine (Engineering+Mining vs Engineering+Mining+Cooking+First Aid).
+- Resume Find after clearing pins re-discovers camps already heard in this zone.
+
+## v0.5.14
+
+- Stop calling `ChatFrame_RemoveChannel` and `SendChatMessage` from campfire auto-host (that is the "Interface action failed" taint).
+- Auto-host waits on a frame created at login, then sends addon CHANNEL + whisper-on-seek only.
+- Channel chat is used only from a click or slash (Find / Host / pack).
+
+## v0.5.13
+
+- Host answers a seek with an addon whisper of `H:` (Classic blocks channel chat from a chat event, so the seeker never got the camp).
+- Channel chat fallback is sent on the next frame, not from the `CHAT_MSG_*` handler.
+- If a host ping arrives but does not match, always say so (not only when map ids are identical).
+
 ## v0.5.12
 
 - General settings: camp pin size, show/lock minimap button, chat messages, guild mark on pins.

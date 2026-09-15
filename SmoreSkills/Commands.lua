@@ -23,7 +23,7 @@ local function HandleSlash(msg)
         return
     end
     if lower == "host" then
-        SmoreSkills.Sync:HostHere()
+        SmoreSkills.Sync:HostHere(true)
         return
     end
     if lower == "stop" then
@@ -63,6 +63,13 @@ local function HandleSlash(msg)
         SmoreSkills_Reply("Your trades: " .. SmoreSkills_FormatProfessionList(profs))
         local _, _, _, zone = SmoreSkills_GetPlayerMapPos()
         SmoreSkills_Reply("Zone: " .. (zone or "?"))
+        local mapId = select(1, SmoreSkills_GetPlayerMapPos())
+        local layer = SmoreSkills_FormatLayer and SmoreSkills_FormatLayer(SmoreSkills_GetPlayerLayerId and SmoreSkills_GetPlayerLayerId(), mapId)
+        if layer then
+            SmoreSkills_Reply("Layer: " .. layer)
+        else
+            SmoreSkills_Reply("Layer: unknown (target an NPC)")
+        end
         if WorldMapFrame and WorldMapFrame.IsShown and WorldMapFrame:IsShown() and WorldMapFrame.GetMapID then
             local viewId = WorldMapFrame:GetMapID()
             local viewName = viewId
@@ -73,23 +80,7 @@ local function HandleSlash(msg)
             SmoreSkills_Reply("Map view: " .. tostring(viewName))
         end
         SmoreSkills_Reply("Seeker filter: " .. SmoreSkills_FormatWant(SmoreSkills_GetEffectiveSeekerWant(), SmoreSkills_GetEffectiveSeekerWantItems()))
-        return
-    end
-    if lower == "test" then
-        local enabled = SmoreSkills_TestCampsEnabled()
-        SmoreSkills_Reply("Test camps: " .. (enabled and "on" or "off") .. " (/smores test on | off)")
-        return
-    end
-    if lower == "test on" then
-        SmoreSkillsDB.settings = SmoreSkillsDB.settings or {}
-        SmoreSkillsDB.settings.testCamps = true
-        SmoreSkills_Reply("Test camps enabled (Ashenvale sample on seek).")
-        return
-    end
-    if lower == "test off" then
-        SmoreSkillsDB.settings = SmoreSkillsDB.settings or {}
-        SmoreSkillsDB.settings.testCamps = false
-        SmoreSkills_Reply("Test camps disabled.")
+        SmoreSkills_Reply("Cross-layer: " .. ((SmoreSkills_GetCrossLayerEnabled and SmoreSkills_GetCrossLayerEnabled()) and "on" or "off (own layer only)"))
         return
     end
     if lower == "list" then
@@ -100,14 +91,18 @@ local function HandleSlash(msg)
             return
         end
         for _, camp in ipairs(camps) do
-            local guildMark = (SmoreSkills_GetShowGuildMark() and SmoreSkills_CampHasGuildie(camp)) and " [guild] " or " "
+            local guildMark = (SmoreSkills_ShowCampGuildMark and SmoreSkills_ShowCampGuildMark(camp)) and " [guild] " or " "
             local tag = camp.source == "host" and "[host] " or ""
+            local own = SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName())
+            local layer = SmoreSkills_FormatLayerCompare and SmoreSkills_FormatLayerCompare(camp.layer, camp.mapId, own, camp.layerOrdinal)
+            local layerBit = layer and (" " .. layer) or ""
             SmoreSkills_Reply(string.format(
-                "%s%s%s(%s) %d/%d — %s",
+                "%s%s%s(%s)%s %d/%d — %s",
                 tag,
                 camp.zone or "?",
                 guildMark,
                 SmoreSkills_FormatCoords(camp),
+                layerBit,
                 SmoreSkills_CountFilledSlots(camp),
                 SmoreSkills.MAX_SLOTS,
                 SmoreSkills_FormatSlots(camp)
@@ -126,9 +121,13 @@ local function HandleSlash(msg)
             SmoreSkills_Reply("Detected: " .. table.concat(detected, ", "))
         end
         if current then
-            SmoreSkills_Reply("Seeking as: " .. SmoreSkills_ProfessionLabel(current) .. " (/smores prof <code> to change)")
+            if SmoreSkills.sessionProfession then
+                SmoreSkills_Reply("Seeking as: " .. SmoreSkills_ProfessionLabel(current) .. " (this session only; reload uses your learned trades)")
+            else
+                SmoreSkills_Reply("Seeking as: " .. SmoreSkills_ProfessionLabel(current) .. " (learned trades)")
+            end
         else
-            SmoreSkills_Reply("No seek profession set. /smores prof <code>")
+            SmoreSkills_Reply("No seek profession set. Learn a trade, or /smores prof <code> this session.")
             PrintProfessions()
         end
         return
@@ -140,7 +139,7 @@ local function HandleSlash(msg)
             return
         end
         if SmoreSkills_SetPlayerProfession(code) then
-            SmoreSkills_Reply("Profession set to " .. SmoreSkills_ProfessionLabel(code) .. ".")
+            SmoreSkills_Reply("Profession set to " .. SmoreSkills_ProfessionLabel(code) .. " until reload (testing). Matching still includes your learned trades.")
         else
             SmoreSkills_Reply("Unknown profession. Try: lw, bs, tail, …")
             PrintProfessions()
@@ -188,7 +187,7 @@ local function HandleSlash(msg)
             end
             SmoreSkills_Reply(string.format("Cleared slot %d.", index))
             if SmoreSkills.Sync:IsHosting() then
-                SmoreSkills.Sync:HostHere()
+                SmoreSkills.Sync:HostHere(true)
             end
             return
         end
@@ -205,7 +204,7 @@ local function HandleSlash(msg)
             objectName and (" (" .. objectName .. ")") or ""
         ))
         if SmoreSkills.Sync:IsHosting() then
-            SmoreSkills.Sync:HostHere()
+            SmoreSkills.Sync:HostHere(true)
         end
         if SmoreSkills.UI and SmoreSkills.UI.Refresh then
             SmoreSkills.UI:Refresh()

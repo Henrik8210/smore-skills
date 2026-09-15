@@ -135,6 +135,16 @@ SmoreSkills.SIGNAL_TTL = 3 * 60
 SmoreSkills.CAMPFIRE_DURATION = 10 * 60
 SmoreSkills.MAX_PINS_PER_ZONE = 12
 
+-- Wire timestamps are unix seconds. Layer ids (e.g. 15654) must not be treated as times.
+function SmoreSkills_SanitizeCampTime(t)
+    t = tonumber(t)
+    local now = SmoreSkills_Now()
+    if not t or t < 1000000000 or t > now + 600 then
+        return now
+    end
+    return t
+end
+
 function SmoreSkills_ProfessionFromCode(code)
     return code and CODE_TO_PROF[code] or nil
 end
@@ -154,14 +164,26 @@ function SmoreSkills_ProfessionIcon(idOrCode)
 end
 
 function SmoreSkills_NormalizeProfession(idOrCode)
+    if idOrCode == nil or idOrCode == "" then
+        return nil
+    end
+    idOrCode = strtrim(tostring(idOrCode))
     local row = SmoreSkills_ProfessionFromId(idOrCode) or SmoreSkills_ProfessionFromCode(idOrCode)
-    return row and row.id or nil
+    if row then
+        return row.id
+    end
+    local lower = strlower(idOrCode)
+    row = SmoreSkills_ProfessionFromId(lower) or SmoreSkills_ProfessionFromCode(lower)
+    if row then
+        return row.id
+    end
+    return SmoreSkills_ProfessionIdFromSkillName(idOrCode)
 end
 
 function SmoreSkills_GetPlayerProfession()
-    local settings = SmoreSkillsDB and SmoreSkillsDB.settings
-    if settings and settings.profession then
-        return SmoreSkills_NormalizeProfession(settings.profession)
+    -- /smores prof is session-only (testing). Reload uses this character's learned trades.
+    if SmoreSkills.sessionProfession then
+        return SmoreSkills_NormalizeProfession(SmoreSkills.sessionProfession)
     end
     local profs = SmoreSkills_GetPlayerProfessions()
     return profs[1]
@@ -189,12 +211,14 @@ function SmoreSkills_FormatPlayerProfessions()
 end
 
 function SmoreSkills_SetPlayerProfession(idOrCode)
-    SmoreSkillsDB.settings = SmoreSkillsDB.settings or {}
     local id = SmoreSkills_NormalizeProfession(idOrCode)
     if not id then
         return false
     end
-    SmoreSkillsDB.settings.profession = id
+    SmoreSkills.sessionProfession = id
+    if SmoreSkillsDB and SmoreSkillsDB.settings then
+        SmoreSkillsDB.settings.profession = nil
+    end
     return true
 end
 
@@ -210,6 +234,14 @@ function SmoreSkills_EnsureSettings()
     if (s.dataVersion or 1) < 2 then
         s.autoHostOnCampfire = true
         s.dataVersion = 2
+    end
+    if (s.dataVersion or 2) < 3 then
+        s.crossLayerEnabled = true
+        s.dataVersion = 3
+    end
+    if (s.dataVersion or 3) < 4 then
+        s.profession = nil
+        s.dataVersion = 4
     end
     if s.autoHostOnCampfire == nil then
         s.autoHostOnCampfire = true
@@ -240,6 +272,9 @@ function SmoreSkills_EnsureSettings()
     end
     if s.showGuildMark == nil then
         s.showGuildMark = true
+    end
+    if s.crossLayerEnabled == nil then
+        s.crossLayerEnabled = true
     end
     if s.pinScalePct == nil then
         s.pinScalePct = 100
@@ -312,6 +347,14 @@ function SmoreSkills_SetShowGuildMark(enabled)
     SmoreSkills_EnsureSettings().showGuildMark = enabled and true or false
 end
 
+function SmoreSkills_GetCrossLayerEnabled()
+    return SmoreSkills_EnsureSettings().crossLayerEnabled == true
+end
+
+function SmoreSkills_SetCrossLayerEnabled(enabled)
+    SmoreSkills_EnsureSettings().crossLayerEnabled = enabled and true or false
+end
+
 function SmoreSkills_GetPinScalePct()
     local v = tonumber(SmoreSkills_EnsureSettings().pinScalePct) or 100
     if v < 50 then
@@ -337,17 +380,10 @@ end
 function SmoreSkills_GetHostProfession()
     local s = SmoreSkills_EnsureSettings()
     local chosen = SmoreSkills_NormalizeProfession(s.hostProfession)
-    local learned = SmoreSkills_GetPlayerProfessions()
     if chosen then
-        if #learned == 0 then
-            return chosen
-        end
-        for _, id in ipairs(learned) do
-            if id == chosen then
-                return chosen
-            end
-        end
+        return chosen
     end
+    local learned = SmoreSkills_GetPlayerProfessions()
     if #learned > 0 then
         return learned[1]
     end
@@ -797,15 +833,12 @@ function SmoreSkills_WantAccepts(want, professionId)
     if want == "none" or want == "" then
         return false
     end
-    if not professionId then
-        return false
-    end
-    local prof = SmoreSkills_ProfessionFromId(professionId)
-    if not prof then
+    local need = SmoreSkills_NormalizeProfession(professionId)
+    if not need then
         return false
     end
     for token in string.gmatch(want, "[^,]+") do
-        if token == prof.code or token == prof.id then
+        if SmoreSkills_NormalizeProfession(strtrim(token)) == need then
             return true
         end
     end
@@ -867,6 +900,342 @@ function SmoreSkills_CountEmptySlots(camp)
     return SmoreSkills.MAX_SLOTS - SmoreSkills_CountFilledSlots(camp)
 end
 
+function SmoreSkills_MapsShareZone(a, b)
+    a, b = tonumber(a), tonumber(b)
+    if not a or not b then
+        return false
+    end
+    if a == b then
+        return true
+    end
+    if not C_Map or not C_Map.GetMapInfo then
+        return false
+    end
+    local ia = C_Map.GetMapInfo(a)
+    local ib = C_Map.GetMapInfo(b)
+    return ia and ib and ia.name and ia.name ~= "" and ia.name == ib.name
+end
+
+function SmoreSkills_MapIsAncestor(ancestorId, childId)
+    ancestorId, childId = tonumber(ancestorId), tonumber(childId)
+    if not ancestorId or not childId then
+        return false
+    end
+    local id = childId
+    for _ = 1, 8 do
+        if id == ancestorId then
+            return true
+        end
+        local info = C_Map and C_Map.GetMapInfo and C_Map.GetMapInfo(id)
+        if not info or not info.parentMapID or info.parentMapID == 0 then
+            return false
+        end
+        id = info.parentMapID
+    end
+    return false
+end
+
+function SmoreSkills_MapsAreNested(a, b)
+    a, b = tonumber(a), tonumber(b)
+    if not a or not b or a == b then
+        return false
+    end
+    return SmoreSkills_MapIsAncestor(a, b) or SmoreSkills_MapIsAncestor(b, a)
+end
+
+local lastLayerId = 0
+local lastLayerMapId = nil
+local announcedLayerMapId = nil
+-- Unique shard ids per zone, mapped to Layer 1, 2, 3… for YOUR camp tooltip only.
+local layerOrder = {}
+
+local function LayerMapKey(mapId)
+    mapId = tonumber(mapId)
+    if C_Map and C_Map.GetMapInfo and mapId then
+        local info = C_Map.GetMapInfo(mapId)
+        if info and info.name and info.name ~= "" then
+            return "n:" .. info.name
+        end
+    end
+    if mapId then
+        return "m:" .. tostring(mapId)
+    end
+    return "unknown"
+end
+
+function SmoreSkills_NoteLayerId(layerId, mapId)
+    layerId = tonumber(layerId)
+    if not layerId or layerId <= 0 then
+        return
+    end
+    if not mapId and SmoreSkills_GetPlayerMapPos then
+        mapId = select(1, SmoreSkills_GetPlayerMapPos())
+    end
+    local key = LayerMapKey(mapId)
+    local list = layerOrder[key]
+    if not list then
+        list = {}
+        layerOrder[key] = list
+    end
+    for i = 1, #list do
+        if list[i] == layerId then
+            return
+        end
+    end
+    table.insert(list, layerId)
+    table.sort(list)
+end
+
+function SmoreSkills_LayerOrdinal(layerId, mapId)
+    layerId = tonumber(layerId)
+    if not layerId or layerId <= 0 then
+        return nil
+    end
+    SmoreSkills_NoteLayerId(layerId, mapId)
+    local list = layerOrder[LayerMapKey(mapId)]
+    if not list then
+        return nil
+    end
+    for i = 1, #list do
+        if list[i] == layerId then
+            return i
+        end
+    end
+    return nil
+end
+
+
+local function LayerIdFromGuid(guid)
+    if not guid or guid == "" then
+        return nil
+    end
+    local unitType, _, _, _, zoneUID = strsplit("-", guid)
+    if unitType ~= "Creature" and unitType ~= "Vehicle" and unitType ~= "GameObject" then
+        return nil
+    end
+    local id = tonumber(zoneUID)
+    if id and id > 0 then
+        return id
+    end
+    return nil
+end
+
+local function LayerIdFromUnit(unit)
+    if not unit or unit == "" then
+        return nil
+    end
+    if not UnitExists or not UnitExists(unit) then
+        return nil
+    end
+    if UnitIsPlayer and UnitIsPlayer(unit) then
+        return nil
+    end
+    if UnitPlayerControlled and UnitPlayerControlled(unit) then
+        return nil
+    end
+    return LayerIdFromGuid(UnitGUID(unit))
+end
+
+local function CurrentLayerMapId()
+    if C_Map and C_Map.GetBestMapForUnit then
+        return C_Map.GetBestMapForUnit("player")
+    end
+    return nil
+end
+
+local function ResetLayerIfMapChanged()
+    local mapId = CurrentLayerMapId()
+    if not mapId then
+        return
+    end
+    if lastLayerMapId and mapId ~= lastLayerMapId
+        and not (SmoreSkills_MapsShareZone and SmoreSkills_MapsShareZone(mapId, lastLayerMapId)) then
+        lastLayerId = 0
+        announcedLayerMapId = nil
+    end
+    lastLayerMapId = mapId
+end
+
+local function MaybeAnnounceLayer(id)
+    id = tonumber(id)
+    local mapId = CurrentLayerMapId()
+    if not id or id <= 0 or not mapId or announcedLayerMapId == mapId then
+        return
+    end
+    announcedLayerMapId = mapId
+    if SmoreSkills_GetChatEnabled and not SmoreSkills_GetChatEnabled() then
+        return
+    end
+    local text = SmoreSkills_FormatLayer and SmoreSkills_FormatLayer(id, mapId)
+    local zone = GetRealZoneText and GetRealZoneText() or GetZoneText and GetZoneText() or "this zone"
+    if text then
+        SmoreSkills_Print(text .. " in " .. tostring(zone))
+    end
+end
+
+function SmoreSkills_ResolveCampLayer(camp)
+    if not camp then
+        return nil
+    end
+    local hostLayer = tonumber(camp.layer)
+    if hostLayer and hostLayer > 0 then
+        SmoreSkills_NoteLayerId(hostLayer, camp.mapId)
+        return hostLayer
+    end
+    if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
+        hostLayer = SmoreSkills_GetPlayerLayerId and SmoreSkills_GetPlayerLayerId() or nil
+        if hostLayer and hostLayer > 0 then
+            camp.layer = hostLayer
+            return hostLayer
+        end
+    end
+    return nil
+end
+
+local function StampOwnedCampLayer(id)
+    id = tonumber(id)
+    if not id or id <= 0 then
+        return
+    end
+    lastLayerId = id
+    lastLayerMapId = CurrentLayerMapId() or lastLayerMapId
+    local mapId = SmoreSkills_GetPlayerMapPos and select(1, SmoreSkills_GetPlayerMapPos()) or lastLayerMapId
+    SmoreSkills_NoteLayerId(id, mapId)
+    local camp = SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp()
+    if camp then
+        SmoreSkills_NoteLayerId(id, camp.mapId)
+        camp.layer = id
+    end
+    MaybeAnnounceLayer(id)
+end
+
+local function RememberLayer(id)
+    id = tonumber(id)
+    if not id or id <= 0 then
+        return nil
+    end
+    StampOwnedCampLayer(id)
+    return id
+end
+
+function SmoreSkills_GetPlayerLayerId()
+    ResetLayerIfMapChanged()
+    local units = {
+        "target", "mouseover", "npc",
+        "softenemy", "softfriend", "softinteract",
+    }
+    for i = 1, 4 do
+        table.insert(units, "party" .. i)
+    end
+    for i = 1, 40 do
+        table.insert(units, "nameplate" .. i)
+    end
+    for i = 1, #units do
+        local id = LayerIdFromUnit(units[i])
+        if id then
+            return RememberLayer(id)
+        end
+    end
+    if C_NamePlate and C_NamePlate.GetNamePlates then
+        local plates = C_NamePlate.GetNamePlates()
+        if plates then
+            for i = 1, #plates do
+                local plate = plates[i]
+                local unit = plate and (plate.namePlateUnitToken or plate.unit or (plate.UnitFrame and plate.UnitFrame.unit))
+                if unit then
+                    local id = LayerIdFromUnit(unit)
+                    if id then
+                        return RememberLayer(id)
+                    end
+                end
+            end
+        end
+    end
+    if lastLayerId and lastLayerId > 0 then
+        StampOwnedCampLayer(lastLayerId)
+        return lastLayerId
+    end
+    return nil
+end
+
+function SmoreSkills_FormatLayer(layerId, mapId, ordinal)
+    local n = tonumber(ordinal)
+    if not n or n <= 0 then
+        n = SmoreSkills_LayerOrdinal(layerId, mapId)
+    end
+    if not n then
+        return nil
+    end
+    return "Layer " .. tostring(n)
+end
+
+function SmoreSkills_FormatLayerCompare(hostLayer, mapId, isOwnCamp, ordinal)
+    hostLayer = tonumber(hostLayer)
+    local hostText = SmoreSkills_FormatLayer(hostLayer, mapId, (not isOwnCamp) and ordinal or nil)
+    if isOwnCamp then
+        if hostText then
+            return hostText .. " — Your camp"
+        end
+        return "Layer ? — Your camp"
+    end
+    if not hostLayer or hostLayer <= 0 then
+        return hostText
+    end
+    local mine = SmoreSkills_GetPlayerLayerId()
+    if not mine then
+        if hostText then
+            return hostText
+        end
+        return "Layer unknown — target a nearby NPC"
+    end
+    if mine == hostLayer then
+        return (hostText or "Layer ?") .. " — same as you"
+    end
+    local mineText = SmoreSkills_FormatLayer(mine, mapId)
+    if hostText and mineText then
+        return hostText .. " — you are on " .. mineText
+    end
+    return "Different layer"
+end
+
+function SmoreSkills_InitLayerWatch()
+    if SmoreSkills.layerWatch then
+        return
+    end
+    local f = CreateFrame("Frame")
+    f:RegisterEvent("PLAYER_TARGET_CHANGED")
+    f:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
+    f:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+    f:RegisterEvent("PLAYER_ENTERING_WORLD")
+    f:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+    f:RegisterEvent("ZONE_CHANGED")
+    f:RegisterEvent("ZONE_CHANGED_INDOORS")
+    local function ScanLayer()
+        SmoreSkills_GetPlayerLayerId()
+    end
+    local function ScanLayerSoon()
+        ResetLayerIfMapChanged()
+        ScanLayer()
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0.5, ScanLayer)
+            C_Timer.After(2, ScanLayer)
+        end
+    end
+    f:SetScript("OnEvent", function(_, event)
+        if event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED"
+            or event == "ZONE_CHANGED_INDOORS" or event == "PLAYER_ENTERING_WORLD" then
+            ScanLayerSoon()
+            return
+        end
+        ScanLayer()
+    end)
+    if C_Timer and C_Timer.NewTicker then
+        C_Timer.NewTicker(3, ScanLayer)
+    end
+    SmoreSkills.layerWatch = f
+    ScanLayerSoon()
+end
+
 function SmoreSkills_HostMatchesSeeker(host, mapId, seekerProfession)
     if not host or not mapId then
         return false
@@ -874,18 +1243,18 @@ function SmoreSkills_HostMatchesSeeker(host, mapId, seekerProfession)
     if host.faction and host.faction ~= SmoreSkills_PlayerFaction() then
         return false
     end
-    if host.mapId ~= mapId then
+    if host.mapId ~= mapId and not SmoreSkills_MapsShareZone(host.mapId, mapId) then
         return false
     end
     if SmoreSkills_CountEmptySlots(host) < 1 then
         return false
     end
-    local hostWant, hostItems = SmoreSkills_SplitWantWire(host.want or "any")
-    hostItems = host.wantItems or hostItems
+    local hostWant = SmoreSkills_SplitWantWire(host.want or "any")
+    -- Any one shared profession is enough. Extra trades on the seeker do not matter.
     if not SmoreSkills_WantAcceptsAny(hostWant, seekerProfession) then
         return false
     end
-    return SmoreSkills_SeekerCanProvideItems(seekerProfession, hostItems)
+    return true
 end
 
 function SmoreSkills_SeekerWantsCamp(camp, seekerWant, seekerItems)
@@ -900,7 +1269,6 @@ function SmoreSkills_SeekerWantsCamp(camp, seekerWant, seekerItems)
     if want == "none" or want == "" then
         return false
     end
-    SmoreSkills_EnsureSlots(camp)
     local itemList = SmoreSkills_ParseItemList(seekerItems)
     if #itemList > 0 then
         for _, itemId in ipairs(itemList) do
@@ -910,22 +1278,34 @@ function SmoreSkills_SeekerWantsCamp(camp, seekerWant, seekerItems)
         end
         return false
     end
+    local seekerIds = {}
+    for token in string.gmatch(want, "[^,]+") do
+        local id = SmoreSkills_NormalizeProfession(strtrim(token))
+        if id then
+            table.insert(seekerIds, id)
+        end
+    end
+    local hostWant = SmoreSkills_SplitWantWire(camp.want or "any")
+    -- Any overlap with what the host asked for, or with a placed camp object.
+    if SmoreSkills_WantAcceptsAny(hostWant, seekerIds) then
+        return true
+    end
+    SmoreSkills_EnsureSlots(camp)
     for i = 1, SmoreSkills.MAX_SLOTS do
         local slot = camp.slots[i]
         if slot and slot.profession and SmoreSkills_WantAccepts(want, slot.profession) then
             return true
         end
     end
-    local hostWant = camp.want or "any"
-    if hostWant ~= "any" and hostWant ~= "none" and hostWant ~= "" then
-        for token in string.gmatch(want, "[^,]+") do
-            local id = SmoreSkills_NormalizeProfession(token)
-            if id and SmoreSkills_WantAccepts(hostWant, id) then
-                return true
-            end
-        end
-    end
     return false
+end
+
+-- Pin clock starts when the fire was lit. Heartbeats must not extend it.
+function SmoreSkills_CampLitTime(camp)
+    if not camp then
+        return 0
+    end
+    return tonumber(camp.litAt) or tonumber(camp.updatedAt) or 0
 end
 
 function SmoreSkills_CampPinActive(camp)
@@ -938,8 +1318,43 @@ function SmoreSkills_CampPinActive(camp)
     if camp.packed then
         return false
     end
-    local lit = tonumber(camp.litAt) or tonumber(camp.updatedAt) or 0
+    local lit = SmoreSkills_CampLitTime(camp)
+    if lit <= 0 then
+        return false
+    end
     return (SmoreSkills_Now() - lit) < (SmoreSkills.CAMPFIRE_DURATION or 600)
+end
+
+function SmoreSkills_CampHiddenReason(camp, mapId, seekerProfession)
+    if not camp then
+        return "missing"
+    end
+    if SmoreSkills_CountEmptySlots(camp) < 1 then
+        return "full (3/3)"
+    end
+    if camp.packed then
+        return "packed up"
+    end
+    local lit = SmoreSkills_CampLitTime(camp)
+    if lit <= 0 or (SmoreSkills_Now() - lit) >= (SmoreSkills.CAMPFIRE_DURATION or 600) then
+        return "expired"
+    end
+    if not SmoreSkills_IsHostedCamp(camp) then
+        return "not a host pin"
+    end
+    if mapId and camp.mapId ~= mapId and not SmoreSkills_MapsShareZone(camp.mapId, mapId) then
+        return "wrong zone"
+    end
+    if not SmoreSkills_HostMatchesSeeker(camp, mapId or camp.mapId, seekerProfession) then
+        return "does not match"
+    end
+    if not SmoreSkills_SeekerWantsCamp(camp, SmoreSkills_GetEffectiveSeekerWant()) then
+        return "seeker filter"
+    end
+    if not SmoreSkills_LayerAllowsCamp(camp) then
+        return "different layer"
+    end
+    return nil
 end
 
 -- Map pins are hosts only. Seekers never get a pin; leftover C: snapshots do not show.
@@ -976,7 +1391,28 @@ function SmoreSkills_CampVisibleToSeeker(camp, mapId, seekerProfession)
     if not SmoreSkills_HostMatchesSeeker(camp, mapId, seekerProfession) then
         return false
     end
-    return SmoreSkills_SeekerWantsCamp(camp, SmoreSkills_GetEffectiveSeekerWant())
+    if not SmoreSkills_SeekerWantsCamp(camp, SmoreSkills_GetEffectiveSeekerWant()) then
+        return false
+    end
+    return SmoreSkills_LayerAllowsCamp(camp)
+end
+
+function SmoreSkills_LayerAllowsCamp(camp)
+    if SmoreSkills_GetCrossLayerEnabled and SmoreSkills_GetCrossLayerEnabled() then
+        return true
+    end
+    if not camp then
+        return true
+    end
+    if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
+        return true
+    end
+    local mine = SmoreSkills_GetPlayerLayerId and SmoreSkills_GetPlayerLayerId() or nil
+    local host = tonumber(camp.layer)
+    if not mine or not host or host == 0 then
+        return true
+    end
+    return mine == host
 end
 
 local function EmptySlots()
@@ -1016,6 +1452,27 @@ end
 
 local function MapTypeZone()
     return (Enum and Enum.UIMapType and Enum.UIMapType.Zone) or 3
+end
+
+local function MapTypeContinent()
+    return (Enum and Enum.UIMapType and Enum.UIMapType.Continent) or 2
+end
+
+-- Pins belong on zone / city / dungeon canvases, not cosmic / world / continent zoom.
+function SmoreSkills_MapViewShowsCampPins(mapId)
+    mapId = tonumber(mapId)
+    if not mapId then
+        return false
+    end
+    if not C_Map or not C_Map.GetMapInfo then
+        return true
+    end
+    local info = C_Map.GetMapInfo(mapId)
+    local mapType = info and info.mapType
+    if not mapType then
+        return true
+    end
+    return mapType > MapTypeContinent()
 end
 
 function SmoreSkills_ResolveZoneMap(mapId, x, y)
@@ -1080,19 +1537,21 @@ function SmoreSkills_CampPinPosOnMap(camp, viewMapId)
     if not viewMapId or viewMapId == campMapId then
         return x, y
     end
-    if SmoreSkills_TranslateMapPos then
+    if not SmoreSkills_MapViewShowsCampPins(viewMapId) then
+        return nil
+    end
+    -- Same zone, different uiMapID (Elwynn 37 vs 1429). Not Duskwood.
+    if SmoreSkills_MapsShareZone(campMapId, viewMapId) then
+        return x, y
+    end
+    -- Nested city/zone only (Stormwind on Elwynn). Sibling zones stay empty.
+    if SmoreSkills_MapsAreNested(campMapId, viewMapId) and SmoreSkills_TranslateMapPos then
         local tx, ty = SmoreSkills_TranslateMapPos(camp.mapId, x, y, viewMapId)
-        if tx and ty then
+        if tx and ty and tx >= 0 and tx <= 1 and ty >= 0 and ty <= 1 then
             return tx, ty
         end
     end
-    local playerMapId = select(1, SmoreSkills_GetPlayerMapPos())
-    if playerMapId and tonumber(playerMapId) == campMapId then
-        return x, y
-    end
-    -- Last resort: zone coords on this canvas. The map widget sometimes reports
-    -- Stormwind City while still drawing Elwynn Forest (city in the corner).
-    return x, y
+    return nil
 end
 
 function SmoreSkills_TranslateMapPos(fromMapId, x, y, toMapId)
@@ -1159,7 +1618,9 @@ function SmoreSkills_UpsertCamp(incoming)
     SmoreSkillsDB.camps = SmoreSkillsDB.camps or {}
     local id = incoming.id or SmoreSkills_CampId(incoming.mapId, incoming.x, incoming.y)
     local existing = SmoreSkillsDB.camps[id]
-    if existing and (incoming.updatedAt or 0) < (existing.updatedAt or 0) then
+    incoming.updatedAt = SmoreSkills_SanitizeCampTime(incoming.updatedAt)
+    -- A live H: must apply even if a previous decode stored a bogus small timestamp.
+    if existing and incoming.source ~= "host" and (incoming.updatedAt or 0) < (existing.updatedAt or 0) then
         return existing
     end
     incoming.id = id
@@ -1167,14 +1628,45 @@ function SmoreSkills_UpsertCamp(incoming)
     incoming.zone = incoming.zone or (existing and existing.zone)
     incoming.want = incoming.want or (existing and existing.want)
     incoming.wantItems = incoming.wantItems or (existing and existing.wantItems)
+    if incoming.layer and incoming.layer ~= 0 then
+        SmoreSkills_NoteLayerId(incoming.layer, incoming.mapId)
+    elseif existing and existing.layer and existing.layer ~= 0 then
+        incoming.layer = existing.layer
+        SmoreSkills_NoteLayerId(incoming.layer, incoming.mapId)
+    end
+    if incoming.layerOrdinal and incoming.layerOrdinal ~= 0 then
+        -- keep host's display number
+    elseif existing and existing.layerOrdinal and existing.layerOrdinal ~= 0 then
+        incoming.layerOrdinal = existing.layerOrdinal
+    end
     if existing and existing.source == "host" and incoming.source ~= "host" then
         incoming.source = existing.source
     end
     incoming.source = incoming.source or (existing and existing.source)
     SmoreSkills_EnsureSlots(incoming)
-    incoming.updatedAt = incoming.updatedAt or SmoreSkills_Now()
     incoming.litAt = incoming.litAt or (existing and existing.litAt) or incoming.updatedAt
-    if existing and existing.packed then
+    incoming.litAt = tonumber(incoming.litAt) or incoming.updatedAt
+    if incoming.source == "host" then
+        local stamp = tonumber(incoming.litAt) or incoming.updatedAt or 0
+        if existing and existing.packed and existing.packedAt
+            and stamp <= existing.packedAt then
+            incoming.packed = true
+            incoming.packedAt = existing.packedAt
+        else
+            incoming.packed = nil
+            incoming.packedAt = nil
+            if existing and existing.packed then
+                incoming.litAt = stamp
+            elseif existing and existing.litAt then
+                -- Keep the original light. Old clients send "now" on every H:.
+                local oldLit = tonumber(existing.litAt) or 0
+                local live = oldLit > 0 and (SmoreSkills_Now() - oldLit) < (SmoreSkills.CAMPFIRE_DURATION or 600)
+                if live and stamp >= oldLit then
+                    incoming.litAt = oldLit
+                end
+            end
+        end
+    elseif existing and existing.packed then
         -- A later host ping from a re-host can revive; anything stamped at or before pack stays packed.
         if (incoming.updatedAt or 0) <= (existing.packedAt or 0) then
             incoming.packed = true
@@ -1203,7 +1695,10 @@ function SmoreSkills_AlreadyHaveCampMessage(camp)
     local where = (camp and camp.zone and camp.zone ~= "") and (" in " .. camp.zone) or ""
     local left = 0
     if camp then
-        local lit = tonumber(camp.litAt) or tonumber(camp.updatedAt) or SmoreSkills_Now()
+        local lit = SmoreSkills_CampLitTime(camp)
+        if lit <= 0 then
+            lit = SmoreSkills_Now()
+        end
         left = math.max(0, math.ceil((lit + (SmoreSkills.CAMPFIRE_DURATION or 600)) - SmoreSkills_Now()))
     end
     local wait
@@ -1316,26 +1811,16 @@ function SmoreSkills_ListCamps(faction, mapId)
     return list
 end
 
-function SmoreSkills_TestCampsEnabled()
-    if SmoreSkillsDB.settings and SmoreSkillsDB.settings.testCamps == false then
-        return false
-    end
-    return SmoreSkills.ENABLE_TEST_CAMPS ~= false
+SmoreSkills.TEST_CAMP_OWNER = "S'more-enjoyer"
+
+function SmoreSkills_IsTestCamp(camp)
+    local owner = camp and camp.owner
+    return owner == SmoreSkills.TEST_CAMP_OWNER or owner == "TestCamper"
 end
 
-function SmoreSkills_IsAshenvale(mapId, zone)
-    if mapId == 331 then
-        return true
-    end
-    if zone and strlower(zone):find("ashenvale", 1, true) then
-        return true
-    end
-    return false
-end
-
-local function SmoreSkills_ClearTestCamps()
+function SmoreSkills_ClearTestCamps()
     for id, camp in pairs(SmoreSkillsDB.camps or {}) do
-        if camp.owner == "TestCamper" then
+        if SmoreSkills_IsTestCamp(camp) then
             SmoreSkillsDB.camps[id] = nil
             if SmoreSkills.Sync and SmoreSkills.Sync.seekDiscoveredIds then
                 SmoreSkills.Sync.seekDiscoveredIds[id] = nil
@@ -1344,47 +1829,16 @@ local function SmoreSkills_ClearTestCamps()
     end
 end
 
-function SmoreSkills_GetTestCampCoords()
-    SmoreSkillsDB.settings = SmoreSkillsDB.settings or {}
-    local settings = SmoreSkillsDB.settings
-    if settings.testCampX and settings.testCampY then
-        return settings.testCampX, settings.testCampY
+-- Other people's pins only after Find recorded them. Your own hosted pin is always local.
+function SmoreSkills_CampDiscoveredForSeeker(camp)
+    if not camp or not camp.id then
+        return false
     end
-    local hash = 0
-    local name = UnitName("player") or "camper"
-    for i = 1, #name do
-        hash = (hash * 31 + string.byte(name, i)) % 100000
+    if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
+        return true
     end
-    local x = 0.18 + (hash % 640) / 1000
-    local y = 0.18 + ((hash * 17) % 640) / 1000
-    settings.testCampX = x
-    settings.testCampY = y
-    return x, y
-end
-
-function SmoreSkills_SeedTestCamp(mapId, zone)
-    if not SmoreSkills_TestCampsEnabled() then
-        return nil
-    end
-    if not SmoreSkills_IsAshenvale(mapId, zone) then
-        return nil
-    end
-    SmoreSkills_ClearTestCamps()
-    local x, y = SmoreSkills_GetTestCampCoords()
-    local camp = SmoreSkills_UpsertCamp({
-        mapId = mapId or 331,
-        x = x,
-        y = y,
-        zone = zone or "Ashenvale",
-        faction = SmoreSkills_PlayerFaction(),
-        owner = "TestCamper",
-        want = SmoreSkills_GetEffectiveHostWant(),
-        wantItems = SmoreSkills_GetEffectiveHostWantItems(),
-        source = "host",
-        updatedAt = SmoreSkills_Now(),
-    })
-    SmoreSkills_SetSlot(camp, 1, "TestCamper", "blacksmithing", "Anvil")
-    return camp
+    local sync = SmoreSkills.Sync
+    return sync and sync.seekDiscoveredIds and sync.seekDiscoveredIds[camp.id] and true or false
 end
 
 local function SmoreSkills_MaybeAddVisibleCamp(list, seen, camp, mapId, seekerProfession)
@@ -1394,19 +1848,13 @@ local function SmoreSkills_MaybeAddVisibleCamp(list, seen, camp, mapId, seekerPr
     if camp.faction and camp.faction ~= SmoreSkills_PlayerFaction() then
         return
     end
-    if mapId and camp.mapId ~= mapId then
-        if not SmoreSkills_TranslateMapPos(camp.mapId, camp.x, camp.y, mapId) then
-            -- WoW sometimes reports Stormwind City while the canvas is still Elwynn.
-            -- Keep the camp if the seeker is standing in that zone.
-            local playerMapId = select(1, SmoreSkills_GetPlayerMapPos())
-            if tonumber(playerMapId) ~= tonumber(camp.mapId) then
-                local sync = SmoreSkills.Sync
-                local discovered = sync and sync.seekDiscoveredIds and camp.id and sync.seekDiscoveredIds[camp.id]
-                if not discovered then
-                    return
-                end
-            end
-        end
+    if not SmoreSkills_CampDiscoveredForSeeker(camp) then
+        return
+    end
+    -- Do not list an Elwynn camp on Duskwood. Nested city maps still list.
+    if mapId and camp.mapId ~= mapId and not SmoreSkills_MapsShareZone(camp.mapId, mapId)
+        and not (SmoreSkills_MapsAreNested and SmoreSkills_MapsAreNested(camp.mapId, mapId)) then
+        return
     end
     if not SmoreSkills_CampVisibleToSeeker(camp, camp.mapId, seekerProfession) then
         return
@@ -1416,6 +1864,9 @@ local function SmoreSkills_MaybeAddVisibleCamp(list, seen, camp, mapId, seekerPr
 end
 
 function SmoreSkills_ListVisibleCamps(mapId)
+    if SmoreSkills_ClearTestCamps then
+        SmoreSkills_ClearTestCamps()
+    end
     local seekerProfession = SmoreSkills_CollectSeekerProfessions(SmoreSkills_GetPlayerProfession())
     local list = {}
     local seen = {}
@@ -1467,6 +1918,7 @@ end
 
 function SmoreSkills_ForgetStaleCamps(maxAge)
     maxAge = maxAge or (30 * 60)
+    SmoreSkills_ClearTestCamps()
     local now = SmoreSkills_Now()
     for id, camp in pairs(SmoreSkillsDB.camps or {}) do
         if (now - (camp.updatedAt or 0)) > maxAge then
@@ -1506,6 +1958,19 @@ function SmoreSkills_IsGuildie(name)
         end
     end
     return false
+end
+
+function SmoreSkills_ShowCampGuildMark(camp)
+    if not camp then
+        return false
+    end
+    if not SmoreSkills_GetShowGuildMark or not SmoreSkills_GetShowGuildMark() then
+        return false
+    end
+    if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
+        return false
+    end
+    return SmoreSkills_CampHasGuildie(camp) and true or false
 end
 
 function SmoreSkills_CampHasGuildie(camp)

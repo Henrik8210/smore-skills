@@ -13,7 +13,6 @@ local FADE_MIN = 0.35
 local FADE_MAX = 1.0
 local FIRE_SCALE = 1.5
 local SOCKET_TOOLTIP_SCALE = FIRE_SCALE * 2 * 0.8
-local PIN_FRAME_LEVEL = 2016
 local TOOLTIP_BG = "Interface\\DialogFrame\\UI-DialogBox-Background"
 local TOOLTIP_EDGE = "Interface\\DialogFrame\\UI-DialogBox-Border"
 local TOOLTIP_FILL = { 0.11, 0.09, 0.08, 1 }
@@ -49,6 +48,65 @@ end
 
 Map.pins = Map.pins or {}
 Map.pinPool = Map.pinPool or {}
+
+local function GetButtonHost()
+    if WorldMapFrame and WorldMapFrame.ScrollContainer then
+        return WorldMapFrame.ScrollContainer
+    end
+    return WorldMapFrame
+end
+
+local function ApplyPinStrata(pin)
+    if not pin then
+        return
+    end
+    -- Map tiles are mouse-transparent, so hover still works while the fire art
+    -- sits under them. Draw the pin above the parchment on windowed and fullscreen.
+    if not pcall(pin.SetFrameStrata, pin, "FULLSCREEN_DIALOG") then
+        pin:SetFrameStrata("TOOLTIP")
+    end
+    if pin.SetFrameLevel then
+        pin:SetFrameLevel(400)
+    end
+    if pin.SetToplevel then
+        pin:SetToplevel(true)
+    end
+    if pin.fireFrame then
+        if not pcall(pin.fireFrame.SetFrameStrata, pin.fireFrame, "FULLSCREEN_DIALOG") then
+            pin.fireFrame:SetFrameStrata("TOOLTIP")
+        end
+        if pin.fireFrame.SetFrameLevel then
+            pin.fireFrame:SetFrameLevel(401)
+        end
+    end
+    if pin.fireIcon and pin.fireIcon.SetDrawLayer then
+        pin.fireIcon:SetDrawLayer("OVERLAY", 6)
+    end
+    if pin.fireRing and pin.fireRing.SetDrawLayer then
+        pin.fireRing:SetDrawLayer("OVERLAY", 7)
+    end
+end
+
+local function ApplyOverlayStrata(frame, bump)
+    if not frame then
+        return
+    end
+    local parent = frame.GetParent and frame:GetParent()
+    local strata = "HIGH"
+    if parent and parent.GetFrameStrata then
+        strata = parent:GetFrameStrata() or strata
+    elseif WorldMapFrame and WorldMapFrame.GetFrameStrata then
+        strata = WorldMapFrame:GetFrameStrata() or strata
+    end
+    frame:SetFrameStrata(strata)
+    local level = bump or 80
+    if parent and parent.GetFrameLevel then
+        level = (parent:GetFrameLevel() or 1) + (bump or 80)
+    end
+    if frame.SetFrameLevel then
+        frame:SetFrameLevel(math.min(level, 9000))
+    end
+end
 
 local function GetMapCanvas()
     if WorldMapFrame and WorldMapFrame.GetCanvas then
@@ -252,7 +310,7 @@ local function ApplyTooltipChrome(frame)
 end
 
 local function EnsureCampTooltip()
-    if Map.campTooltip and Map.campTooltip.tooltipVersion == 6 then
+    if Map.campTooltip and Map.campTooltip.tooltipVersion == 8 then
         return Map.campTooltip
     end
     if Map.campTooltip then
@@ -273,18 +331,28 @@ local function EnsureCampTooltip()
     tip:Hide()
     ApplyTooltipChrome(tip)
 
-    tip.title = tip:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    tip.title:SetPoint("TOPLEFT", 12, -10)
-    tip.title:SetJustifyH("LEFT")
+    local function MakeTipText(parent, template)
+        local fs = parent:CreateFontString(nil, "OVERLAY", template)
+        fs:SetJustifyH("LEFT")
+        fs:SetJustifyV("TOP")
+        if fs.SetWordWrap then
+            fs:SetWordWrap(true)
+        end
+        if fs.SetNonSpaceWrap then
+            fs:SetNonSpaceWrap(true)
+        end
+        return fs
+    end
 
-    tip.coords = tip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    tip.title = MakeTipText(tip, "GameFontNormal")
+    tip.title:SetPoint("TOPLEFT", 12, -10)
+
+    tip.coords = MakeTipText(tip, "GameFontHighlightSmall")
     tip.coords:SetPoint("TOPLEFT", tip.title, "BOTTOMLEFT", 0, -2)
-    tip.coords:SetJustifyH("LEFT")
     tip.coords:SetTextColor(0.7, 0.7, 0.7)
 
-    tip.slotsLabel = tip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    tip.slotsLabel = MakeTipText(tip, "GameFontHighlightSmall")
     tip.slotsLabel:SetPoint("TOPLEFT", tip.coords, "BOTTOMLEFT", 0, -2)
-    tip.slotsLabel:SetJustifyH("LEFT")
     tip.slotsLabel:SetTextColor(0.75, 0.75, 0.75)
 
     local socketRow = CreateFrame("Frame", nil, tip)
@@ -301,13 +369,15 @@ local function EnsureCampTooltip()
     end
     socketRow:SetSize(SmoreSkills.MAX_SLOTS * socketSize + (SmoreSkills.MAX_SLOTS - 1) * socketGap, socketSize)
 
-    tip.footer = tip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    tip.footer = MakeTipText(tip, "GameFontHighlightSmall")
     tip.footer:SetPoint("TOPLEFT", socketRow, "BOTTOMLEFT", 4, -8)
-    tip.footer:SetPoint("RIGHT", tip, "RIGHT", -12, 0)
-    tip.footer:SetJustifyH("LEFT")
     tip.footer:SetTextColor(1, 1, 1)
 
-    tip.tooltipVersion = 6
+    tip.hint = MakeTipText(tip, "GameFontHighlightSmall")
+    tip.hint:SetPoint("TOPLEFT", tip.footer, "BOTTOMLEFT", 0, -6)
+    tip.hint:SetTextColor(TITLE_YELLOW[1], TITLE_YELLOW[2], TITLE_YELLOW[3])
+
+    tip.tooltipVersion = 8
     Map.campTooltip = tip
     return tip
 end
@@ -318,6 +388,12 @@ local function HideCampTooltip()
     end
 end
 
+local function CampLayerTooltipText(camp)
+    local own = camp and SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName())
+    local layer = SmoreSkills_ResolveCampLayer and SmoreSkills_ResolveCampLayer(camp) or (camp and camp.layer)
+    return SmoreSkills_FormatLayerCompare and SmoreSkills_FormatLayerCompare(layer, camp and camp.mapId, own, camp and camp.layerOrdinal)
+end
+
 local function ShowPinTooltipFallback(pin, camp)
     GameTooltip:SetOwner(pin, "ANCHOR_RIGHT")
     if GameTooltip.ClearLines then
@@ -325,10 +401,14 @@ local function ShowPinTooltipFallback(pin, camp)
     end
     local filled = SmoreSkills_CountFilledSlots(camp)
     GameTooltip:SetText(camp.zone or "Camp", 1, 0.82, 0.45)
-    if SmoreSkills_GetShowGuildMark and SmoreSkills_GetShowGuildMark() and SmoreSkills_CampHasGuildie(camp) then
+    if SmoreSkills_ShowCampGuildMark and SmoreSkills_ShowCampGuildMark(camp) then
         GameTooltip:AddLine("Guildie at this camp", 0, 1, 0)
     end
     GameTooltip:AddLine(SmoreSkills_FormatCoords(camp), 0.7, 0.7, 0.7)
+    local layerText = CampLayerTooltipText(camp)
+    if layerText then
+        GameTooltip:AddLine(layerText, 1, 0.82, 0)
+    end
     GameTooltip:AddLine(string.format("%d/%d slots filled", filled, SmoreSkills.MAX_SLOTS), 0.75, 0.75, 0.75)
     for i = 1, SmoreSkills.MAX_SLOTS do
         GameTooltip:AddLine(SmoreSkills_FormatSlotTooltipLine(camp, i), 0.92, 0.92, 0.92)
@@ -346,11 +426,13 @@ local function ShowPinTooltipFallback(pin, camp)
             GameTooltip:AddLine(line, 0.92, 0.92, 0.92)
         end
     end
-    if camp.owner == "TestCamper" then
+    if SmoreSkills_IsTestCamp and SmoreSkills_IsTestCamp(camp) then
         GameTooltip:AddLine("Test camp (local preview)", 0.55, 0.55, 0.55)
     end
     if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
-        GameTooltip:AddLine("Right-click to pack up this campsite.", 0.6, 0.6, 0.6)
+        GameTooltip:AddLine("Right-click to pack up this campsite.", 1, 0.82, 0)
+    else
+        GameTooltip:AddLine("Left-click to whisper the host for an invite.", 1, 0.82, 0)
     end
     GameTooltip:Show()
 end
@@ -368,12 +450,16 @@ local function ShowPinTooltip(pin)
         local tip = EnsureCampTooltip()
         local filled = SmoreSkills_CountFilledSlots(camp)
         local zoneTitle = camp.zone or "Camp"
-        if SmoreSkills_GetShowGuildMark and SmoreSkills_GetShowGuildMark() and SmoreSkills_CampHasGuildie(camp) then
+        if SmoreSkills_ShowCampGuildMark and SmoreSkills_ShowCampGuildMark(camp) then
             zoneTitle = zoneTitle .. "  |cff00ff00G|r"
         end
         tip.title:SetText(zoneTitle)
         tip.title:SetTextColor(TITLE_YELLOW[1], TITLE_YELLOW[2], TITLE_YELLOW[3])
         tip.coords:SetText(SmoreSkills_FormatCoords(camp))
+        local layerText = CampLayerTooltipText(camp)
+        if layerText then
+            tip.coords:SetText(SmoreSkills_FormatCoords(camp) .. "  ·  " .. layerText)
+        end
         tip.slotsLabel:SetText(string.format("%d/%d slots filled", filled, SmoreSkills.MAX_SLOTS))
 
         for i = 1, SmoreSkills.MAX_SLOTS do
@@ -395,14 +481,16 @@ local function ShowPinTooltip(pin)
                 SmoreSkills_AppendHostWantTooltipLines(footerLines, want, wantItems)
             end
         end
-        if camp.owner == "TestCamper" then
+        if SmoreSkills_IsTestCamp and SmoreSkills_IsTestCamp(camp) then
             table.insert(footerLines, "|cff888888Test camp (local preview)|r")
         end
-        if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
-            table.insert(footerLines, "|cff888888Right-click to pack up this campsite.|r")
-        end
         tip.footer:SetText(table.concat(footerLines, "\n"))
-        tip.footer:SetWidth(math.max(260, tip.socketRow:GetWidth() + 8))
+        if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
+            tip.hint:SetText("Right-click to pack up this campsite.")
+        else
+            tip.hint:SetText("Left-click to whisper the host for an invite.")
+        end
+        tip.hint:Show()
 
         local parent = WorldMapFrame or UIParent
         tip:SetParent(parent)
@@ -415,10 +503,41 @@ local function ShowPinTooltip(pin)
 
         tip:ClearAllPoints()
         tip:SetPoint("TOPLEFT", pin, "TOPRIGHT", 8, 0)
-        tip:SetWidth(math.max(280, tip.socketRow:GetWidth() + 24))
-        local footerHeight = tip.footer:GetStringHeight() or 40
-        tip:SetHeight(10 + 14 + 12 + 12 + tip.socketRow:GetHeight() + 8 + footerHeight + 14)
+        local innerW = math.max(260, (tip.socketRow:GetWidth() or 0) + 8)
+        local tipW = innerW + 24
+        tip:SetWidth(tipW)
+        if tip.title.SetWidth then
+            tip.title:SetWidth(innerW)
+        end
+        if tip.coords.SetWidth then
+            tip.coords:SetWidth(innerW)
+        end
+        if tip.slotsLabel.SetWidth then
+            tip.slotsLabel:SetWidth(innerW)
+        end
+        tip.footer:SetWidth(innerW)
+        tip.hint:SetWidth(innerW)
+        tip:SetHeight(400)
         tip:Show()
+        local function lineH(fs)
+            if not fs then
+                return 0
+            end
+            return math.max(fs:GetStringHeight() or 0, 8)
+        end
+        local h = 10
+            + lineH(tip.title) + 2
+            + lineH(tip.coords) + 2
+            + lineH(tip.slotsLabel) + 8
+            + (tip.socketRow:GetHeight() or 0) + 8
+            + lineH(tip.footer) + 6
+            + lineH(tip.hint) + 14
+        local top = tip.title:GetTop()
+        local bottom = tip.hint:GetBottom()
+        if top and bottom then
+            h = math.max(h, (top - bottom) + 10 + 14)
+        end
+        tip:SetHeight(h)
     end)
 
     if not ok then
@@ -490,9 +609,11 @@ function Map:GetVisibleCamps(mapId)
         end
     end
     if sync and sync.seekDiscoveredIds and SmoreSkillsDB.camps then
+        local seekerProfession = SmoreSkills_CollectSeekerProfessions(SmoreSkills_GetPlayerProfession())
         for id in pairs(sync.seekDiscoveredIds) do
             local camp = SmoreSkillsDB.camps[id]
-            if camp and camp.id and not seen[camp.id] and SmoreSkills_CampPinActive(camp) and SmoreSkills_IsHostedCamp(camp) then
+            if camp and camp.id and not seen[camp.id]
+                and SmoreSkills_CampVisibleToSeeker(camp, camp.mapId, seekerProfession) then
                 table.insert(camps, camp)
                 seen[camp.id] = true
             end
@@ -523,17 +644,22 @@ function Map:AnchorButton()
         return
     end
     local btn = self.button
-    local canvas = GetMapCanvas()
-    btn:SetParent(WorldMapFrame.ScrollContainer or WorldMapFrame)
-    btn:SetFrameStrata("TOOLTIP")
-    local btnLevel = 50
-    if WorldMapFrame.GetFrameLevel then
-        btnLevel = (WorldMapFrame:GetFrameLevel() or 1) + 50
+    local host = GetButtonHost()
+    if not host then
+        return
     end
-    btn:SetFrameLevel(btnLevel)
+    -- Host is the visible window (ScrollContainer), not the zoomable canvas.
+    -- Anchoring to the canvas puts the button off-screen when ElvUI/Leatrix
+    -- shrinks or zooms the map.
+    btn:SetParent(host)
+    ApplyOverlayStrata(btn, 80)
     btn:ClearAllPoints()
-    btn:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMRIGHT", -MAP_OFFSET_X, MAP_OFFSET_Y)
-    btn:Show()
+    btn:SetPoint("BOTTOMRIGHT", host, "BOTTOMRIGHT", -MAP_OFFSET_X, MAP_OFFSET_Y)
+    if WorldMapFrame.IsShown and WorldMapFrame:IsShown() then
+        btn:Show()
+    else
+        btn:Hide()
+    end
 end
 
 function Map:PositionPin(pin, x, y)
@@ -544,8 +670,13 @@ function Map:PositionPin(pin, x, y)
     if pin.GetParent and pin:GetParent() ~= canvas then
         pin:SetParent(canvas)
     end
+    ApplyPinStrata(pin)
     local w = canvas:GetWidth()
     local h = canvas:GetHeight()
+    if not w or w < 1 or not h or h < 1 then
+        pin:Hide()
+        return
+    end
     pin:ClearAllPoints()
     -- C_Map y is 0 at the top of the map; canvas Y grows up from BOTTOMLEFT.
     pin:SetPoint("CENTER", canvas, "TOPLEFT", (tonumber(x) or 0) * w, -(tonumber(y) or 0) * h)
@@ -555,8 +686,7 @@ function Map:CreatePinFrame()
     local canvas = GetMapCanvas()
     local pin = CreateFrame("Button", nil, canvas)
     pin:SetSize(GetPinHitSize(), GetPinHitSize())
-    pin:SetFrameStrata("HIGH")
-    pin:SetFrameLevel(PIN_FRAME_LEVEL)
+    ApplyPinStrata(pin)
 
     -- Anchor marks the exact campsite coordinate on the map.
     local anchor = CreateFrame("Frame", nil, pin)
@@ -601,7 +731,9 @@ function Map:CreatePinFrame()
     pin:SetScript("OnClick", function(self, mouseButton)
         if mouseButton == "RightButton" then
             OnOwnPinRightClick(self)
+            return
         end
+        Map:WhisperHost(self.camp)
     end)
 
     pin:SetScript("OnEnter", function(self)
@@ -612,6 +744,21 @@ function Map:CreatePinFrame()
         GameTooltip:Hide()
     end)
     return pin
+end
+
+function Map:WhisperHost(camp)
+    if not camp or not camp.owner or camp.owner == "" then
+        return
+    end
+    if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
+        return
+    end
+    local name = camp.owner
+    if ChatFrame_SendTell then
+        ChatFrame_SendTell(name)
+    elseif ChatFrame_OpenChat then
+        ChatFrame_OpenChat("/w " .. name .. " ")
+    end
 end
 
 function Map:ConfirmPackUp(camp)
@@ -680,8 +827,7 @@ function Map:ApplyPinScale(pin)
     end
     local scale = GetFireScale()
     pin:SetSize(GetPinHitSize(), GetPinHitSize())
-    pin:SetFrameStrata("HIGH")
-    pin:SetFrameLevel(PIN_FRAME_LEVEL)
+    ApplyPinStrata(pin)
     ResizeQuestieCluster(pin, scale)
 end
 
@@ -689,8 +835,7 @@ function Map:UpdatePinGuildMark(pin)
     if not pin or not pin.guildMark then
         return
     end
-    local show = SmoreSkills_GetShowGuildMark and SmoreSkills_GetShowGuildMark()
-        and pin.camp and SmoreSkills_CampHasGuildie(pin.camp)
+    local show = pin.camp and SmoreSkills_ShowCampGuildMark and SmoreSkills_ShowCampGuildMark(pin.camp)
     pin.guildMark:SetShown(show and true or false)
 end
 
@@ -724,6 +869,40 @@ function Map:ShowPlayerZone(mapId)
     end
 end
 
+local function MaybeHintWrongMapZone(self, playerMapId, viewId)
+    local sync = SmoreSkills.Sync
+    if not sync or not sync.IsSeeking or not sync:IsSeeking() then
+        return
+    end
+    if not playerMapId or not viewId or not SmoreSkills_ListVisibleCamps then
+        return
+    end
+    local me = SmoreSkills_PlayerName and SmoreSkills_PlayerName()
+    local zoneCamps = SmoreSkills_ListVisibleCamps(playerMapId)
+    local foundOther = false
+    if zoneCamps then
+        for _, camp in ipairs(zoneCamps) do
+            if camp and not SmoreSkills_PlayerNamesMatch(camp.owner, me) then
+                foundOther = true
+                break
+            end
+        end
+    end
+    if not foundOther then
+        return
+    end
+    local now = (GetTime and GetTime()) or 0
+    if self.wrongMapHintAt and (now - self.wrongMapHintAt) <= 15 then
+        return
+    end
+    self.wrongMapHintAt = now
+    SmoreSkills_Print(string.format(
+        "Camp(s) are in %s — zoom the map to that zone (you are viewing %s).",
+        MapName(playerMapId) or "your zone",
+        MapName(viewId) or "another map"
+    ))
+end
+
 function Map:RefreshPins()
     if not WorldMapFrame or not WorldMapFrame.IsShown or not WorldMapFrame:IsShown() then
         return
@@ -731,6 +910,12 @@ function Map:RefreshPins()
     local mapId = GetViewMapId()
     if not mapId or not SmoreSkills_ListVisibleCamps then
         self:ReleasePins()
+        return
+    end
+    if SmoreSkills_MapViewShowsCampPins and not SmoreSkills_MapViewShowsCampPins(mapId) then
+        self:ReleasePins()
+        local playerMapId = select(1, SmoreSkills_GetPlayerMapPos())
+        MaybeHintWrongMapZone(self, playerMapId, mapId)
         return
     end
     local camps = self:GetVisibleCamps(mapId)
@@ -784,20 +969,15 @@ function Map:RefreshPins()
         local playerMapId = select(1, SmoreSkills_GetPlayerMapPos())
         local viewId = GetViewMapId()
         if playerMapId and viewId and playerMapId ~= viewId then
-            local zoneCamps = SmoreSkills_ListVisibleCamps(playerMapId)
-            if zoneCamps and #zoneCamps > 0 then
-                local now = (GetTime and GetTime()) or 0
-                if not self.wrongMapHintAt or (now - self.wrongMapHintAt) > 15 then
-                    self.wrongMapHintAt = now
-                    SmoreSkills_Print(string.format(
-                        "Camp(s) are in %s — zoom the map to that zone (you are viewing %s).",
-                        MapName(playerMapId) or "your zone",
-                        MapName(viewId) or "another map"
-                    ))
-                end
-            end
+            MaybeHintWrongMapZone(self, playerMapId, viewId)
         end
     end
+end
+
+function Map:Relayout()
+    self:AnchorButton()
+    self:RefreshState()
+    self:RefreshPins()
 end
 
 function Map:HookMapChanges()
@@ -806,23 +986,44 @@ function Map:HookMapChanges()
     end
     self.hooksInstalled = true
 
+    local function RelayoutSoon()
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0, function()
+                Map:Relayout()
+            end)
+            C_Timer.After(0.15, function()
+                Map:Relayout()
+            end)
+        else
+            Map:Relayout()
+        end
+    end
+
     if WorldMapFrame.HookScript then
         WorldMapFrame:HookScript("OnShow", function()
-            Map:AnchorButton()
-            Map:RefreshState()
-            Map:RefreshPins()
+            RelayoutSoon()
         end)
         WorldMapFrame:HookScript("OnHide", function()
             Map:ReleasePins()
+            if Map.button then
+                Map.button:Hide()
+            end
+        end)
+        WorldMapFrame:HookScript("OnSizeChanged", function()
+            Map:Relayout()
         end)
     end
 
     if hooksecurefunc and WorldMapFrame.OnMapChanged then
         hooksecurefunc(WorldMapFrame, "OnMapChanged", function()
-            Map:AnchorButton()
-            C_Timer.After(0, function()
-                Map:RefreshPins()
-            end)
+            RelayoutSoon()
+        end)
+    end
+
+    local host = GetButtonHost()
+    if host and host.HookScript and host ~= WorldMapFrame then
+        host:HookScript("OnSizeChanged", function()
+            Map:Relayout()
         end)
     end
 
@@ -836,18 +1037,13 @@ function Map:HookMapChanges()
     local mm = WorldMapFrame.BorderFrame and WorldMapFrame.BorderFrame.MaximizeMinimizeFrame
     if mm then
         if mm.SetOnMinimizedCallback then
-            mm:SetOnMinimizedCallback(function()
-                C_Timer.After(0, function()
-                    Map:AnchorButton()
-                end)
-            end)
+            mm:SetOnMinimizedCallback(RelayoutSoon)
         end
         if mm.SetOnMaximizedCallback then
-            mm:SetOnMaximizedCallback(function()
-                C_Timer.After(0, function()
-                    Map:AnchorButton()
-                end)
-            end)
+            mm:SetOnMaximizedCallback(RelayoutSoon)
+        end
+        if mm.HookScript then
+            mm:HookScript("OnClick", RelayoutSoon)
         end
     end
 end
@@ -937,11 +1133,10 @@ function Map:RefreshState()
 end
 
 function Map:CreateButton()
-    local parent = WorldMapFrame.ScrollContainer or WorldMapFrame
+    local parent = GetButtonHost()
     local btn = CreateFrame("Button", "SmoreSkillsMapFindButton", parent)
     btn:SetSize(BUTTON_SIZE, BUTTON_SIZE)
-    btn:SetFrameStrata("TOOLTIP")
-    btn:SetFrameLevel(20)
+    ApplyOverlayStrata(btn, 80)
     btn:EnableMouse(true)
 
     local background = btn:CreateTexture(nil, "BACKGROUND")
@@ -1029,6 +1224,7 @@ function Map:StartPinWatch()
     end
     self.pinWatch = C_Timer.NewTicker(5, function()
         if WorldMapFrame and WorldMapFrame.IsShown and WorldMapFrame:IsShown() then
+            Map:AnchorButton()
             Map:RefreshPins()
         end
     end)

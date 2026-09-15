@@ -35,6 +35,7 @@ local lastSeekReplyPrintAt = 0
 local channelId = 0
 local joinAttempts = 0
 local MAX_JOIN_ATTEMPTS = 8
+local sendPump
 
 -- Classic / TBC cooking fire. Forever campsite API is unknown; this is the placeholder trigger.
 local CAMPFIRE_SPELL_IDS = {
@@ -72,31 +73,22 @@ local function CoordFromWire(s)
     return (tonumber(s) or 0) / 10000
 end
 
-local function ChannelListedInChatFrame(frameIndex)
-    if not GetChatWindowChannels then
-        return false
+local pendingWhispers = {}
+local pendingChannel = {}
+local pendingCampfireAt = 0
+
+-- Never call ChatFrame_RemoveChannel — that taints Blizzard chat and shows
+-- "Interface action failed because of an AddOn". Hide our payloads with a filter.
+local function InstallChatFilters()
+    if not ChatFrame_AddMessageEventFilter then
+        return
     end
-    local channels = { GetChatWindowChannels(frameIndex) }
-    for n = 1, #channels, 2 do
-        if channels[n] and strlower(channels[n]) == strlower(CHANNEL_NAME) then
+    ChatFrame_AddMessageEventFilter("CHAT_MSG_CHANNEL", function(_, _, text)
+        if type(text) == "string" and #text >= #PREFIX and text:sub(1, #PREFIX) == PREFIX then
             return true
         end
-    end
-    return false
-end
-
--- Only remove when the channel is actually on a chat tab. Calling ChatFrame_RemoveChannel
--- on every ping taints Blizzard chat and can show "Interface action failed because of an AddOn".
-local function HideChannelFromChat()
-    local n = NUM_CHAT_WINDOWS or 10
-    for i = 1, n do
-        if ChannelListedInChatFrame(i) then
-            local frame = _G["ChatFrame" .. i]
-            if frame then
-                pcall(ChatFrame_RemoveChannel, frame, CHANNEL_NAME)
-            end
-        end
-    end
+        return false
+    end)
 end
 
 local function RefreshUI()
@@ -240,7 +232,7 @@ function Sync:PackUpCamp(camp)
     self:StopHosting()
     local msg = self:EncodePacked(camp)
     if msg then
-        self:Send(msg)
+        self:Send(msg, { chat = true })
     end
     if self.seekDiscoveredIds and camp.id then
         self.seekDiscoveredIds[camp.id] = nil
@@ -296,11 +288,10 @@ end
 function Sync:JoinCommunity()
     if self:RefreshChannelId() then
         joinAttempts = 0
-        HideChannelFromChat()
         if self.pendingHostShare then
             local camp = self.pendingHostShare
             self.pendingHostShare = nil
-            self:ShareHost(camp)
+            self:ShareHost(camp, { chat = true })
         end
         return true
     end
@@ -325,11 +316,10 @@ function Sync:JoinCommunity()
         C_Timer.After(1.5, function()
             if self:RefreshChannelId() then
                 joinAttempts = 0
-                HideChannelFromChat()
                 if self.pendingHostShare then
                     local camp = self.pendingHostShare
                     self.pendingHostShare = nil
-                    self:ShareHost(camp)
+                    self:ShareHost(camp, { chat = true })
                 end
                 return
             end
@@ -387,6 +377,8 @@ function Sync:Init()
     elseif RegisterAddonMessagePrefix then
         RegisterAddonMessagePrefix(PREFIX)
     end
+    InstallChatFilters()
+    self:StartOutboundPump()
     local frame = CreateFrame("Frame")
     frame:RegisterEvent("CHAT_MSG_ADDON")
     frame:RegisterEvent("CHAT_MSG_CHANNEL")
@@ -400,8 +392,11 @@ function Sync:Init()
                 self:OnMessage(text, sender)
             end
         elseif event == "CHAT_MSG_CHANNEL" then
-            local text, sender, _, _, _, _, _, _, chName = ...
-            if chName and strlower(chName) == strlower(CHANNEL_NAME) then
+            local text, sender, _, chFull, _, _, _, _, chName = ...
+            local function isSmoreChannel(name)
+                return name and strlower(tostring(name)):find(strlower(CHANNEL_NAME), 1, true)
+            end
+            if isSmoreChannel(chName) or isSmoreChannel(chFull) then
                 local payload = text or ""
                 if #payload >= #PREFIX and payload:sub(1, #PREFIX) == PREFIX then
                     payload = strtrim(payload:sub(#PREFIX + 1))
@@ -413,7 +408,6 @@ function Sync:Init()
             self:JoinCommunity()
         else
             self:RefreshChannelId()
-            HideChannelFromChat()
         end
     end)
     self:WatchCampfires()
@@ -461,15 +455,14 @@ function Sync:OnBasicCampfirePlaced()
         return
     end
     lastCampfireHostAt = now
-    local function host()
-        self:HostHere()
-    end
+    -- Fire landed. Send H: on a short timer (same as when this worked today).
+    -- Do not SendChatMessage from UNIT_SPELLCAST. Interrupted casts never get here.
     if C_Timer and C_Timer.After then
         C_Timer.After(0.25, function()
-            host()
+            self:HostHere(true)
         end)
     else
-        host()
+        pendingCampfireAt = (GetTime and GetTime() or 0) + 0.25
     end
 end
 
@@ -487,47 +480,137 @@ function Sync:TryOutbound()
     return true
 end
 
-function Sync:Send(msg)
-    if #msg > ADDON_MSG_MAX then
+function Sync:SendAddonWhisper(msg, target)
+    if type(msg) ~= "string" or msg == "" or #msg > ADDON_MSG_MAX then
+        return false
+    end
+    if type(target) ~= "string" or target == "" then
+        return false
+    end
+    target = target:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if Ambiguate then
+        target = Ambiguate(target, "short")
+    end
+    if not target or target == "" then
+        return false
+    end
+    -- One attempt. Retrying a second name prints a second "Unable to whisper".
+    if C_ChatInfo and C_ChatInfo.SendAddonMessage then
+        local ok, result = pcall(C_ChatInfo.SendAddonMessage, PREFIX, msg, "WHISPER", target)
+        return ok and result ~= false
+    end
+    if SendAddonMessage then
+        return pcall(SendAddonMessage, PREFIX, msg, "WHISPER", target)
+    end
+    return false
+end
+
+function Sync:DeliverAddonChannel(msg)
+    if type(msg) ~= "string" or msg == "" then
         return false
     end
     if not self:RefreshChannelId() then
-        self:JoinCommunity()
-        if not self:RefreshChannelId() then
-            return false
-        end
+        return false
     end
-    local sent = false
     if C_ChatInfo and C_ChatInfo.SendAddonMessage then
-        local ok = C_ChatInfo.SendAddonMessage(PREFIX, msg, "CHANNEL", channelId)
-        if ok == false then
-            ok = C_ChatInfo.SendAddonMessage(PREFIX, msg, "CHANNEL", CHANNEL_NAME)
+        local ok, result = pcall(C_ChatInfo.SendAddonMessage, PREFIX, msg, "CHANNEL", channelId)
+        if (not ok or result == false) and CHANNEL_NAME then
+            ok, result = pcall(C_ChatInfo.SendAddonMessage, PREFIX, msg, "CHANNEL", CHANNEL_NAME)
         end
-        if ok ~= false then
-            sent = true
-        end
-    elseif SendAddonMessage then
-        SendAddonMessage(PREFIX, msg, "CHANNEL", channelId)
-        sent = true
+        return ok and result ~= false
     end
-    -- Hidden custom channel chat (not guild/party/raid). Backup when CHANNEL addon messages are dropped.
-    local chatMsg = PREFIX .. " " .. msg
-    if SendChatMessage and #chatMsg <= 255 then
-        pcall(function()
-            SendChatMessage(chatMsg, "CHANNEL", nil, channelId)
-        end)
-        sent = true
+    if SendAddonMessage then
+        return pcall(SendAddonMessage, PREFIX, msg, "CHANNEL", channelId)
     end
-    return sent
+    return false
 end
 
-local function AppendSlotParts(parts, camp)
+function Sync:DeliverChat(msg)
+    if type(msg) ~= "string" or msg == "" or not SendChatMessage then
+        return false
+    end
+    if not self:RefreshChannelId() or not channelId or channelId <= 0 then
+        return false
+    end
+    local chatMsg = PREFIX .. " " .. msg
+    if #chatMsg > 255 then
+        return false
+    end
+    return pcall(SendChatMessage, chatMsg, "CHANNEL", nil, channelId)
+end
+
+local function QueueJob(list, job)
+    table.insert(list, job)
+    while #list > 12 do
+        table.remove(list, 1)
+    end
+end
+
+function Sync:StartOutboundPump()
+    if sendPump then
+        return
+    end
+    sendPump = CreateFrame("Frame")
+    sendPump:SetScript("OnUpdate", function()
+        local now = (GetTime and GetTime()) or 0
+        if pendingCampfireAt > 0 and now >= pendingCampfireAt then
+            pendingCampfireAt = 0
+            Sync:HostHere(true)
+        end
+        local i = 1
+        while i <= #pendingWhispers do
+            local job = pendingWhispers[i]
+            if job and now >= (job.readyAt or 0) then
+                table.remove(pendingWhispers, i)
+                if not Sync:SendAddonWhisper(job.msg, job.target) then
+                    SmoreSkills_Print("Could not send your camp to " .. tostring(job.target or "?") .. ".")
+                end
+            else
+                i = i + 1
+            end
+        end
+        i = 1
+        while i <= #pendingChannel do
+            local job = pendingChannel[i]
+            if job and now >= (job.readyAt or 0) then
+                table.remove(pendingChannel, i)
+                Sync:DeliverAddonChannel(job.msg)
+            else
+                i = i + 1
+            end
+        end
+    end)
+end
+
+function Sync:Send(msg, opts)
+    opts = opts or {}
+    if type(msg) ~= "string" or #msg > ADDON_MSG_MAX then
+        return false
+    end
+    local now = (GetTime and GetTime()) or 0
+    if opts.whisperTo then
+        QueueJob(pendingWhispers, { msg = msg, target = opts.whisperTo, readyAt = now + 0.15 })
+    end
+    QueueJob(pendingChannel, { msg = msg, readyAt = now + 0.15 })
+    local chatted = false
+    if opts.chat then
+        chatted = self:DeliverChat(msg)
+    end
+    if not self:RefreshChannelId() then
+        self:JoinCommunity()
+        return chatted or opts.whisperTo ~= nil
+    end
+    return true
+end
+
+local function AppendSlotParts(parts, camp, dropObjects)
     SmoreSkills_EnsureSlots(camp)
     for i = 1, SmoreSkills.MAX_SLOTS do
         local slot = camp.slots[i]
         local prof = slot and (SmoreSkills_ProfessionFromId(slot.profession) or SmoreSkills_ProfessionFromCode(slot.profession))
         table.insert(parts, EscapeField(prof and prof.code or nil))
-        table.insert(parts, EscapeField(slot and slot.object or nil))
+        local object = (not dropObjects) and slot and slot.object or nil
+        table.insert(parts, EscapeField(object))
     end
 end
 
@@ -586,7 +669,7 @@ function Sync:DecodeCamp(text)
     return camp
 end
 
--- S:map:fac:prof:t  (prof may be comma-separated codes: eng,mine)
+-- S:map:fac:prof:t[:extraCodes]:layer
 function Sync:EncodeSeek(mapId, professionId)
     local codes = {}
     local seen = {}
@@ -613,6 +696,7 @@ function Sync:EncodeSeek(mapId, professionId)
     if #codes > 1 then
         table.insert(parts, table.concat(codes, ","))
     end
+    table.insert(parts, tostring((SmoreSkills_GetPlayerLayerId and SmoreSkills_GetPlayerLayerId()) or 0))
     return table.concat(parts, ":")
 end
 
@@ -637,33 +721,92 @@ function Sync:DecodeSeek(text)
         end
     end
     addField(parts[4])
-    addField(parts[6])
+    local n = #parts
+    local layer = 0
+    if n >= 7 then
+        addField(parts[6])
+        layer = tonumber(parts[n]) or 0
+    elseif n == 6 then
+        local extra = parts[6]
+        if extra and extra:find(",", 1, true) then
+            addField(extra)
+        else
+            local asLayer = tonumber(extra)
+            if asLayer then
+                layer = asLayer
+            else
+                addField(extra)
+            end
+        end
+    end
+    if layer == 0 then
+        layer = nil
+    end
     return {
         mapId = tonumber(parts[2]),
         faction = DecodeField(parts[3]),
         profession = professions[1],
         professions = professions,
         updatedAt = tonumber(parts[5]) or SmoreSkills_Now(),
+        layer = layer,
     }
 end
 
--- H:map:x:y:fac:own:want:p1:o1:p2:o2:p3:o3:t
+-- H:map:x:y:fac:own:want:p1:o1:p2:o2:p3:o3:t:layer[/ord]
+-- If the payload would exceed 250 bytes, drop extras rather than fail silent.
+-- Order: want-items, then object display names, then shorten own. Revisit if
+-- Forever two-part names + full item lists still clip useful tooltip data.
 function Sync:EncodeHost(camp)
     if not camp then
         return nil
     end
-    local parts = {
-        MSG_HOST,
-        tostring(camp.mapId or 0),
-        CoordWire(camp.x),
-        CoordWire(camp.y),
-        EscapeField(camp.faction),
-        EscapeField(camp.owner),
-        EscapeField(SmoreSkills_JoinWantWire(camp.want or "any", camp.wantItems)),
-    }
-    AppendSlotParts(parts, camp)
-    table.insert(parts, tostring(camp.updatedAt or SmoreSkills_Now()))
-    return table.concat(parts, ":")
+    local function layerField()
+        local layerId = tonumber(camp.layer) or 0
+        local field = tostring(layerId)
+        local ord = layerId > 0 and SmoreSkills_LayerOrdinal and SmoreSkills_LayerOrdinal(layerId, camp.mapId) or nil
+        if ord and ord > 0 then
+            field = field .. "/" .. tostring(ord)
+        end
+        return field
+    end
+    local function build(wantItems, dropObjects, owner)
+        local parts = {
+            MSG_HOST,
+            tostring(camp.mapId or 0),
+            CoordWire(camp.x),
+            CoordWire(camp.y),
+            EscapeField(camp.faction),
+            EscapeField(owner),
+            EscapeField(SmoreSkills_JoinWantWire(camp.want or "any", wantItems)),
+        }
+        AppendSlotParts(parts, camp, dropObjects)
+        table.insert(parts, tostring(camp.litAt or camp.updatedAt or SmoreSkills_Now()))
+        table.insert(parts, layerField())
+        return table.concat(parts, ":")
+    end
+    local owner = camp.owner
+    local msg = build(camp.wantItems, false, owner)
+    local stripped = {}
+    if #msg > ADDON_MSG_MAX then
+        msg = build(nil, false, owner)
+        table.insert(stripped, "host item list")
+    end
+    if #msg > ADDON_MSG_MAX then
+        msg = build(nil, true, owner)
+        table.insert(stripped, "object names")
+    end
+    if #msg > ADDON_MSG_MAX then
+        local short = tostring(owner or "")
+        if #short > 24 then
+            short = short:sub(1, 24)
+        end
+        msg = build(nil, true, short)
+        table.insert(stripped, "shortened name")
+    end
+    if #msg > ADDON_MSG_MAX then
+        return nil, stripped
+    end
+    return msg, stripped
 end
 
 function Sync:DecodeHost(text)
@@ -673,6 +816,31 @@ function Sync:DecodeHost(text)
     end
     local wantRaw = DecodeField(parts[7]) or "any"
     local want, wantItems = SmoreSkills_SplitWantWire(wantRaw)
+    -- Timestamp and layer are the last two fields so extra colons in the middle
+    -- cannot turn the layer id (e.g. 15654) into an "expired" unix time.
+    -- Layer field is "zoneUID" or "zoneUID/ordinal" (ordinal is the host's Layer N).
+    local n = #parts
+    local updatedAt, layer, ordinal = nil, 0, nil
+    if n >= 15 then
+        local last = parts[n]
+        local slash = last and last:find("/", 1, true) or nil
+        if slash then
+            layer = tonumber(last:sub(1, slash - 1)) or 0
+            ordinal = tonumber(last:sub(slash + 1))
+        else
+            layer = tonumber(last) or 0
+        end
+        updatedAt = tonumber(parts[n - 1])
+    elseif n >= 14 then
+        updatedAt = tonumber(parts[n])
+    end
+    updatedAt = SmoreSkills_SanitizeCampTime(updatedAt)
+    if layer == 0 then
+        layer = nil
+    end
+    if ordinal and ordinal <= 0 then
+        ordinal = nil
+    end
     local camp = {
         mapId = tonumber(parts[2]),
         x = CoordFromWire(parts[3]),
@@ -682,7 +850,10 @@ function Sync:DecodeHost(text)
         want = want or "any",
         wantItems = wantItems,
         slots = {},
-        updatedAt = tonumber(parts[14]) or SmoreSkills_Now(),
+        litAt = updatedAt,
+        updatedAt = updatedAt,
+        layer = layer,
+        layerOrdinal = ordinal,
         source = "host",
     }
     camp.slots, _ = DecodeSlotParts(parts, 8)
@@ -706,14 +877,36 @@ function Sync:ApplyCamp(camp)
     SmoreSkills_UpsertCamp(camp)
 end
 
-function Sync:ShareHost(camp)
+function Sync:ShareHost(camp, opts)
+    opts = opts or {}
     SmoreSkills_ApplyHostWantToCamp(camp)
     camp.updatedAt = SmoreSkills_Now()
-    local msg = self:EncodeHost(camp)
+    local layer = SmoreSkills_GetPlayerLayerId and SmoreSkills_GetPlayerLayerId()
+    if layer then
+        camp.layer = layer
+    end
+    local msg, stripped = self:EncodeHost(camp)
     if not msg then
+        if not self.hostEncodeFailedNoted then
+            self.hostEncodeFailedNoted = true
+            SmoreSkills_Print("Could not share this camp: the signal is still over 250 bytes after shrinking.")
+        end
         return false
     end
-    return self:Send(msg)
+    if stripped and stripped[1] and not self.hostShrinkNoted then
+        self.hostShrinkNoted = true
+        SmoreSkills_Print(string.format(
+            "Camp signal was too long; seekers still see the pin (%s left off the wire).",
+            table.concat(stripped, ", ")
+        ))
+    end
+    -- Prefer the hidden channel. Addon WHISPER on TBC Anniversary often prints
+    -- "Unable to whisper ... Blizzard services may be unavailable" even when /w works.
+    local sendOpts = { chat = opts.chat }
+    if opts.whisperTo and not self:RefreshChannelId() then
+        sendOpts.whisperTo = opts.whisperTo
+    end
+    return self:Send(msg, sendOpts)
 end
 
 function Sync:SeekHere()
@@ -741,11 +934,9 @@ function Sync:SeekHere()
         if SmoreSkills.Map and SmoreSkills.Map.ShowPlayerZone then
             SmoreSkills.Map:ShowPlayerZone(mapId)
         end
-        if SmoreSkills_SeedTestCamp then
-            local testCamp = SmoreSkills_SeedTestCamp(mapId, zone)
-            if testCamp and SmoreSkills_CampVisibleToSeeker(testCamp, mapId, professions) then
-                self:RecordSeekDiscovery(testCamp)
-            end
+        local matches = SmoreSkills_ListMatchedCamps(mapId, professions)
+        for _, camp in ipairs(matches) do
+            self:RecordSeekDiscovery(camp)
         end
         SmoreSkills_Print(string.format(
             "Resumed looking for camps in %s (%d s left on this ping).",
@@ -769,7 +960,7 @@ function Sync:SeekHere()
         return
     end
     local msg = self:EncodeSeek(mapId, profession)
-    if not self:Send(msg) then
+    if not self:Send(msg, { chat = true }) then
         SmoreSkills_Print("Could not send seek signal. Wait for the community channel.")
         return
     end
@@ -781,23 +972,24 @@ function Sync:SeekHere()
         SmoreSkills.Map:ShowPlayerZone(mapId)
     end
 
-    if SmoreSkills_SeedTestCamp then
-        local testCamp = SmoreSkills_SeedTestCamp(mapId, zone)
-        if testCamp and SmoreSkills_CampVisibleToSeeker(testCamp, mapId, professions) then
-            self:RecordSeekDiscovery(testCamp)
-        end
-    end
-
     local matches = SmoreSkills_ListMatchedCamps(mapId, professions)
     for _, camp in ipairs(matches) do
         self:RecordSeekDiscovery(camp)
     end
     local visible = SmoreSkills_ListVisibleCamps and SmoreSkills_ListVisibleCamps(mapId) or matches
+    local others = 0
+    local me = SmoreSkills_PlayerName and SmoreSkills_PlayerName()
+    for _, camp in ipairs(visible) do
+        if not SmoreSkills_PlayerNamesMatch(camp.owner, me) then
+            others = others + 1
+        end
+    end
     SmoreSkills_Print(string.format(
-        "Looking for camps in %s as %s — %d match(es) right now. Stay on this zone map for about a minute.",
+        "Looking for camps in %s as %s — %d other camp(s) right now. Open the %s zone map (not the continent).",
         zone or "?",
         SmoreSkills_FormatProfessionList(professions),
-        #visible
+        others,
+        zone or "zone"
     ))
     RefreshUI()
     if C_Timer and C_Timer.After then
@@ -813,6 +1005,8 @@ function Sync:StopHosting()
     self.hostingUntil = 0
     self.hostCampId = nil
     self.pendingHostShare = nil
+    self.hostShrinkNoted = nil
+    self.hostEncodeFailedNoted = nil
     local handle = self.hostTickHandle
     self.hostTickHandle = nil
     if not handle then
@@ -829,33 +1023,36 @@ function Sync:StopHosting()
     end
 end
 
-function Sync:ReplyToSeeker(camp)
+function Sync:ReplyToSeeker(camp, seekerName)
     camp = camp or GetActiveHostCamp()
     if not camp or not self:IsHosting() then
         return
     end
+    camp.want = SmoreSkills_GetEffectiveHostWant()
+    if SmoreSkills_ApplyHostProfession then
+        SmoreSkills_ApplyHostProfession(camp)
+    end
+    SmoreSkills_ApplyHostWantToCamp(camp)
+    -- 0.5.34 dropped addon-whisper (good) but also dropped hidden-channel chat,
+    -- so Find printed "sharing yours" and the seeker never got H:. Send chat on
+    -- a short timer so we are not inside CHAT_MSG_*.
     local function send()
         if not self:IsHosting() then
             return
         end
         local live = GetActiveHostCamp() or camp
-        if not live or (SmoreSkills_CampPinActive and not SmoreSkills_CampPinActive(live)) then
+        if not live then
             return
         end
-        live.want = SmoreSkills_GetEffectiveHostWant()
-        if SmoreSkills_ApplyHostProfession then
-            SmoreSkills_ApplyHostProfession(live)
-        end
-        if self:ShareHost(live) then
+        if self:ShareHost(live, { chat = true }) then
             lastOutboundAt = SmoreSkills_Now()
         end
     end
-    local wait = OUTBOUND_COOLDOWN - (SmoreSkills_Now() - lastOutboundAt)
-    if wait > 0 and C_Timer and C_Timer.After then
-        C_Timer.After(wait + 0.2, send)
-        return
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0.15, send)
+    else
+        send()
     end
-    send()
 end
 
 function Sync:HostHeartbeat()
@@ -879,13 +1076,13 @@ function Sync:HostHeartbeat()
     camp.want = SmoreSkills_GetEffectiveHostWant()
     camp.wantItems = SmoreSkills_GetEffectiveHostWantItems()
     SmoreSkills_ApplyHostProfession(camp)
-    self:ShareHost(camp)
+    self:ShareHost(camp, { chat = true })
     self.hostTickHandle = C_Timer and C_Timer.After(HOST_COOLDOWN, function()
         self:HostHeartbeat()
     end)
 end
 
-function Sync:HostHere()
+function Sync:HostHere(fromHardware)
     local camp, err = SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp() or nil
     if not camp then
         camp, err = SmoreSkills_MarkHere()
@@ -906,10 +1103,17 @@ function Sync:HostHere()
         return
     end
     SmoreSkills_ApplyHostWantToCamp(camp)
+    camp.layer = (SmoreSkills_GetPlayerLayerId and SmoreSkills_GetPlayerLayerId()) or camp.layer
+    local now = SmoreSkills_Now()
+    if wasPacked or not camp.litAt or (now - camp.litAt) >= SmoreSkills.CAMPFIRE_DURATION then
+        camp.litAt = now
+    end
+    self.hostShrinkNoted = nil
+    self.hostEncodeFailedNoted = nil
     local ok, outboundErr = self:TryOutbound()
     local sent = false
     if ok then
-        sent = self:ShareHost(camp)
+        sent = self:ShareHost(camp, { chat = true })
     end
     if sent then
         self.pendingHostShare = nil
@@ -931,10 +1135,6 @@ function Sync:HostHere()
         end)
     end
     self.hostTickHandle = nil
-    local now = SmoreSkills_Now()
-    if wasPacked or not camp.litAt or (now - camp.litAt) >= SmoreSkills.CAMPFIRE_DURATION then
-        camp.litAt = now
-    end
     self.hostCampId = camp.id
     self.hostingUntil = camp.litAt + SmoreSkills.CAMPFIRE_DURATION
     if C_Timer and C_Timer.After then
@@ -942,13 +1142,16 @@ function Sync:HostHere()
             self:HostHeartbeat()
         end)
     end
+    local layerText = SmoreSkills_FormatLayer and SmoreSkills_FormatLayer(camp.layer, camp.mapId)
+    local layerHint = layerText and (" · " .. layerText) or " · target an NPC to detect your layer"
     SmoreSkills_Print(string.format(
-        "Hosting in %s (%s) — %d/%d objects, want: %s. Pin lasts %d min or until the camp is full.",
+        "Hosting in %s (%s) — %d/%d objects, want: %s%s. Pin lasts %d min or until the camp is full.",
         camp.zone or "?",
         SmoreSkills_FormatCoords(camp),
         SmoreSkills_CountFilledSlots(camp),
         SmoreSkills.MAX_SLOTS,
         SmoreSkills_FormatWant(camp.want, camp.wantItems),
+        layerHint,
         math.floor(SmoreSkills.CAMPFIRE_DURATION / 60)
     ))
     RefreshUI()
@@ -989,14 +1192,25 @@ function Sync:OnMessage(text, sender)
                     SmoreSkills_FormatSlots(camp),
                     camp.zone or "that zone"
                 ))
-            elseif mapId and camp.mapId == mapId and camp.faction == SmoreSkills_PlayerFaction() then
-                SmoreSkills_Print(string.format(
-                    "Heard %s's camp in %s, but it does not match (they want: %s; you are: %s).",
-                    camp.owner or "a host",
-                    camp.zone or "this zone",
-                    SmoreSkills_FormatWant(camp.want, camp.wantItems),
-                    SmoreSkills_FormatProfessionList(professions)
-                ))
+            else
+                local hostWant = camp.want or "any"
+                if not SmoreSkills_WantAcceptsAny(hostWant, professions) then
+                    SmoreSkills_Print(string.format(
+                        "Heard %s's camp in %s, but none of your professions match (they want: %s; you are: %s).",
+                        camp.owner or "a host",
+                        camp.zone or "this zone",
+                        SmoreSkills_FormatWant(camp.want, camp.wantItems),
+                        SmoreSkills_FormatProfessionList(professions)
+                    ))
+                else
+                    local why = SmoreSkills_CampHiddenReason and SmoreSkills_CampHiddenReason(camp, mapId, professions)
+                    SmoreSkills_Print(string.format(
+                        "Heard %s's camp in %s, but it is not shown (%s).",
+                        camp.owner or "a host",
+                        camp.zone or "this zone",
+                        why or "full, packed, expired, or a seeker filter"
+                    ))
+                end
             end
         end
         RefreshUI()
@@ -1013,7 +1227,10 @@ function Sync:OnMessage(text, sender)
             return
         end
         local camp = GetActiveHostCamp()
-        if not camp or camp.mapId ~= seek.mapId then
+        if not camp then
+            return
+        end
+        if camp.mapId ~= seek.mapId and not SmoreSkills_MapsShareZone(camp.mapId, seek.mapId) then
             return
         end
         local seekProfs = seek.professions
@@ -1023,11 +1240,18 @@ function Sync:OnMessage(text, sender)
         if not SmoreSkills_HostMatchesSeeker(camp, seek.mapId, seekProfs) then
             return
         end
+        if not SmoreSkills_GetCrossLayerEnabled or not SmoreSkills_GetCrossLayerEnabled() then
+            local hostLayer = tonumber(camp.layer) or (SmoreSkills_GetPlayerLayerId and SmoreSkills_GetPlayerLayerId()) or nil
+            local seekLayer = tonumber(seek.layer)
+            if hostLayer and seekLayer and hostLayer ~= 0 and seekLayer ~= 0 and hostLayer ~= seekLayer then
+                return
+            end
+        end
         local now = SmoreSkills_Now()
         if now - lastSeekReplyPrintAt > 10 then
             lastSeekReplyPrintAt = now
             SmoreSkills_Print("Someone is looking for camps in this zone — sharing yours.")
         end
-        self:ReplyToSeeker(camp)
+        self:ReplyToSeeker(camp, sender)
     end
 end

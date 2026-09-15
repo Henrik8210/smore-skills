@@ -2,7 +2,7 @@
 
 Reference for **Forever beta** (opens **17 Sep 2026**). TBC Anniversary remains the day-to-day testbed until then.
 
-**Release policy:** code is on GitHub at v0.5.12. **No CurseForge publish** until beta smoke test passes.
+**Release policy:** code is on GitHub at v0.5.31. **No CurseForge publish** until beta smoke test passes.
 
 Screenshots from the pre-beta client (Sep 2026) show how the **world map** differs from retail and from TBC Anniversary.
 
@@ -77,7 +77,7 @@ Player: 42.6, 23.6 (Zephras Isle)
 
 | Topic | Current behaviour | Beta check |
 | --- | --- | --- |
-| **Pin visibility** | Zone pins; if `GetMapID()` is a nested city (Stormwind while standing in Elwynn), still draw **zone** coords. | At **World** or **Continent** zoom, pins may **not** show — expected until parent-map projection is confirmed. Nested cities: confirm Forever breadcrumb vs TBC. |
+| **Pin visibility** | Zone pins only; hide at World / Continent / Outland zoom. If `GetMapID()` is a nested city (Stormwind while standing in Elwynn), still draw **zone** coords. | Confirm nested-city breadcrumb vs TBC. |
 | **Find button** | Anchored to map canvas (`ScrollContainer` / `GetCanvas()`). | Confirm button still visible at zone + continent + world. |
 | **Map hooks** | `OnShow`, `OnMapChanged`, canvas `OnSizeChanged`. | Log `GetMapID()` at each breadcrumb level; note ids for test zones. |
 | **Camp tooltip** | Custom frame (not GameTooltip): opaque dialog background, three circular gold-ring profession sockets. | Verify TBC-safe color APIs still work; no silent fallback to text-only tooltip. |

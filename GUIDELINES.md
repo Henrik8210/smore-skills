@@ -5,7 +5,7 @@ Forever camping finder. Protocol and UX are documented in [CAMPING.md](CAMPING.m
 - **Remote:** https://github.com/Henrik8210/smore-skills
 - **Addon folder:** `SmoreSkills/` (no apostrophe — WoW toc/folder rule)
 - **Title:** S'more Skills
-- **Version:** 0.5.12 (GitHub only until Forever beta validates — **no CurseForge tag yet**)
+- **Version:** 0.5.46 (GitHub only — **do not CurseForge-tag** until the two-client Elwynn retest passes)
 
 ## WoW install paths
 
@@ -51,9 +51,8 @@ Logo paths: `SmoreSkills.LOGO` (full art), `SmoreSkills.ICON` (cropped, minimap/
 | `/smores pack` | Pack up your camp (same Yes/No confirm as the map pin) |
 | `/smores status` | Channel, hosting/seeking, trades, zone, map view |
 | `/smores slot 1 bs` | Set object slot (TBC testing) |
-| `/smores prof lw` | Set profession for matching |
+| `/smores prof lw` | This session only (testing). Reload uses learned trades |
 | `/smores want any` | Professions host accepts |
-| `/smores test on\|off` | Toggle Ashenvale sample camp on seek |
 
 ## TBC Anniversary testing
 
@@ -68,8 +67,6 @@ TBC has no camping. Use two characters in the **same zone and faction** (e.g. As
 7. Host walks away — pin stays on the fire; seeker Find still works
 8. Elwynn: Stormwind in the corner is still the Elwynn map — pin must show. `/smores status` if it does not.
 9. Use `/smores slot 1 bs` etc. to simulate filled object slots
-
-Optional: `/smores test on` injects a sample Ashenvale camp when seeking (single-client smoke test).
 
 ## CurseForge release
 

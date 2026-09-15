@@ -25,7 +25,7 @@ A host can optionally limit who sees the camp (specific professions, and optiona
 * Three sockets: profession (and object when known), or a faded S'more if empty
 * Host name, coords, and a guild mark if a guildie is there
 
-Hover a pin for the full tooltip. Right-click **your** pin to pack up (you will be asked to confirm). Right-click Find to clear other people’s markers; your hosted pin stays.
+Hover a pin for the full tooltip (coords, layer, slots). Left-click another player's pin to whisper them for an invite. Right-click **your** pin to pack up (you will be asked to confirm). Right-click Find to clear other people’s markers; your hosted pin stays.
 
 ## Settings
 

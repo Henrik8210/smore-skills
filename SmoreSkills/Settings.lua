@@ -288,7 +288,7 @@ local COMMAND_HELP = {
     { "/smores pack", "Pack up your camp (asks you to confirm, same as the map pin)." },
     { "/smores status", "Show channel, hosting, and seeking status." },
     { "/smores list", "List camps stored for this zone." },
-    { "/smores prof <code>", "Set the profession you seek as, e.g. lw, bs, tail." },
+    { "/smores prof <code>", "This session only (testing). Reload uses learned trades." },
     { "/smores want <list>", "Host want list, e.g. any or bs,lw." },
 }
 
@@ -803,7 +803,7 @@ function Settings:LayoutGeneralPage()
         self.pinScaleRow:SetPoint("TOPLEFT", after, "BOTTOMLEFT", 0, -GAP_SECTION)
         self.pinScaleRow:SetPoint("RIGHT", self.generalPage.content, "RIGHT", -BODY_PAD, 0)
     end
-    self.generalPage.bottom = self.commandHelp or self.guildHint or self.guildMark or self.chatHint or self.hostNowBtn
+    self.generalPage.bottom = self.commandHelp or self.crossLayerHint or self.guildHint or self.guildMark or self.chatHint or self.hostNowBtn
     self:LayoutPage(self.generalPage)
 end
 
@@ -998,6 +998,9 @@ function Settings:Refresh()
     end
     if self.guildMark and self.guildMark.checkbox then
         self.guildMark.checkbox:SetChecked(SmoreSkills_GetShowGuildMark())
+    end
+    if self.crossLayer and self.crossLayer.checkbox then
+        self.crossLayer.checkbox:SetChecked(SmoreSkills_GetCrossLayerEnabled())
     end
     if self.pinScaleRow and self.pinScaleRow.slider then
         local pct = SmoreSkills_GetPinScalePct()
@@ -1261,7 +1264,7 @@ function Settings:BuildGeneralPanel(parent)
     self.hostNowBtn:SetText("Host camp")
     self.hostNowBtn:SetScript("OnClick", function()
         if SmoreSkills.Sync and SmoreSkills.Sync.HostHere then
-            SmoreSkills.Sync:HostHere()
+            SmoreSkills.Sync:HostHere(true)
         end
     end)
 
@@ -1323,12 +1326,27 @@ function Settings:BuildGeneralPanel(parent)
     end)
     self.guildHint = CreateHint(
         content,
-        "A green G means a guildie is at that camp.",
+        "A green G means a guildie is at that camp. Hidden on your own pin.",
         self.guildMark,
         -GAP_HINT
     )
 
-    self.commandHelp = CreateCommandHelp(content, self.guildHint)
+    self.crossLayer = CreateCheckbox(content, "Include camps on other layers", self.guildHint, -GAP_SECTION)
+    self.crossLayer.checkbox:SetScript("OnClick", function(selfCb)
+        SmoreSkills_SetCrossLayerEnabled(selfCb:GetChecked())
+        RefreshAll()
+        if SmoreSkills.UI and SmoreSkills.UI.Refresh then
+            SmoreSkills.UI:Refresh()
+        end
+    end)
+    self.crossLayerHint = CreateHint(
+        content,
+        "Off: Find and Host only match your current layer. On (default): also show and answer other layers (tooltip still says if it matches).",
+        self.crossLayer,
+        -GAP_HINT
+    )
+
+    self.commandHelp = CreateCommandHelp(content, self.crossLayerHint)
 
     page.bottom = self.commandHelp
     self:RefreshHostButton()
@@ -1480,6 +1498,8 @@ function Settings:Init()
         self.chatHint = nil
         self.guildMark = nil
         self.guildHint = nil
+        self.crossLayer = nil
+        self.crossLayerHint = nil
         self.commandHelp = nil
         self.popupPlaced = nil
     end
