@@ -2,7 +2,7 @@
 
 Reference for **Forever beta** (opens **17 Sep 2026**). TBC Anniversary remains the day-to-day testbed until then.
 
-**Release policy:** TBC two-client test passed at **v0.5.48**. CurseForge has a **beta** file (`v0.5.48-beta`), not a full release, until Forever smoke test.
+**Release policy:** TBC two-client test passed at **v0.5.48**. CurseForge **beta** `v0.5.49-beta` is for **WoW Forever 1.60.1**.
 
 Screenshots from the pre-beta client (Sep 2026) show how the **world map** differs from retail and from TBC Anniversary.
 
@@ -16,8 +16,8 @@ Screenshots from the pre-beta client (Sep 2026) show how the **world map** diffe
 
 After first login on Forever:
 
-1. Read `## Interface:` from `_forever_\Interface\FrameXML\FrameXML.toc` (or equivalent).
-2. Update `SmoreSkills/SmoreSkills.toc` `## Interface:` line to match.
+1. Read `## Interface:` from `_forever_\Interface\FrameXML\FrameXML.toc` (or equivalent). Expected **16001** for game **1.60.1**; confirm on first login.
+2. Update `SmoreSkills/SmoreSkills.toc` `## Interface:` if Forever reports a different number.
 3. Enable **Load out of date AddOns** if needed; `/reload`.
 
 ---

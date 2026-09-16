@@ -1,6 +1,10 @@
-# Package and upload to CurseForge on version tag push (BigWigs packager + Upload API).
+# Package and upload to CurseForge on version tag push.
 # Add repo secret CF_API_KEY from https://authors.curseforge.com/#/settings/api-tokens
 # Docs: https://support.curseforge.com/support/solutions/articles/9000197321-curseforge-api
+#
+# Packager maps ## Interface: 20505 to TBC (2.5.x). WoW Forever is a separate
+# CurseForge game (1.60.1) that packager does not know yet, so we zip with
+# packager (-d = no upload) then POST the zip as Forever 1.60.1 ourselves.
 
 name: Release
 
@@ -18,5 +22,59 @@ jobs:
           fetch-depth: 0
 
       - uses: BigWigsMods/packager@v2
+        with:
+          args: -d
+
+      - name: Upload CurseForge beta for WoW Forever 1.60.1
         env:
           CF_API_KEY: ${{ secrets.CF_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CF_API_KEY:-}" ]; then
+            echo "CF_API_KEY secret is not set."
+            exit 1
+          fi
+          ZIP=$(find .release -name '*.zip' -print | head -n1)
+          if [ -z "$ZIP" ]; then
+            echo "No zip in .release/"
+            ls -la .release || true
+            exit 1
+          fi
+          echo "Zip: $ZIP"
+          TAG="${GITHUB_REF#refs/tags/}"
+          DISPLAY="${TAG#v}"
+          if echo "$TAG" | grep -qi beta; then
+            RELTYPE="beta"
+          elif echo "$TAG" | grep -qi alpha; then
+            RELTYPE="alpha"
+          else
+            RELTYPE="release"
+          fi
+          CHANGELOG=$(awk '/^## / { if (seen) exit; seen=1 } seen' CHANGELOG.md)
+          VERSIONS=$(curl -sS -H "x-api-token: $CF_API_KEY" https://wow.curseforge.com/api/game/wow/versions)
+          IDS=$(echo "$VERSIONS" | jq -c '[.[] | select(.name == "1.60.1") | .id]')
+          COUNT=$(echo "$IDS" | jq 'length')
+          if [ "$COUNT" -lt 1 ]; then
+            echo "No CurseForge game version named 1.60.1. Nearby names:"
+            echo "$VERSIONS" | jq -r '.[].name' | sort -u | tail -n 40
+            exit 1
+          fi
+          echo "Forever gameVersion ids: $IDS ($RELTYPE)"
+          META=$(jq -n \
+            --arg changelog "$CHANGELOG" \
+            --arg displayName "$DISPLAY" \
+            --arg releaseType "$RELTYPE" \
+            --argjson gameVersions "$IDS" \
+            '{changelog:$changelog, changelogType:"markdown", displayName:$displayName, gameVersions:$gameVersions, releaseType:$releaseType}')
+          echo "$META" > /tmp/cf-meta.json
+          HTTP=$(curl -sS -o /tmp/cf-out.json -w "%{http_code}" \
+            -H "x-api-token: $CF_API_KEY" \
+            -F "metadata=</tmp/cf-meta.json" \
+            -F "file=@${ZIP}" \
+            "https://wow.curseforge.com/api/projects/1696940/upload-file")
+          echo "CurseForge HTTP $HTTP"
+          cat /tmp/cf-out.json
+          echo
+          if [ "$HTTP" != "200" ]; then
+            exit 1
+          fi

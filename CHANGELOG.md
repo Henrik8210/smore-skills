@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.49
+
+- Settings sidebar credits are back under the three icons: Created by Weber8210 / Tested by Stik.
+- CurseForge beta targets **WoW Forever 1.60.1** (previous file was TBC 2.5.x from Interface 20505).
+
 ## v0.5.48
 
 - Campfire / Find-reply no longer `SendChatMessage` from a timer (that was *Interface action failed*, and `H:` never left). Click **Find** or `/smores host` once to put the pin on the channel. Find is not blocked by the 8 s send cooldown.

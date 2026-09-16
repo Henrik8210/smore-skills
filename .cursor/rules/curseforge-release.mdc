@@ -18,7 +18,7 @@ Publishing is **GitHub Actions**, not the CurseForge webhook (webhook must stay 
 3. User must have **`CF_API_KEY`** set in **this** repo’s Secrets. Do not paste the token in chat.
 4. Push a version tag (`v0.1.0`) → `.github/workflows/release.yml` runs.
 5. Workflow uses `.pkgmeta` `move-folders` (no flatten) → `BigWigsMods/packager@v2` uploads to CurseForge.
-6. Verify **GitHub Actions → Release** succeeds; check CurseForge **Files**.
+6. Verify GitHub Actions **Release** succeeds; check CurseForge **Files** for **WoW Forever 1.60.1** (beta tags include `beta` in the name).
 
 Pushing to `main` alone is **not** a release. Do **not** delete/re-push tags to retry — bump patch version instead.
 

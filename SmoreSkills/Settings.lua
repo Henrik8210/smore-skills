@@ -2,7 +2,7 @@ SmoreSkills = SmoreSkills or {}
 SmoreSkills.Settings = SmoreSkills.Settings or {}
 
 local Settings = SmoreSkills.Settings
-local SETTINGS_UI_BUILD = 49
+local SETTINGS_UI_BUILD = 52
 local ICON = SmoreSkills.ICON or "Interface\\Icons\\Spell_Fire_Fire"
 local POPUP_WIDTH = 720
 local POPUP_HEIGHT = 620
@@ -1574,6 +1574,35 @@ function Settings:Init()
     }
 
     close:SetFrameLevel((f:GetFrameLevel() or 1) + 80)
+
+    -- Parent to the window, not the sidebar, so the four lines sit under Seeker.
+    local credits = CreateFrame("Frame", nil, f)
+    credits:SetSize(SIDEBAR_WIDTH, 64)
+    credits:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", HEADER_INSET, 12)
+    credits:SetFrameStrata(f:GetFrameStrata() or "FULLSCREEN_DIALOG")
+    credits:SetFrameLevel((f:GetFrameLevel() or 1) + 90)
+    credits:EnableMouse(false)
+
+    local function CreditLine(anchor, text, r, g, b, template)
+        local fs = credits:CreateFontString(nil, "OVERLAY", template or "GameFontHighlightSmall")
+        fs:SetWidth(SIDEBAR_WIDTH - 4)
+        if anchor then
+            fs:SetPoint("BOTTOM", anchor, "TOP", 0, 1)
+        else
+            fs:SetPoint("BOTTOM", credits, "BOTTOM", 0, 0)
+        end
+        fs:SetJustifyH("CENTER")
+        fs:SetText(text)
+        if r then
+            fs:SetTextColor(r, g, b)
+        end
+        return fs
+    end
+
+    local stik = CreditLine(nil, SmoreSkills.TESTER or "Stik", 0.85, 0.75, 0.45, "GameFontHighlightSmall")
+    local tested = CreditLine(stik, "Tested by", 0.55, 0.55, 0.55, "GameFontDisableSmall")
+    local weber = CreditLine(tested, SmoreSkills.AUTHOR or "Weber8210", 0.85, 0.75, 0.45, "GameFontHighlightSmall")
+    CreditLine(weber, "Created by", 0.55, 0.55, 0.55, "GameFontDisableSmall")
 
     f:SetScript("OnHide", function()
         if GameTooltip:IsShown() then

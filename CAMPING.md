@@ -264,9 +264,9 @@ Earlier that evening: lighting printed *Interface action failed*, then *Wait a m
 
 `/smores status` — channel joined, hosting/seeking, trades, zone, map view, seeker filter.
 
-### Shipped (v0.5.48) vs Forever beta
+### Shipped (v0.5.49) vs Forever beta
 
-| Feature | v0.5.48 (TBC testbed) | Forever beta |
+| Feature | v0.5.49 (TBC testbed) | Forever beta |
 | --- | --- | --- |
 | Seeker signal `S:` (`/smores find`, map Find button) | Yes | Same |
 | Host signal `H:` (`/smores host`) | Yes | Same + auto-host on Basic Campfire (placeholder) |

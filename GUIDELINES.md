@@ -5,14 +5,14 @@ Forever camping finder. Protocol and UX are documented in [CAMPING.md](CAMPING.m
 - **Remote:** https://github.com/Henrik8210/smore-skills
 - **Addon folder:** `SmoreSkills/` (no apostrophe — WoW toc/folder rule)
 - **Title:** S'more Skills
-- **Version:** 0.5.48 (CurseForge **beta** tag `v0.5.48-beta` — not a full release)
+- **Version:** 0.5.49 (CurseForge **beta** `v0.5.49-beta` for **WoW Forever 1.60.1**)
 
 ## WoW install paths
 
 | Client | Folder | Interface (Sep 2026) |
 | --- | --- | --- |
 | **TBC Anniversary** (testbed) | `_anniversary_\Interface\AddOns\` | `20505`, `20506` |
-| **Forever** (beta 17 Sep) | `_forever_\Interface\AddOns\` | TBD from `FrameXML.toc` |
+| **Forever** (beta 17 Sep) | `_forever_\Interface\AddOns\` | `16001` (game 1.60.1); keep `20505`/`20506` for Anniversary |
 
 ```powershell
 # Testing on TBC Anniversary (default until Forever beta)
@@ -78,8 +78,8 @@ Publishing is **GitHub Actions**, not the CurseForge webhook.
 2. Put `## X-Curse-Project-ID: 1696940` in `SmoreSkills/SmoreSkills.toc`.
 3. Add GitHub secret **`CF_API_KEY`** (authors.curseforge.com → API tokens). Never paste the token in chat.
 4. Leave the GitHub → CurseForge webhook **inactive**.
-5. Push a version tag (`v0.1.0`) → `.github/workflows/release.yml` → `BigWigsMods/packager@v2`.
-6. Tag name containing **`beta`** (e.g. `v0.5.48-beta`) uploads as a CurseForge **beta** file. Plain `v0.5.48` is a full release.
+5. Push a version tag (`v0.5.49-beta`) → `.github/workflows/release.yml` zips with packager, then uploads to CurseForge as **WoW Forever 1.60.1**.
+6. Tag name containing **`beta`** uploads as a CurseForge **beta** file. Plain `v0.5.49` is a full release. Packager alone would mark Interface 20505 as TBC 2.5.x, so Forever uses the extra upload step.
 
 Pushing `main` is not a release. Do not delete/re-push tags — bump the patch.
 

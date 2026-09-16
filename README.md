@@ -4,7 +4,7 @@ Find **WoW Forever** campsites while you level: see fires near you, which of the
 
 **Testing now:** TBC Anniversary (`_anniversary_`) until Forever beta (17 Sep). Cooking **Basic Campfire** is a **placeholder** host ping (not a Forever campsite). See [CAMPING.md](CAMPING.md). **Forever map UI + beta checklist:** [FOREVER.md](FOREVER.md).
 
-**CurseForge:** **beta** file `v0.5.48-beta` (not a full release). `CF_API_KEY` secret + version tag via GitHub Actions (webhook stays off). See [GUIDELINES.md](GUIDELINES.md).
+**CurseForge:** **beta** for **WoW Forever 1.60.1** (`v0.5.49-beta`). `CF_API_KEY` secret + version tag via GitHub Actions (webhook stays off). See [GUIDELINES.md](GUIDELINES.md).
 
 ## The idea
 
@@ -14,7 +14,7 @@ Meanwhile a blacksmith sits alone at a fire across the zone and sends a **host s
 
 All opt-in. No login dump. Community channel, not guild chat.
 
-## Status (v0.5.48)
+## Status (v0.5.49)
 
 | | |
 | --- | --- |
