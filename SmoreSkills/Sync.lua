@@ -235,7 +235,12 @@ function Sync:PackUpCamp(camp, opts)
     self:StopHosting()
     local msg = self:EncodePacked(camp)
     if msg then
-        self:Send(msg, { chat = true })
+        -- Silent pack is from a spellcast timer: chat would taint. Send addon now; chat on next click.
+        self:Send(msg, { chat = not opts.silent })
+        if opts.silent then
+            self.pendingPacked = self.pendingPacked or {}
+            table.insert(self.pendingPacked, camp)
+        end
     end
     if self.seekDiscoveredIds and camp.id then
         self.seekDiscoveredIds[camp.id] = nil
@@ -291,13 +296,41 @@ local function GetActiveHostCamp()
     return SmoreSkills_GetLocalCamp()
 end
 
+-- SendChatMessage is only legal from a hardware click/slash. Timers after campfire
+-- or CHAT_MSG taint it ("Interface action failed") and the H: never leaves.
+function Sync:FlushHardwareShare()
+    if self.pendingPacked then
+        for i = 1, #self.pendingPacked do
+            local packed = self.pendingPacked[i]
+            local msg = packed and self:EncodePacked(packed)
+            if msg then
+                self:Send(msg, { chat = true })
+            end
+        end
+        self.pendingPacked = nil
+    end
+    if not self:IsHosting() then
+        return false
+    end
+    local camp = GetActiveHostCamp()
+    if not camp then
+        return false
+    end
+    local sent = self:ShareHost(camp, { chat = true })
+    if sent then
+        self.pendingHostShare = nil
+        self.needsHardwareShare = nil
+        lastOutboundAt = SmoreSkills_Now()
+    end
+    return sent
+end
+
 function Sync:JoinCommunity()
     if self:RefreshChannelId() then
         joinAttempts = 0
         if self.pendingHostShare then
             local camp = self.pendingHostShare
-            self.pendingHostShare = nil
-            self:ShareHost(camp, { chat = true })
+            self:ShareHost(camp, { chat = false })
         end
         return true
     end
@@ -324,8 +357,7 @@ function Sync:JoinCommunity()
                 joinAttempts = 0
                 if self.pendingHostShare then
                     local camp = self.pendingHostShare
-                    self.pendingHostShare = nil
-                    self:ShareHost(camp, { chat = true })
+                    self:ShareHost(camp, { chat = false })
                 end
                 return
             end
@@ -461,11 +493,11 @@ function Sync:OnBasicCampfirePlaced()
         return
     end
     lastCampfireHostAt = now
-    -- Fire landed. Send H: on a short timer (same as when this worked today).
-    -- Do not SendChatMessage from UNIT_SPELLCAST. Interrupted casts never get here.
+    -- Fire landed. Host locally after a short delay (interrupted casts never get here).
+    -- Do not SendChatMessage from this timer — it taints ("Interface action failed").
     if C_Timer and C_Timer.After then
         C_Timer.After(0.25, function()
-            self:HostHere(true, true)
+            self:HostHere(false, true)
         end)
     else
         pendingCampfireAt = (GetTime and GetTime() or 0) + 0.25
@@ -561,7 +593,7 @@ function Sync:StartOutboundPump()
         local now = (GetTime and GetTime()) or 0
         if pendingCampfireAt > 0 and now >= pendingCampfireAt then
             pendingCampfireAt = 0
-            Sync:HostHere(true, true)
+            Sync:HostHere(false, true)
         end
         local i = 1
         while i <= #pendingWhispers do
@@ -593,18 +625,14 @@ function Sync:Send(msg, opts)
     if type(msg) ~= "string" or #msg > ADDON_MSG_MAX then
         return false
     end
-    local now = (GetTime and GetTime()) or 0
+    -- Addon CHANNEL is not a protected function. Chat is; only send chat from hardware.
+    self:DeliverAddonChannel(msg)
     if opts.whisperTo then
+        local now = (GetTime and GetTime()) or 0
         QueueJob(pendingWhispers, { msg = msg, target = opts.whisperTo, readyAt = now + 0.15 })
     end
-    QueueJob(pendingChannel, { msg = msg, readyAt = now + 0.15 })
-    local chatted = false
     if opts.chat then
-        chatted = self:DeliverChat(msg)
-    end
-    if not self:RefreshChannelId() then
-        self:JoinCommunity()
-        return chatted or opts.whisperTo ~= nil
+        return self:DeliverChat(msg)
     end
     return true
 end
@@ -916,6 +944,10 @@ function Sync:ShareHost(camp, opts)
 end
 
 function Sync:SeekHere()
+    -- Find / slash is hardware. If we are hosting, send H: on this click (campfire
+    -- timers cannot SendChatMessage — they taint and the seeker never gets the pin).
+    self:FlushHardwareShare()
+
     if self:IsSeeking() then
         self:StopSeeking()
         SmoreSkills_Print("Stopped looking for camps.")
@@ -960,16 +992,12 @@ function Sync:SeekHere()
     end
 
     local now = SmoreSkills_Now()
-    local ok, err = self:TryOutbound()
-    if not ok then
-        SmoreSkills_Print(err)
-        return
-    end
     local msg = self:EncodeSeek(mapId, profession)
     if not self:Send(msg, { chat = true }) then
         SmoreSkills_Print("Could not send seek signal. Wait for the community channel.")
         return
     end
+    lastOutboundAt = now
     lastSeekAt = now
     self.seekListenUntil = now + SmoreSkills.SIGNAL_TTL
     self.mapPinsDismissed = false
@@ -1039,26 +1067,12 @@ function Sync:ReplyToSeeker(camp, seekerName)
         SmoreSkills_ApplyHostProfession(camp)
     end
     SmoreSkills_ApplyHostWantToCamp(camp)
-    -- 0.5.34 dropped addon-whisper (good) but also dropped hidden-channel chat,
-    -- so Find printed "sharing yours" and the seeker never got H:. Send chat on
-    -- a short timer so we are not inside CHAT_MSG_*.
-    local function send()
-        if not self:IsHosting() then
-            return
-        end
-        local live = GetActiveHostCamp() or camp
-        if not live then
-            return
-        end
-        if self:ShareHost(live, { chat = true }) then
-            lastOutboundAt = SmoreSkills_Now()
-        end
-    end
-    if C_Timer and C_Timer.After then
-        C_Timer.After(0.15, send)
-    else
-        send()
-    end
+    -- Do not SendChatMessage from a timer after CHAT_MSG (taints). Addon CHANNEL
+    -- may still go. Chat H: goes out on the next Find / /smores host click.
+    local live = GetActiveHostCamp() or camp
+    self:ShareHost(live, { chat = false })
+    self.pendingHostShare = live
+    self.needsHardwareShare = true
 end
 
 function Sync:HostHeartbeat()
@@ -1082,7 +1096,7 @@ function Sync:HostHeartbeat()
     camp.want = SmoreSkills_GetEffectiveHostWant()
     camp.wantItems = SmoreSkills_GetEffectiveHostWantItems()
     SmoreSkills_ApplyHostProfession(camp)
-    self:ShareHost(camp, { chat = true })
+    self:ShareHost(camp, { chat = false })
     self.hostTickHandle = C_Timer and C_Timer.After(HOST_COOLDOWN, function()
         self:HostHeartbeat()
     end)
@@ -1136,21 +1150,42 @@ function Sync:HostHere(fromHardware, newFire)
     end
     self.hostShrinkNoted = nil
     self.hostEncodeFailedNoted = nil
-    local ok, outboundErr = self:TryOutbound()
     local sent = false
-    if ok then
-        sent = self:ShareHost(camp, { chat = true })
-    end
-    if sent then
-        self.pendingHostShare = nil
-    elseif not sent then
-        self.pendingHostShare = camp
-        self:JoinCommunity()
-        if not ok and outboundErr then
-            SmoreSkills_Print(outboundErr .. " Will share the camp as soon as the channel is ready.")
-        else
-            SmoreSkills_Print("Hosting locally — still joining the community channel so others can see you.")
+    if fromHardware then
+        if self.pendingPacked then
+            for i = 1, #self.pendingPacked do
+                local packed = self.pendingPacked[i]
+                local msg = packed and self:EncodePacked(packed)
+                if msg then
+                    self:Send(msg, { chat = true })
+                end
+            end
+            self.pendingPacked = nil
         end
+        local ok, outboundErr = true, nil
+        if not self.needsHardwareShare then
+            ok, outboundErr = self:TryOutbound()
+        end
+        if ok then
+            sent = self:ShareHost(camp, { chat = true })
+            lastOutboundAt = SmoreSkills_Now()
+        elseif outboundErr then
+            SmoreSkills_Print(outboundErr .. " Click Find to share the fire.")
+        end
+        if sent then
+            self.pendingHostShare = nil
+            self.needsHardwareShare = nil
+        else
+            self.pendingHostShare = camp
+            self.needsHardwareShare = true
+            self:JoinCommunity()
+        end
+    else
+        -- Campfire timer: addon only. Chat on the next Find / /smores host click.
+        self:ShareHost(camp, { chat = false })
+        self.pendingHostShare = camp
+        self.needsHardwareShare = true
+        self:JoinCommunity()
     end
     if self.hostTickHandle and C_Timer and C_Timer.CancelTimer then
         C_Timer.CancelTimer(self.hostTickHandle)
@@ -1185,6 +1220,9 @@ function Sync:HostHere(fromHardware, newFire)
         moved,
         math.floor(SmoreSkills.CAMPFIRE_DURATION / 60)
     ))
+    if self.needsHardwareShare then
+        SmoreSkills_Print("Click Find or /smores host once so other campers can see this fire.")
+    end
     RefreshUI()
 end
 
@@ -1281,7 +1319,7 @@ function Sync:OnMessage(text, sender)
         local now = SmoreSkills_Now()
         if now - lastSeekReplyPrintAt > 10 then
             lastSeekReplyPrintAt = now
-            SmoreSkills_Print("Someone is looking for camps in this zone — sharing yours.")
+            SmoreSkills_Print("Someone is looking for camps in this zone. Click Find or /smores host to share yours.")
         end
         self:ReplyToSeeker(camp, sender)
     end

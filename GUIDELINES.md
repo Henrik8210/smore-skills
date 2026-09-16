@@ -5,7 +5,7 @@ Forever camping finder. Protocol and UX are documented in [CAMPING.md](CAMPING.m
 - **Remote:** https://github.com/Henrik8210/smore-skills
 - **Addon folder:** `SmoreSkills/` (no apostrophe — WoW toc/folder rule)
 - **Title:** S'more Skills
-- **Version:** 0.5.47 (GitHub only — **do not CurseForge-tag** until the two-client Elwynn retest passes)
+- **Version:** 0.5.48 (CurseForge **beta** tag `v0.5.48-beta` — not a full release)
 
 ## WoW install paths
 
@@ -70,7 +70,7 @@ TBC has no camping. Use two characters in the **same zone and faction** (e.g. As
 
 ## CurseForge release
 
-**Hold until Forever beta works.** Do not tag or publish until the user explicitly asks after beta validation.
+**Hold a full (non-beta) CurseForge release until Forever beta works**, unless the user explicitly asks to publish.
 
 Publishing is **GitHub Actions**, not the CurseForge webhook.
 
@@ -79,6 +79,7 @@ Publishing is **GitHub Actions**, not the CurseForge webhook.
 3. Add GitHub secret **`CF_API_KEY`** (authors.curseforge.com → API tokens). Never paste the token in chat.
 4. Leave the GitHub → CurseForge webhook **inactive**.
 5. Push a version tag (`v0.1.0`) → `.github/workflows/release.yml` → `BigWigsMods/packager@v2`.
+6. Tag name containing **`beta`** (e.g. `v0.5.48-beta`) uploads as a CurseForge **beta** file. Plain `v0.5.48` is a full release.
 
 Pushing `main` is not a release. Do not delete/re-push tags — bump the patch.
 
@@ -88,6 +89,7 @@ Pushing `main` is not a release. Do not delete/re-push tags — bump the patch.
 2. Add `## vX.Y.Z` to `CHANGELOG.md`.
 3. Commit and push `main`.
 4. `git tag v<version>` and `git push origin v<version>`.
+   Include **`beta` in the tag** (`v0.5.48-beta`) for a CurseForge beta file; a plain `v0.5.48` is a full release.
 5. Confirm Actions **Release** succeeded; check CurseForge **Files**.
 
 `.pkgmeta` uses `move-folders` (no flatten). `.pkgmeta` must be UTF-8 without BOM.

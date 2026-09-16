@@ -31,7 +31,7 @@ Never create or push a CurseForge release tag unless the user **explicitly** req
 1. Bump `SmoreSkills/SmoreSkills.toc` `## Version:` and `Core.lua` `SmoreSkills.VERSION`.
 2. Add `## vX.Y.Z` to `CHANGELOG.md`.
 3. Commit and push to `main`.
-4. `git tag v<version>` and `git push origin v<version>` (tag matches toc, with `v` prefix).
+4. `git tag v<version>` and `git push origin v<version>` (tag matches toc, with `v` prefix). Include **`beta` in the tag name** (`v0.5.48-beta`) when the user asks for a CurseForge **beta** file; a plain version tag is a full release.
 5. Confirm GitHub Actions **Release** job succeeded; remind user to check CurseForge **Files**.
 
 Do **not** tag when the user only asked to commit, push, or update docs.

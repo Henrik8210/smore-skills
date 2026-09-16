@@ -148,7 +148,7 @@ When their signals **match**, the night elf sees a **map pin**: a bonfire icon w
 
 Signals are **addon messages** on the hidden `SmoreSkills` channel (not guild/party/raid). If CHANNEL addon messages are dropped, the same hidden channel carries a prefixed chat fallback (`SmoreSk …`). That is still not visible guild chat.
 
-When a host answers a seek, `H:` is sent on that hidden channel **0.15 s later** (Classic cannot `SendChatMessage` from the `CHAT_MSG_*` handler itself). Addon **whisper** is only if the channel is not joined — TBC Anniversary often prints *Unable to whisper … Blizzard services may be unavailable* for addon whispers even when `/w` works. Do not skip the channel chat when dropping whisper (0.5.34 did that; seekers never got the pin).
+When a host answers a seek, we do **not** `SendChatMessage` from the `CHAT_MSG_*` handler or from a campfire timer (that taints: *Interface action failed because of an AddOn*, and `H:` never leaves). Addon CHANNEL may still go. **Channel chat `H:` is sent on the next Find or `/smores host` click** (hardware). Lighting a fire hosts locally; click **Find** once so the other player can see it. Do not let the 8 s outbound cooldown eat that click (0.5.47 did — Find printed *Wait a moment* and never sent `H:`). Addon **whisper** is only if the channel is not joined.
 
 ## Map UX (Forever target)
 
@@ -242,30 +242,31 @@ TBC Anniversary has **no camping mechanic**. We still use it to prove:
 | “Find camps in zone” | `/smores find` or map button → seek ping |
 | “Open camp for visitors” | Lighting Basic Campfire (if Auto host is on) or `/smores host` |
 
-**Placeholder (until Forever campsite API):** we cannot read a real campsite. Lighting the Cooking spell **Basic Campfire** (spell **818**) is treated as “I placed a fire here.” If **Auto host when lighting a campfire** is on, the addon sends a host signal (`H:`) at your **zone** map coords so seekers can see a pin on that **zone** map (not continent/world zoom). Map pins use the **Basic Campfire** icon. Slot 1 is the host’s chosen profession (Host tab) until placed objects exist. Same spell hook should still fire on Forever if Cooking keeps that spell; swap it for the real campfire/object event when Blizzard exposes one.
+**Placeholder (until Forever campsite API):** we cannot read a real campsite. Lighting the Cooking spell **Basic Campfire** (spell **818**) is treated as “I placed a fire here.” If **Auto host when lighting a campfire** is on, the addon **hosts locally** at your zone coords. Hidden-channel **chat** `H:` is sent when you click **Find** or `/smores host` (a timer after the spell taints `SendChatMessage`). Map pins use the **Basic Campfire** icon. Slot 1 is the host’s chosen profession (Host tab) until placed objects exist. Same spell hook should still fire on Forever if Cooking keeps that spell; swap it for the real campfire/object event when Blizzard exposes one.
 
-### Two-client smoke test (Elwynn — retest 16 Sep 2026)
+### Two-client smoke test (Elwynn — **passed** 16 Sep 2026)
 
-v0.5.47 is GitHub-only (no CurseForge tag). Last session: Find printed “sharing yours” but the seeker never got `H:` (0.5.34 dropped channel chat with whisper). Seeker “1 match” was their **own** camp. Map view **Eastern Kingdoms** has no pins. A second fire in Stormwind still showed the Elwynn pin until 0.5.47.
+**v0.5.48** two-client Elwynn passed (pins visible both ways after Find). First CurseForge upload is **beta** tag `v0.5.48-beta` (not a full release). Lighting a fire hosts locally; **both** click Find on the zone map so `H:` actually goes out.
 
-1. Deploy: `.\scripts\deploy-to-wow.ps1 -Client anniversary` — both `/reload`, load line **v0.5.47**
+Earlier that evening: lighting printed *Interface action failed*, then *Wait a moment before sending again* on Find — `H:` never left (fixed in 0.5.48).
+
+1. Deploy: `.\scripts\deploy-to-wow.ps1 -Client anniversary` — **both** `/reload`, load line **v0.5.48**
 2. Both: `/smores status` — Channel joined, Cross-layer on, Host want **Anyone**, Seeker filter Anyone
-3. **Host:** light **Basic Campfire** (Auto host on). Wait for `Hosting in Elwynn Forest`. Do not interrupt the cast. Optional: `/smores host` if you need to re-share
-4. **Seeker:** open the world map, **zoom to Elwynn Forest** (not Eastern Kingdoms / continent), click **Find**
-5. Seeker chat: `Camp found` and **1 other camp** (not their own fire). Pin on Elwynn only — **not** Duskwood
-6. Host walks ~10 yards — pin stays on the fire; Find still answers
+3. **Each** lights **Basic Campfire** (Auto host on). Chat: `Hosting in Elwynn Forest` and **Click Find or /smores host once**. No *Interface action failed*.
+4. **Both** open the **Elwynn Forest** zone map (not Eastern Kingdoms) and click **Find**
+5. Chat: `Camp found` and **1 other camp**. Pin on Elwynn only — **not** Duskwood
+6. Host walks ~10 yards — pin stays on the fire
 7. Find right-click clears the seeker's other markers, not the host's own pin
 8. Host packs up → seeker pin vanishes (`X:`)
-9. If **Interface action failed because of an AddOn** appears when lighting the fire, note it — do not click-catch the whole UI to work around it
-10. Optional: light a **second** fire in Stormwind before the 10 min is up. Host chat should pack Elwynn; the forest pin is gone. A pin on the Elwynn map in the Stormwind corner is the **new** city camp (nested map), not the old forest site.
+9. Optional: light a **second** fire in Stormwind before the 10 min is up. Host chat should pack Elwynn; the forest pin is gone. A pin on the Elwynn map in the Stormwind corner is the **new** city camp (nested map), not the old forest site.
 
 **Elwynn / nested city maps:** Stormwind City is a child of Elwynn Forest. The map *art* can still be Elwynn (Stormwind in the corner) while `WorldMapFrame:GetMapID()` reports Stormwind City. Pins must still draw at **Elwynn** coords. Same family: Ironforge on Dun Morogh, Orgrimmar on Durotar. **Ashenvale has no nested capital**, so that glitch does not apply there. `/smores status` prints `Zone:` vs `Map view:` so you can see a mismatch.
 
 `/smores status` — channel joined, hosting/seeking, trades, zone, map view, seeker filter.
 
-### Shipped (v0.5.47) vs Forever beta
+### Shipped (v0.5.48) vs Forever beta
 
-| Feature | v0.5.47 (TBC testbed) | Forever beta |
+| Feature | v0.5.48 (TBC testbed) | Forever beta |
 | --- | --- | --- |
 | Seeker signal `S:` (`/smores find`, map Find button) | Yes | Same |
 | Host signal `H:` (`/smores host`) | Yes | Same + auto-host on Basic Campfire (placeholder) |

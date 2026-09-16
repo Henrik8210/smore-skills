@@ -2,7 +2,7 @@
 
 Reference for **Forever beta** (opens **17 Sep 2026**). TBC Anniversary remains the day-to-day testbed until then.
 
-**Release policy:** code is on GitHub at v0.5.31. **No CurseForge publish** until beta smoke test passes.
+**Release policy:** TBC two-client test passed at **v0.5.48**. CurseForge has a **beta** file (`v0.5.48-beta`), not a full release, until Forever smoke test.
 
 Screenshots from the pre-beta client (Sep 2026) show how the **world map** differs from retail and from TBC Anniversary.
 

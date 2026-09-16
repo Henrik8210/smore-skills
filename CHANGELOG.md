@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.48
+
+- Campfire / Find-reply no longer `SendChatMessage` from a timer (that was *Interface action failed*, and `H:` never left). Click **Find** or `/smores host` once to put the pin on the channel. Find is not blocked by the 8 s send cooldown.
+- Two-client Elwynn test **passed** (16 Sep 2026). First CurseForge file is **beta** (`v0.5.48-beta`).
+
 ## v0.5.47
 
 - Lighting a new campfire packs the previous pin (`X:`) and hosts the new site. Walking away still keeps the old fire coords.
