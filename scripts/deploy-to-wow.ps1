@@ -14,7 +14,7 @@ $ErrorActionPreference = "Stop"
 
 $clientFolder = @{
     anniversary = "_anniversary_"
-    forever     = "_forever_"
+    forever     = "_classic_beta_"
 }
 
 $WowAddOns = Join-Path $WowRoot ($clientFolder[$Client] + "\Interface\AddOns")

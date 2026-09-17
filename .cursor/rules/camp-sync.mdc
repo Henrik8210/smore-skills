@@ -7,7 +7,7 @@ alwaysApply: true
 
 This is a **community** addon. Guild is only a small marker (“a guildie is at this fire”), not how camps travel.
 
-Design: [CAMPING.md](../../CAMPING.md). TBC Anniversary is the test client until Forever beta.
+Design: [CAMPING.md](../../CAMPING.md). TBC Anniversary is the test client until Forever beta. Forever uses the **retail/Mainline addon API and restrictions** (not Classic) — see [FOREVER.md](../../FOREVER.md).
 
 ## Never
 
@@ -36,11 +36,11 @@ Design: [CAMPING.md](../../CAMPING.md). TBC Anniversary is the test client until
 - Signal TTL ~3 min; campfire pin ~10 min from when the fire was lit (same remaining time for every seeker; heartbeats do not extend it) or until full/packed/replaced; forget camps older than 30 minutes
 - Max 12 pins per zone
 - Host pin is **local**; other host pins only after **Find** (and an `H:`). Do not show C: snapshots as pins
-- Answering a seek does **not** `SendChatMessage` from `CHAT_MSG_*` or a timer (taints). Addon CHANNEL may still go. Channel-chat `H:` is sent on the next Find or `/smores host` click. Addon whisper only if the channel is not joined.
+- Answering a seek does **not** `SendChatMessage` or `SendAddonMessage` from `CHAT_MSG_*` or a timer (taints). Channel-chat `H:` is sent on the next Find or `/smores host` click. Addon whisper only if the channel is not joined, and only from that click.
 - One player, one hosted camp. A **new** campfire packs the previous pin (`X:`) and hosts the new site. Walking away or `/smores host` without a new fire keeps the original fire coords.
 - World map pins are **hosts only** — seekers do not get a pin; do not show C: snapshots as pins
-- Do not call `ChatFrame_RemoveChannel` (taints chat). Auto-host must not `SendChatMessage` from UNIT_SPELLCAST / CHAT_MSG_* / OnUpdate / WorldFrame / C_Timer. After the fire lands, host locally; send hidden-channel **chat** `H:` on the next Find or `/smores host` click. Do not hook WorldFrame / UIParent or EnableKeyboard. Other host pins only after Find. Continent zoom has no pins.
+- Do not call `ChatFrame_RemoveChannel` (taints chat). Auto-host must not `SendChatMessage`, `SendAddonMessage`, or `JoinPermanentChannel` from UNIT_SPELLCAST / CHAT_MSG_* / OnUpdate / WorldFrame / C_Timer. After the fire lands, host locally; send hidden-channel **chat** `H:` on the next Find or `/smores host` click. Do not hook WorldFrame / UIParent or EnableKeyboard. Other host pins only after Find. Continent **overview** (EK / Kalimdor) has no pins; a continent-typed **leaf** map (Zephras Isle) still draws.
 - Keep broadcasting the **fire coords** if the host walks away (do not key hosting to current feet)
-- Nested city maps (Elwynn/Stormwind, Dun Morogh/IF, Durotar/Org): still draw **zone** pins if `GetMapID()` is the city. Sibling zones (Elwynn vs Duskwood) must not share 39,70-style pins.
+- Nested city maps (Elwynn/Stormwind, Dun Morogh/IF, Durotar/Org): still draw **zone** pins if `GetMapID()` is the city. Sibling zones (Elwynn vs Duskwood) must not share 39,70-style pins. Forever new zones (Zephras Isle, Hyjal, Shen'dralas, Riverglades) use the same C_Map rules — do not hardcode an Elwynn-only list.
 - Guild mark is optional UI, not a requirement to see or share a camp
-- TBC Anniversary (`20505`/`20506`) for testing; Forever `## Interface:` when beta FrameXML is known
+- TBC Anniversary (`20505`/`20506`) for testing; Forever `## Interface:` when beta FrameXML is known. Forever is Mainline API (secrets, chat lockdown), not Classic.

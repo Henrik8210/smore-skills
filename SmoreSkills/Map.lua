@@ -980,6 +980,16 @@ function Map:Relayout()
     self:RefreshPins()
 end
 
+local function SafeHookScript(frame, script, handler)
+    if not frame or not script or not handler or not frame.HookScript then
+        return
+    end
+    if frame.HasScript and not frame:HasScript(script) then
+        return
+    end
+    pcall(frame.HookScript, frame, script, handler)
+end
+
 function Map:HookMapChanges()
     if self.hooksInstalled then
         return
@@ -999,20 +1009,18 @@ function Map:HookMapChanges()
         end
     end
 
-    if WorldMapFrame.HookScript then
-        WorldMapFrame:HookScript("OnShow", function()
-            RelayoutSoon()
-        end)
-        WorldMapFrame:HookScript("OnHide", function()
-            Map:ReleasePins()
-            if Map.button then
-                Map.button:Hide()
-            end
-        end)
-        WorldMapFrame:HookScript("OnSizeChanged", function()
-            Map:Relayout()
-        end)
-    end
+    SafeHookScript(WorldMapFrame, "OnShow", function()
+        RelayoutSoon()
+    end)
+    SafeHookScript(WorldMapFrame, "OnHide", function()
+        Map:ReleasePins()
+        if Map.button then
+            Map.button:Hide()
+        end
+    end)
+    SafeHookScript(WorldMapFrame, "OnSizeChanged", function()
+        Map:Relayout()
+    end)
 
     if hooksecurefunc and WorldMapFrame.OnMapChanged then
         hooksecurefunc(WorldMapFrame, "OnMapChanged", function()
@@ -1021,30 +1029,32 @@ function Map:HookMapChanges()
     end
 
     local host = GetButtonHost()
-    if host and host.HookScript and host ~= WorldMapFrame then
-        host:HookScript("OnSizeChanged", function()
+    if host and host ~= WorldMapFrame then
+        SafeHookScript(host, "OnSizeChanged", function()
             Map:Relayout()
         end)
     end
 
-    local canvas = GetMapCanvas()
-    if canvas and canvas.HookScript then
-        canvas:HookScript("OnSizeChanged", function()
-            Map:RefreshPins()
-        end)
-    end
+    SafeHookScript(GetMapCanvas(), "OnSizeChanged", function()
+        Map:RefreshPins()
+    end)
 
     local mm = WorldMapFrame.BorderFrame and WorldMapFrame.BorderFrame.MaximizeMinimizeFrame
     if mm then
+        -- Forever: this is a Frame with MinimizeButton / MaximizeButton children.
+        -- Frames do not support OnClick — hooking it errors and aborts map init.
         if mm.SetOnMinimizedCallback then
-            mm:SetOnMinimizedCallback(RelayoutSoon)
+            pcall(function()
+                mm:SetOnMinimizedCallback(RelayoutSoon)
+            end)
         end
         if mm.SetOnMaximizedCallback then
-            mm:SetOnMaximizedCallback(RelayoutSoon)
+            pcall(function()
+                mm:SetOnMaximizedCallback(RelayoutSoon)
+            end)
         end
-        if mm.HookScript then
-            mm:HookScript("OnClick", RelayoutSoon)
-        end
+        SafeHookScript(mm.MinimizeButton, "OnClick", RelayoutSoon)
+        SafeHookScript(mm.MaximizeButton, "OnClick", RelayoutSoon)
     end
 end
 

@@ -18,43 +18,44 @@ SmoreSkills.PROFESSIONS = {
     { id = "firstaid", code = "fa", label = "First Aid", icon = "Interface\\Icons\\Spell_Holy_SealOfSacrifice" },
 }
 
--- Three placeable items per trade. First: skill 20 + trainer/NPC quest. Later: dungeon-boss blueprints.
--- Labels we do not know yet stay as "II" / "III" until Forever beta.
+-- Three placeable items per trade. First: skill 20 at the trainer Camping category.
+-- Later: dungeon-boss blueprints. Unknown names stay "Tier 2" / "Tier 3".
+-- Skinning **Tanning** is the place-skill, not an object. The object is Camp Chair.
 -- A Basic Campfire has three object slots. Cooking upgrades may allow 5 or 10 — wire still encodes three.
 SmoreSkills.PROFESSION_ITEMS = {
-    { id = "bs1", profession = "blacksmithing", label = "Sharpening Wheel", unlock = "Blacksmithing 20 + quest", note = "Strength" },
-    { id = "bs2", profession = "blacksmithing", label = "Anvil", unlock = "Blacksmithing 140", note = "Replaces wheel" },
-    { id = "bs3", profession = "blacksmithing", label = "Master Forge", unlock = "Blacksmithing 300", note = "Crafting + wheel" },
-    { id = "tail1", profession = "tailoring", label = "Faction banner", unlock = "Skill + quest", note = "Spirit" },
-    { id = "tail2", profession = "tailoring", label = "Tailoring II", unlock = "Dungeon blueprint" },
-    { id = "tail3", profession = "tailoring", label = "Tailoring III", unlock = "Dungeon blueprint" },
-    { id = "herb1", profession = "herbalism", label = "Incense candle", unlock = "Skill + quest", note = "Intellect" },
-    { id = "herb2", profession = "herbalism", label = "Herbalism II", unlock = "Dungeon blueprint" },
-    { id = "herb3", profession = "herbalism", label = "Herbalism III", unlock = "Dungeon blueprint" },
-    { id = "alch1", profession = "alchemy", label = "Alchemy I", unlock = "Skill + quest" },
+    { id = "bs1", profession = "blacksmithing", label = "Sharpening Wheel", unlock = "Blacksmithing 20", note = "+6 Strength", skill = "Blacksmithing (20)", reagents = "Rough Stone, Copper Bar", use = "Constructs a sharpening wheel that grants you and others sitting nearby 6 increased Strength, exclusive with Strength of Earth Totem.", exclusive = "Strength of Earth Totem" },
+    { id = "bs2", profession = "blacksmithing", label = "Anvil", unlock = "Blacksmithing 140", note = "Replaces wheel", skill = "Blacksmithing (140)", use = "Places an anvil with all Sharpening Wheel benefits. May replace a wheel." },
+    { id = "bs3", profession = "blacksmithing", label = "Master Forge", unlock = "Blacksmithing 300", note = "Crafting + wheel", skill = "Blacksmithing (300)", use = "Usable for recipes that require it, plus all wheel benefits. May replace a wheel." },
+    { id = "tail1", profession = "tailoring", label = "Faction Banner", unlock = "Tailoring 20", note = "+14 Spirit", skill = "Tailoring (20)", reagents = "Bolt of Linen Cloth, Coarse Thread", use = "Unrolls a banner that allows you and other members of your faction sitting nearby to gain 14 increased Spirit, exclusive with Divine Spirit.", exclusive = "Divine Spirit" },
+    { id = "tail2", profession = "tailoring", label = "Tailoring Tier 2", unlock = "Dungeon blueprint" },
+    { id = "tail3", profession = "tailoring", label = "Tailoring Tier 3", unlock = "Dungeon blueprint" },
+    { id = "herb1", profession = "herbalism", label = "Incense Candle", unlock = "Herbalism 20", note = "+2 Intellect", skill = "Herbalism (20)", reagents = "Peacebloom, Silverleaf", use = "Ignites an incense candle that allows you and others sitting nearby to gain 2 increased Intellect, exclusive with Arcane Intellect.", exclusive = "Arcane Intellect" },
+    { id = "herb2", profession = "herbalism", label = "Herbalism Tier 2", unlock = "Dungeon blueprint" },
+    { id = "herb3", profession = "herbalism", label = "Herbalism Tier 3", unlock = "Dungeon blueprint" },
+    { id = "alch1", profession = "alchemy", label = "Mana Well", unlock = "Alchemy 20", note = "+10 mana / 5s", skill = "Alchemy (20)", reagents = "Peacebloom, Empty Vial", use = "Constructs a mana well that allows you and others sitting nearby to regenerate 10 Mana every 5 seconds, exclusive with Blessing of Wisdom.", exclusive = "Blessing of Wisdom" },
     { id = "alch2", profession = "alchemy", label = "Alchemy Lab", unlock = "Dungeon blueprint", note = "Workspace" },
-    { id = "alch3", profession = "alchemy", label = "Alchemy III", unlock = "Dungeon blueprint" },
-    { id = "enc1", profession = "enchanting", label = "Enchanting I", unlock = "Skill + quest" },
-    { id = "enc2", profession = "enchanting", label = "Enchanting II", unlock = "Dungeon blueprint" },
-    { id = "enc3", profession = "enchanting", label = "Enchanting III", unlock = "Dungeon blueprint" },
-    { id = "eng1", profession = "engineering", label = "Engineering I", unlock = "Skill + quest" },
-    { id = "eng2", profession = "engineering", label = "Engineering II", unlock = "Dungeon blueprint" },
-    { id = "eng3", profession = "engineering", label = "Engineering III", unlock = "Dungeon blueprint" },
-    { id = "lw1", profession = "leatherworking", label = "Leatherworking I", unlock = "Skill + quest" },
+    { id = "alch3", profession = "alchemy", label = "Alchemy Tier 3", unlock = "Dungeon blueprint" },
+    { id = "enc1", profession = "enchanting", label = "Enchanted Lute", unlock = "Enchanting 20", note = "+28 Armor", skill = "Enchanting (20)", reagents = "Simple Wood, Strange Dust", use = "Summons an enchanted lute that allows you and others sitting nearby to gain 28 Increase to Armor, exclusive with Mark of the Wild.", exclusive = "Mark of the Wild" },
+    { id = "enc2", profession = "enchanting", label = "Enchanting Tier 2", unlock = "Dungeon blueprint" },
+    { id = "enc3", profession = "enchanting", label = "Enchanting Tier 3", unlock = "Dungeon blueprint" },
+    { id = "eng1", profession = "engineering", label = "Engineering Tier 1", unlock = "Engineering 20" },
+    { id = "eng2", profession = "engineering", label = "Engineering Tier 2", unlock = "Dungeon blueprint" },
+    { id = "eng3", profession = "engineering", label = "Engineering Tier 3", unlock = "Dungeon blueprint" },
+    { id = "lw1", profession = "leatherworking", label = "Leatherworking Tier 1", unlock = "Leatherworking 20" },
     { id = "lw2", profession = "leatherworking", label = "Tanning Rack", unlock = "Dungeon blueprint", note = "Advanced LW recipes" },
-    { id = "lw3", profession = "leatherworking", label = "Leatherworking III", unlock = "Dungeon blueprint" },
-    { id = "mine1", profession = "mining", label = "Mining I", unlock = "Skill + quest" },
-    { id = "mine2", profession = "mining", label = "Mining II", unlock = "Dungeon blueprint" },
-    { id = "mine3", profession = "mining", label = "Mining III", unlock = "Dungeon blueprint" },
-    { id = "skin1", profession = "skinning", label = "Skinning I", unlock = "Skill + quest" },
-    { id = "skin2", profession = "skinning", label = "Skinning II", unlock = "Dungeon blueprint" },
-    { id = "skin3", profession = "skinning", label = "Skinning III", unlock = "Dungeon blueprint" },
-    { id = "cook1", profession = "cooking", label = "Cooking I", unlock = "Skill + quest" },
+    { id = "lw3", profession = "leatherworking", label = "Leatherworking Tier 3", unlock = "Dungeon blueprint" },
+    { id = "mine1", profession = "mining", label = "Lodestone", unlock = "Mining 20", note = "+12 melee AP", skill = "Mining (20)", reagents = "Rough Stone, Copper Bar", use = "Erects a lodestone that allows you and others sitting nearby to gain 12 increased melee Attack Power, exclusive with Blessing of Might.", exclusive = "Blessing of Might" },
+    { id = "mine2", profession = "mining", label = "Mining Tier 2", unlock = "Dungeon blueprint" },
+    { id = "mine3", profession = "mining", label = "Mining Tier 3", unlock = "Dungeon blueprint" },
+    { id = "skin1", profession = "skinning", label = "Camp Chair", unlock = "Skinning 20", note = "+2% crit", skill = "Skinning (20)", reagents = "Light Leather (3), Simple Wood (2)", use = "Assembles a camp chair that allows you and others sitting nearby to gain 2% increased critical strike chance with all spells and attacks, exclusive with Moonkin Aura.", exclusive = "Moonkin Aura" },
+    { id = "skin2", profession = "skinning", label = "Skinning Tier 2", unlock = "Dungeon blueprint" },
+    { id = "skin3", profession = "skinning", label = "Skinning Tier 3", unlock = "Dungeon blueprint" },
+    { id = "cook1", profession = "cooking", label = "Cooking Tier 1", unlock = "Cooking 20" },
     { id = "cook2", profession = "cooking", label = "Campfire (5 slots)", unlock = "Dungeon blueprint", note = "Not Basic 3" },
     { id = "cook3", profession = "cooking", label = "Campfire (10 slots)", unlock = "Dungeon blueprint", note = "Not Basic 3" },
-    { id = "fa1", profession = "firstaid", label = "First Aid I", unlock = "Skill + quest" },
-    { id = "fa2", profession = "firstaid", label = "First Aid II", unlock = "Dungeon blueprint" },
-    { id = "fa3", profession = "firstaid", label = "First Aid III", unlock = "Dungeon blueprint" },
+    { id = "fa1", profession = "firstaid", label = "First Aid Kit", unlock = "First Aid 20", note = "+3 Stamina", skill = "First Aid (20)", reagents = "Linen Bandage (3), Refreshing Spring Water", use = "Unpacks a first aid kit that allows you and others sitting nearby to gain 3 increased Stamina, exclusive with Power Word: Fortitude.", exclusive = "Power Word: Fortitude" },
+    { id = "fa2", profession = "firstaid", label = "First Aid Tier 2", unlock = "Dungeon blueprint" },
+    { id = "fa3", profession = "firstaid", label = "First Aid Tier 3", unlock = "Dungeon blueprint" },
 }
 SmoreSkills.MAX_WANT_ITEMS = 3
 
@@ -117,14 +118,26 @@ end
 function SmoreSkills_GetPlayerProfessions()
     local list = {}
     local seen = {}
-    if GetNumSkillLines then
-        for i = 1, GetNumSkillLines() do
-            local skillName = GetSkillLineInfo(i)
-            local id = SmoreSkills_ProfessionIdFromSkillName(skillName)
-            if id and not seen[id] then
-                seen[id] = true
-                table.insert(list, id)
+    local function addByName(skillName)
+        local id = SmoreSkills_ProfessionIdFromSkillName(skillName)
+        if id and not seen[id] then
+            seen[id] = true
+            table.insert(list, id)
+        end
+    end
+    -- Forever / Mainline: GetProfessions. TBC Anniversary: skill lines.
+    if GetProfessions and GetProfessionInfo then
+        local profs = { GetProfessions() }
+        for i = 1, #profs do
+            local index = profs[i]
+            if index then
+                addByName(GetProfessionInfo(index))
             end
+        end
+    end
+    if #list == 0 and GetNumSkillLines then
+        for i = 1, GetNumSkillLines() do
+            addByName(GetSkillLineInfo(i))
         end
     end
     return list
@@ -622,6 +635,32 @@ function SmoreSkills_ItemLabel(id)
     return item and item.label or (id or "")
 end
 
+function SmoreSkills_ShowCampingItemTooltip(owner, item)
+    if not owner or not item or not GameTooltip then
+        return
+    end
+    GameTooltip:SetOwner(owner, "ANCHOR_CURSOR")
+    GameTooltip:ClearLines()
+    GameTooltip:AddLine(item.label, 1, 0.82, 0)
+    if item.skill then
+        GameTooltip:AddLine("Requires " .. item.skill, 1, 0.13, 0.13)
+    elseif item.unlock then
+        GameTooltip:AddLine(item.unlock, 0.7, 0.7, 0.7)
+    end
+    if item.reagents then
+        GameTooltip:AddLine("Reagents: " .. item.reagents, 0.1, 1, 0.1)
+    end
+    if item.use then
+        GameTooltip:AddLine("Use: " .. item.use, 0.1, 1, 0.1, true)
+        GameTooltip:AddLine("Requires a Campfire nearby. All camping features share a cooldown of 1 hour.", 0.1, 1, 0.1, true)
+    elseif item.note then
+        GameTooltip:AddLine(item.note, 0.92, 0.92, 0.92)
+    else
+        GameTooltip:AddLine("Name not confirmed on beta yet.", 0.65, 0.65, 0.65)
+    end
+    GameTooltip:Show()
+end
+
 function SmoreSkills_NormalizeItem(id)
     if not id or id == "" then
         return nil
@@ -719,7 +758,7 @@ function SmoreSkills_ToggleWantItem(wantKey, itemId)
     end
     if not found then
         if #nextList >= (SmoreSkills.MAX_WANT_ITEMS or 3) then
-            SmoreSkills_Reply("You can pick at most " .. tostring(SmoreSkills.MAX_WANT_ITEMS) .. " items.")
+            SmoreSkills_Reply("You can pick at most " .. tostring(SmoreSkills.MAX_WANT_ITEMS) .. " camping items.")
             return false
         end
         table.insert(nextList, item.id)
@@ -819,7 +858,7 @@ function SmoreSkills_AppendHostWantTooltipLines(lines, want, items)
     end
     local itemText = SmoreSkills_FormatItems(items)
     if itemText then
-        table.insert(lines, SmoreSkills_TooltipLabeledLine("Host wants (items):", itemText))
+        table.insert(lines, SmoreSkills_TooltipLabeledLine("Host wants (camping items):", itemText))
     end
     return lines
 end
@@ -1454,11 +1493,28 @@ local function MapTypeZone()
     return (Enum and Enum.UIMapType and Enum.UIMapType.Zone) or 3
 end
 
+local function MapTypeWorld()
+    return (Enum and Enum.UIMapType and Enum.UIMapType.World) or 1
+end
+
 local function MapTypeContinent()
     return (Enum and Enum.UIMapType and Enum.UIMapType.Continent) or 2
 end
 
--- Pins belong on zone / city / dungeon canvases, not cosmic / world / continent zoom.
+local function CountChildMaps(mapId, mapType, recursive)
+    if not C_Map or not C_Map.GetMapChildrenInfo or not mapId then
+        return 0
+    end
+    local kids = C_Map.GetMapChildrenInfo(mapId, mapType, recursive)
+    if not kids then
+        return 0
+    end
+    return #kids
+end
+
+-- Pins on the playable map: zone / city / dungeon, and continent-typed
+-- leaf islands (Zephras sits under World like Kalimdor but is the zone you
+-- camp on). EK / Kalimdor stay empty — they have many zone children.
 function SmoreSkills_MapViewShowsCampPins(mapId)
     mapId = tonumber(mapId)
     if not mapId then
@@ -1472,7 +1528,48 @@ function SmoreSkills_MapViewShowsCampPins(mapId)
     if not mapType then
         return true
     end
-    return mapType > MapTypeContinent()
+    if mapType > MapTypeContinent() then
+        return true
+    end
+    if mapType <= MapTypeWorld() then
+        return false
+    end
+    local zones = CountChildMaps(mapId, MapTypeZone(), true)
+    if zones <= 3 then
+        return true
+    end
+    local best = C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+    return tonumber(best) == mapId
+end
+
+function SmoreSkills_FormatMapStatus(mapId)
+    mapId = tonumber(mapId)
+    if not mapId then
+        return "?"
+    end
+    local name, mapType = tostring(mapId), nil
+    if C_Map and C_Map.GetMapInfo then
+        local info = C_Map.GetMapInfo(mapId)
+        if info then
+            name = info.name or name
+            mapType = info.mapType
+        end
+    end
+    local typeName = "?"
+    local types = Enum and Enum.UIMapType
+    if types then
+        for key, value in pairs(types) do
+            if type(key) == "string" and value == mapType then
+                typeName = key
+                break
+            end
+        end
+    elseif mapType then
+        local fallback = { [0] = "Cosmic", [1] = "World", [2] = "Continent", [3] = "Zone", [4] = "Dungeon", [5] = "Micro", [6] = "Orphan" }
+        typeName = fallback[mapType] or tostring(mapType)
+    end
+    local pins = (not SmoreSkills_MapViewShowsCampPins or SmoreSkills_MapViewShowsCampPins(mapId)) and "pins" or "no pins"
+    return string.format("%s (id %s, %s, %s)", name, tostring(mapId), typeName, pins)
 end
 
 function SmoreSkills_ResolveZoneMap(mapId, x, y)

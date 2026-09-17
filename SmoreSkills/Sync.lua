@@ -32,15 +32,21 @@ local lastOutboundAt = 0
 local lastSeekAt = 0
 local lastCampfireHostAt = 0
 local lastSeekReplyPrintAt = 0
+local placeBlockedUntil = 0
 local channelId = 0
 local joinAttempts = 0
 local MAX_JOIN_ATTEMPTS = 8
 local sendPump
 
--- Classic / TBC cooking fire. Forever campsite API is unknown; this is the placeholder trigger.
+-- Place a fire: TBC spell 818, Forever item Use of a Campfire Kit, or a
+-- spell whose name contains campfire. Cooking Create of the kit is not a
+-- place — even if the profession window closes before the craft lands.
+-- Sitting at a fire is not a host.
 local CAMPFIRE_SPELL_IDS = {
     [818] = true,
 }
+local craftCastGuids = {}
+local professionCastFallbackUntil = 0
 
 Sync.seekingActive = false
 Sync.seekListenUntil = 0
@@ -235,11 +241,11 @@ function Sync:PackUpCamp(camp, opts)
     self:StopHosting()
     local msg = self:EncodePacked(camp)
     if msg then
-        -- Silent pack is from a spellcast timer: chat would taint. Send addon now; chat on next click.
-        self:Send(msg, { chat = not opts.silent })
         if opts.silent then
             self.pendingPacked = self.pendingPacked or {}
             table.insert(self.pendingPacked, camp)
+        else
+            self:Send(msg, { chat = true })
         end
     end
     if self.seekDiscoveredIds and camp.id then
@@ -325,21 +331,17 @@ function Sync:FlushHardwareShare()
     return sent
 end
 
-function Sync:JoinCommunity()
+function Sync:JoinCommunity(allowJoin)
     if self:RefreshChannelId() then
         joinAttempts = 0
-        if self.pendingHostShare then
-            local camp = self.pendingHostShare
-            self:ShareHost(camp, { chat = false })
-        end
         return true
     end
+    -- JoinPermanentChannel is Blizzard-only. Login, zoning, spellcast, and
+    -- timers are tainted on Forever and pop the blocked-action dialog.
+    if not allowJoin then
+        return false
+    end
     if InCombatLockdown and InCombatLockdown() then
-        if C_Timer and C_Timer.After then
-            C_Timer.After(2, function()
-                self:JoinCommunity()
-            end)
-        end
         return false
     end
     if joinAttempts >= MAX_JOIN_ATTEMPTS then
@@ -355,14 +357,10 @@ function Sync:JoinCommunity()
         C_Timer.After(1.5, function()
             if self:RefreshChannelId() then
                 joinAttempts = 0
-                if self.pendingHostShare then
-                    local camp = self.pendingHostShare
-                    self:ShareHost(camp, { chat = false })
-                end
                 return
             end
             if joinAttempts < MAX_JOIN_ATTEMPTS then
-                self:JoinCommunity()
+                SmoreSkills_Print("Could not join the hidden S'more Skills channel yet. Click Find or /smores host once.")
             else
                 SmoreSkills_Print("Could not join the hidden S'more Skills channel. Leave a chat channel if you are at the 10-channel limit, then /reload.")
             end
@@ -387,6 +385,103 @@ local function SpellDisplayName(spellId)
     return nil
 end
 
+local function FrameIsShown(f)
+    return f and f.IsShown and f:IsShown()
+end
+
+local function IsProfessionUiOpen()
+    local professions = _G.ProfessionsFrame
+    if FrameIsShown(professions) then
+        return true
+    end
+    if professions and FrameIsShown(professions.CraftingPage) then
+        return true
+    end
+    if FrameIsShown(_G.TradeSkillFrame) or FrameIsShown(_G.CraftFrame) then
+        return true
+    end
+    if C_TradeSkillUI then
+        if C_TradeSkillUI.IsRecipeRepeating then
+            local ok, repeating = pcall(C_TradeSkillUI.IsRecipeRepeating)
+            if ok and repeating then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function ParseCastArgs(a, b)
+    local spellId, spellName, castGUID
+    if type(a) == "string" and type(b) == "number" then
+        spellId = b
+        if a:find("Cast-", 1, true) then
+            castGUID = a
+        else
+            spellName = a
+        end
+    elseif type(b) == "number" then
+        spellId = b
+        if type(a) == "string" then
+            spellName = a
+        end
+    elseif type(a) == "number" then
+        spellId = a
+    elseif type(a) == "string" then
+        spellName = a
+    end
+    return spellId, spellName, castGUID
+end
+
+local function RememberProfessionCast(castGUID)
+    if not IsProfessionUiOpen() then
+        return
+    end
+    if castGUID and castGUID ~= "" then
+        craftCastGuids[castGUID] = true
+        return
+    end
+    professionCastFallbackUntil = (GetTime and GetTime() or 0) + 3
+end
+
+local function WasProfessionCast(castGUID)
+    if castGUID and craftCastGuids[castGUID] then
+        craftCastGuids[castGUID] = nil
+        return true
+    end
+    if castGUID and castGUID ~= "" then
+        return false
+    end
+    local now = GetTime and GetTime() or 0
+    return now < professionCastFallbackUntil
+end
+
+local function ForgetProfessionCast(castGUID)
+    if castGUID then
+        craftCastGuids[castGUID] = nil
+    end
+end
+
+local function NameLooksLikePlacedFire(spellName)
+    if not spellName or spellName == "" then
+        return false
+    end
+    local key = strlower(spellName)
+    if key:find("nearby", 1, true) then
+        return false
+    end
+    if key:find("campfire", 1, true) then
+        return true
+    end
+    if key:find("campsite", 1, true) then
+        return true
+    end
+    if key:find("camp", 1, true) and key:find("kit", 1, true) then
+        return true
+    end
+    return false
+end
+
 local function IsBasicCampfire(spellId, spellName)
     spellId = tonumber(spellId)
     if spellId and CAMPFIRE_SPELL_IDS[spellId] then
@@ -395,15 +490,14 @@ local function IsBasicCampfire(spellId, spellName)
     if (not spellName or spellName == "") and spellId then
         spellName = SpellDisplayName(spellId)
     end
-    if not spellName or spellName == "" then
-        return false
-    end
-    local key = strlower(spellName)
-    if key == "basic campfire" or key:find("basic campfire", 1, true) then
+    if NameLooksLikePlacedFire(spellName) then
+        if spellId then
+            CAMPFIRE_SPELL_IDS[spellId] = true
+        end
         return true
     end
     local localized = SpellDisplayName(818)
-    if localized and strlower(localized) == key then
+    if localized and spellName and strlower(localized) == strlower(spellName) then
         return true
     end
     return false
@@ -443,7 +537,7 @@ function Sync:Init()
             end
         elseif event == "PLAYER_ENTERING_WORLD" then
             joinAttempts = 0
-            self:JoinCommunity()
+            self:JoinCommunity(false)
         else
             self:RefreshChannelId()
         end
@@ -451,33 +545,173 @@ function Sync:Init()
     self:WatchCampfires()
 end
 
+local function SlotItemLink(bag, slot)
+    if C_Container and C_Container.GetContainerItemLink then
+        return C_Container.GetContainerItemLink(bag, slot)
+    end
+    if GetContainerItemLink then
+        return GetContainerItemLink(bag, slot)
+    end
+    return nil
+end
+
+local function SlotItemName(bag, slot, link)
+    if C_Container and C_Container.GetContainerItemInfo then
+        local info = C_Container.GetContainerItemInfo(bag, slot)
+        if info and info.itemName and info.itemName ~= "" then
+            return info.itemName
+        end
+    end
+    if link then
+        local name = link:match("%[(.-)%]")
+        if name then
+            return name
+        end
+    end
+    return nil
+end
+
+local function ItemUseSpell(link)
+    if not link then
+        return nil, nil
+    end
+    if C_Item and C_Item.GetItemSpell then
+        local ok, name, spellId = pcall(C_Item.GetItemSpell, link)
+        if ok and (name or spellId) then
+            if type(name) == "number" then
+                return nil, name
+            end
+            if type(spellId) == "number" then
+                return name, spellId
+            end
+            return name, nil
+        end
+    end
+    if GetItemSpell then
+        local a, b, c = GetItemSpell(link)
+        if type(a) == "number" then
+            return nil, a
+        end
+        if type(b) == "number" then
+            return a, b
+        end
+        if type(c) == "number" then
+            return a, c
+        end
+        return a, nil
+    end
+    return nil, nil
+end
+
+function Sync:RefreshKitSpells()
+    local lastBag = NUM_BAG_SLOTS or 4
+    for bag = 0, lastBag do
+        local slots
+        if C_Container and C_Container.GetContainerNumSlots then
+            slots = C_Container.GetContainerNumSlots(bag)
+        elseif GetContainerNumSlots then
+            slots = GetContainerNumSlots(bag)
+        end
+        if slots then
+            for slot = 1, slots do
+                local link = SlotItemLink(bag, slot)
+                local name = SlotItemName(bag, slot, link)
+                if NameLooksLikePlacedFire(name) then
+                    local spellName, spellId = ItemUseSpell(link)
+                    if spellId then
+                        CAMPFIRE_SPELL_IDS[spellId] = true
+                    end
+                    if NameLooksLikePlacedFire(spellName) and spellId then
+                        CAMPFIRE_SPELL_IDS[spellId] = true
+                    end
+                end
+            end
+        end
+    end
+end
+
+function Sync:NoteLastCast(spellId, spellName)
+    self.lastCastId = tonumber(spellId)
+    if spellName and spellName ~= "" then
+        self.lastCastName = spellName
+    else
+        self.lastCastName = SpellDisplayName(spellId)
+    end
+end
+
 function Sync:WatchCampfires()
     if self.campfireFrame then
         return
     end
     local f = CreateFrame("Frame")
-    if f.RegisterUnitEvent then
-        f:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
-    else
-        f:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+    local unitEvents = {
+        "UNIT_SPELLCAST_START",
+        "UNIT_SPELLCAST_SUCCEEDED",
+        "UNIT_SPELLCAST_INTERRUPTED",
+        "UNIT_SPELLCAST_FAILED",
+    }
+    for i = 1, #unitEvents do
+        if f.RegisterUnitEvent then
+            f:RegisterUnitEvent(unitEvents[i], "player")
+        else
+            f:RegisterEvent(unitEvents[i])
+        end
     end
-    f:SetScript("OnEvent", function(_, _, unit, a, b)
-        self:OnUnitSpellcastSucceeded(unit, a, b)
+    f:RegisterEvent("UI_ERROR_MESSAGE")
+    if not pcall(f.RegisterEvent, f, "BAG_UPDATE_DELAYED") then
+        f:RegisterEvent("BAG_UPDATE")
+    end
+    f:RegisterEvent("PLAYER_ENTERING_WORLD")
+    f:SetScript("OnEvent", function(_, event, ...)
+        if event == "UNIT_SPELLCAST_START" then
+            local unit, a, b = ...
+            self:OnUnitSpellcastStart(unit, a, b)
+        elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
+            local unit, a, b = ...
+            self:OnUnitSpellcastSucceeded(unit, a, b)
+        elseif event == "UNIT_SPELLCAST_INTERRUPTED" or event == "UNIT_SPELLCAST_FAILED" then
+            local _, a, b = ...
+            local _, _, castGUID = ParseCastArgs(a, b)
+            ForgetProfessionCast(castGUID)
+        elseif event == "UI_ERROR_MESSAGE" then
+            self:OnUiError(...)
+        else
+            self:RefreshKitSpells()
+        end
     end)
     self.campfireFrame = f
+    self:RefreshKitSpells()
+end
+
+function Sync:OnUiError(errorType, message)
+    if type(errorType) == "string" and (message == nil or type(message) ~= "string") then
+        message = errorType
+    end
+    if type(message) ~= "string" then
+        return
+    end
+    local key = strlower(message)
+    if key:find("campfire", 1, true) and (key:find("100", 1, true) or key:find("within", 1, true)) then
+        placeBlockedUntil = (GetTime and GetTime() or 0) + 2
+    end
+end
+
+function Sync:OnUnitSpellcastStart(unit, a, b)
+    if unit ~= "player" then
+        return
+    end
+    local _, _, castGUID = ParseCastArgs(a, b)
+    RememberProfessionCast(castGUID)
 end
 
 function Sync:OnUnitSpellcastSucceeded(unit, a, b)
     if unit ~= "player" then
         return
     end
-    local spellId, spellName
-    if type(b) == "number" then
-        spellId = b
-    elseif type(a) == "number" then
-        spellId = a
-    elseif type(a) == "string" then
-        spellName = a
+    local spellId, spellName, castGUID = ParseCastArgs(a, b)
+    self:NoteLastCast(spellId, spellName)
+    if WasProfessionCast(castGUID) or IsProfessionUiOpen() then
+        return
     end
     if IsBasicCampfire(spellId, spellName) then
         self:OnBasicCampfirePlaced()
@@ -486,6 +720,10 @@ end
 
 function Sync:OnBasicCampfirePlaced()
     if not SmoreSkills_GetAutoHostOnCampfire() then
+        return
+    end
+    local nowTime = GetTime and GetTime() or 0
+    if nowTime < placeBlockedUntil then
         return
     end
     local now = SmoreSkills_Now()
@@ -506,7 +744,7 @@ end
 
 function Sync:OnLogin()
     joinAttempts = 0
-    self:JoinCommunity()
+    self:JoinCommunity(false)
 end
 
 function Sync:TryOutbound()
@@ -625,11 +863,13 @@ function Sync:Send(msg, opts)
     if type(msg) ~= "string" or #msg > ADDON_MSG_MAX then
         return false
     end
-    -- Addon CHANNEL is not a protected function. Chat is; only send chat from hardware.
-    self:DeliverAddonChannel(msg)
+    -- Addon CHANNEL from a timer is blocked on Forever the same way chat is.
+    -- Only send addon from a hardware click (Find / /smores host).
+    if opts.chat then
+        self:DeliverAddonChannel(msg)
+    end
     if opts.whisperTo then
-        local now = (GetTime and GetTime()) or 0
-        QueueJob(pendingWhispers, { msg = msg, target = opts.whisperTo, readyAt = now + 0.15 })
+        self:SendAddonWhisper(msg, opts.whisperTo)
     end
     if opts.chat then
         return self:DeliverChat(msg)
@@ -944,8 +1184,8 @@ function Sync:ShareHost(camp, opts)
 end
 
 function Sync:SeekHere()
-    -- Find / slash is hardware. If we are hosting, send H: on this click (campfire
-    -- timers cannot SendChatMessage — they taint and the seeker never gets the pin).
+    -- Find / slash is hardware. Join + H: are legal here (campfire timers are not).
+    self:JoinCommunity(true)
     self:FlushHardwareShare()
 
     if self:IsSeeking() then
@@ -1067,10 +1307,7 @@ function Sync:ReplyToSeeker(camp, seekerName)
         SmoreSkills_ApplyHostProfession(camp)
     end
     SmoreSkills_ApplyHostWantToCamp(camp)
-    -- Do not SendChatMessage from a timer after CHAT_MSG (taints). Addon CHANNEL
-    -- may still go. Chat H: goes out on the next Find / /smores host click.
     local live = GetActiveHostCamp() or camp
-    self:ShareHost(live, { chat = false })
     self.pendingHostShare = live
     self.needsHardwareShare = true
 end
@@ -1096,7 +1333,6 @@ function Sync:HostHeartbeat()
     camp.want = SmoreSkills_GetEffectiveHostWant()
     camp.wantItems = SmoreSkills_GetEffectiveHostWantItems()
     SmoreSkills_ApplyHostProfession(camp)
-    self:ShareHost(camp, { chat = false })
     self.hostTickHandle = C_Timer and C_Timer.After(HOST_COOLDOWN, function()
         self:HostHeartbeat()
     end)
@@ -1152,6 +1388,7 @@ function Sync:HostHere(fromHardware, newFire)
     self.hostEncodeFailedNoted = nil
     local sent = false
     if fromHardware then
+        self:JoinCommunity(true)
         if self.pendingPacked then
             for i = 1, #self.pendingPacked do
                 local packed = self.pendingPacked[i]
@@ -1178,14 +1415,12 @@ function Sync:HostHere(fromHardware, newFire)
         else
             self.pendingHostShare = camp
             self.needsHardwareShare = true
-            self:JoinCommunity()
+            self:JoinCommunity(true)
         end
     else
-        -- Campfire timer: addon only. Chat on the next Find / /smores host click.
-        self:ShareHost(camp, { chat = false })
+        -- Campfire timer: local pin only. Do not join, send addon, or SendChatMessage.
         self.pendingHostShare = camp
         self.needsHardwareShare = true
-        self:JoinCommunity()
     end
     if self.hostTickHandle and C_Timer and C_Timer.CancelTimer then
         C_Timer.CancelTimer(self.hostTickHandle)

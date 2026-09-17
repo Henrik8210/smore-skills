@@ -7,7 +7,7 @@ if not strtrim then
 end
 
 SmoreSkills = SmoreSkills or {}
-SmoreSkills.VERSION = "0.5.49"
+SmoreSkills.VERSION = "0.5.62"
 SmoreSkills.AUTHOR = "Weber8210"
 SmoreSkills.TESTER = "Stik"
 SmoreSkills.LOGO = "Interface\\AddOns\\SmoreSkills\\Art\\SmoreSkillsLogo"
@@ -74,7 +74,7 @@ frame:SetScript("OnEvent", function(_, event, name)
     elseif event == "PLAYER_LOGIN" then
         SmoreSkills_EnsureSettings()
         SmoreSkills_Print(string.format(
-            "%s By %s loaded. Host a camp by placing a campfire or find camps in your zone by clicking the s'more on your world map. Happy camping :)",
+            "%s By %s loaded. Host a camp by placing down a Basic Campfire Kit or find camps in your zone by clicking the s'more on your world map. Happy camping :)",
             SmoreSkills.VERSION,
             SmoreSkills.AUTHOR or "Weber8210"
         ))
@@ -84,11 +84,13 @@ frame:SetScript("OnEvent", function(_, event, name)
         if SmoreSkills.Sync and SmoreSkills.Sync.OnLogin then
             SmoreSkills.Sync:OnLogin()
         end
-        if SmoreSkills.Map and SmoreSkills.Map.EnsureInit then
-            SmoreSkills.Map:EnsureInit()
-        end
         if SmoreSkills.Settings and SmoreSkills.Settings.EnsureInit then
             SmoreSkills.Settings:EnsureInit()
+        end
+        if SmoreSkills.Map and SmoreSkills.Map.EnsureInit then
+            pcall(function()
+                SmoreSkills.Map:EnsureInit()
+            end)
         end
         if SmoreSkills_InitLayerWatch then
             SmoreSkills_InitLayerWatch()

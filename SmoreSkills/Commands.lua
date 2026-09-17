@@ -61,9 +61,15 @@ local function HandleSlash(msg)
         end
         local profs = SmoreSkills_CollectSeekerProfessions(SmoreSkills_GetPlayerProfession())
         SmoreSkills_Reply("Your trades: " .. SmoreSkills_FormatProfessionList(profs))
-        local _, _, _, zone = SmoreSkills_GetPlayerMapPos()
-        SmoreSkills_Reply("Zone: " .. (zone or "?"))
-        local mapId = select(1, SmoreSkills_GetPlayerMapPos())
+        local mapId, _, _, zone = SmoreSkills_GetPlayerMapPos()
+        if SmoreSkills_FormatMapStatus and mapId then
+            SmoreSkills_Reply("Zone: " .. SmoreSkills_FormatMapStatus(mapId) .. (zone and (" / " .. zone) or ""))
+        else
+            SmoreSkills_Reply("Zone: " .. (zone or "?"))
+        end
+        if sync.lastCastId or sync.lastCastName then
+            SmoreSkills_Reply(string.format("Last cast: %s %s", tostring(sync.lastCastId or "?"), tostring(sync.lastCastName or "?")))
+        end
         local layer = SmoreSkills_FormatLayer and SmoreSkills_FormatLayer(SmoreSkills_GetPlayerLayerId and SmoreSkills_GetPlayerLayerId(), mapId)
         if layer then
             SmoreSkills_Reply("Layer: " .. layer)
@@ -72,12 +78,16 @@ local function HandleSlash(msg)
         end
         if WorldMapFrame and WorldMapFrame.IsShown and WorldMapFrame:IsShown() and WorldMapFrame.GetMapID then
             local viewId = WorldMapFrame:GetMapID()
-            local viewName = viewId
-            if C_Map and C_Map.GetMapInfo and viewId then
-                local info = C_Map.GetMapInfo(viewId)
-                viewName = info and info.name or viewId
+            if SmoreSkills_FormatMapStatus then
+                SmoreSkills_Reply("Map view: " .. SmoreSkills_FormatMapStatus(viewId))
+            else
+                local viewName = viewId
+                if C_Map and C_Map.GetMapInfo and viewId then
+                    local info = C_Map.GetMapInfo(viewId)
+                    viewName = info and info.name or viewId
+                end
+                SmoreSkills_Reply("Map view: " .. tostring(viewName))
             end
-            SmoreSkills_Reply("Map view: " .. tostring(viewName))
         end
         SmoreSkills_Reply("Seeker filter: " .. SmoreSkills_FormatWant(SmoreSkills_GetEffectiveSeekerWant(), SmoreSkills_GetEffectiveSeekerWantItems()))
         SmoreSkills_Reply("Cross-layer: " .. ((SmoreSkills_GetCrossLayerEnabled and SmoreSkills_GetCrossLayerEnabled()) and "on" or "off (own layer only)"))

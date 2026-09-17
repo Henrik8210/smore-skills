@@ -5,14 +5,14 @@ Forever camping finder. Protocol and UX are documented in [CAMPING.md](CAMPING.m
 - **Remote:** https://github.com/Henrik8210/smore-skills
 - **Addon folder:** `SmoreSkills/` (no apostrophe — WoW toc/folder rule)
 - **Title:** S'more Skills
-- **Version:** 0.5.49 (CurseForge **beta** `v0.5.49-beta` for **WoW Forever 1.60.1**)
+- **Version:** 0.5.62 (CurseForge `v0.5.62` for **WoW Forever 1.60.1**)
 
 ## WoW install paths
 
 | Client | Folder | Interface (Sep 2026) |
 | --- | --- | --- |
 | **TBC Anniversary** (testbed) | `_anniversary_\Interface\AddOns\` | `20505`, `20506` |
-| **Forever** (beta 17 Sep) | `_forever_\Interface\AddOns\` | `16001` (game 1.60.1); keep `20505`/`20506` for Anniversary |
+| **Forever** (beta 17 Sep) | `_classic_beta_\Interface\AddOns\` | `16001` (game 1.60.1); keep `20505`/`20506` for Anniversary. Battle.net product is `wow_classic_beta` — there is no `_forever_` folder. |
 
 ```powershell
 # Testing on TBC Anniversary (default until Forever beta)
@@ -22,7 +22,7 @@ Forever camping finder. Protocol and UX are documented in [CAMPING.md](CAMPING.m
 .\scripts\deploy-to-wow.ps1 -Client forever
 ```
 
-After Forever beta lands: read `## Interface:` from the client’s `FrameXML.toc`, update `SmoreSkills.toc`, and re-test map hooks. **Forever world map layout and Thursday smoke test:** [FOREVER.md](FOREVER.md).
+After Forever beta lands: read `## Interface:` from the client’s `FrameXML.toc`, update `SmoreSkills.toc`, and re-test map hooks. Forever uses the **retail/Mainline addon API** (Midnight-style restrictions), not Classic — see [FOREVER.md](FOREVER.md). **Forever world map layout and Thursday smoke test:** [FOREVER.md](FOREVER.md).
 
 ## Source layout
 

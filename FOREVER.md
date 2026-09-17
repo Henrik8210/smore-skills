@@ -1,14 +1,115 @@
 # WoW Forever — beta notes
 
-Reference for **Forever beta** (opens **17 Sep 2026**). TBC Anniversary remains the day-to-day testbed until then.
+**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). TBC Anniversary remains the two-client share testbed. Last CurseForge file before this pass was **beta** `v0.5.49-beta`.
 
-**Release policy:** TBC two-client test passed at **v0.5.48**. CurseForge **beta** `v0.5.49-beta` is for **WoW Forever 1.60.1**.
+---
 
-Screenshots from the pre-beta client (Sep 2026) show how the **world map** differs from retail and from TBC Anniversary.
+## Live beta log (17–18 Sep, Zephras Isle)
+
+Horde Skyborne shaman **No Bunda**, Shen'dar Village / Zephras wilderness. Servers went down before Engineering / Leatherworking trainers and a two-client share test.
+
+### Client
+
+- Battle.net folder is `_classic_beta_` (`WowB.exe`). No `_forever_` folder.
+- Addon API is **Mainline** (secrets, chat lockdown, `JoinPermanentChannel` / `SendChatMessage` / timer `SendAddonMessage` are Blizzard-only).
+- First login: `MaximizeMinimizeFrame` is a **Frame** with child buttons. Hooking `OnClick` on the Frame aborted map init (no minimap). Hook the buttons; skip script types the widget does not support.
+
+### Map
+
+- **Map & Quest Log** (map + quest list). Breadcrumb **World > Zephras Isle** (no Kalimdor).
+- Zephras is typed like a **Continent** under World but it is the playable camping map. Pins must draw on leaf continent-typed islands; hide EK / Kalimdor overview (many zone children).
+- Saved camp example: mapId **2521**, coords like `0.432, 0.239` / player chrome **44.4, 43.4**.
+- Own host pin worked after kit Use (v0.5.55+). Continent-typed hide was why the first kit Use looked like “no pin.”
+- Two-client `H:` share and Find-button position on this chrome were **not** confirmed before servers died.
+
+### How you place a fire
+
+1. Cooking **Camping** recipe **Basic Campfire** → item **Basic Campfire Kit**. **Create** = bags only, **no pin** (even if the profession window closes mid-craft).
+2. **Use** the kit in the wilderness = the fire and the auto-host trigger.
+3. Sit / `/sit` does **not** host (tutorial **Welcoming Campfire** / *The Great Outdoors* / **Boosted Rest**).
+4. Blizzard: **cannot place a new campfire within 100 yards** of an existing one.
+5. Kit tooltip: cooking at the fire; **up to 3 additional camp features**; sit or craft nearby **1 min** for feature benefits. Cooking (1), Flint and Tinder, **1 Simple Wood**.
+6. Spell is **not** TBC 818. Learn the Use spell from the item in bags; ignore campfire-named casts while the profession UI is open.
+
+### Nearby awareness
+
+Blizzard’s only “a camp is near you” cue is the player buff **Campfire Nearby** (“pleasant smoke … from somewhere nearby”). **No coords, no map pin.** Do not parse this (or anyone’s auras) for location. Our pins are the finder.
+
+### Sharing (taint)
+
+Forever pops *SmoreSkills has been blocked from an action only available to the Blizzard UI* if we:
+
+- `JoinPermanentChannel` from login, zoning, or the campfire timer
+- `SendChatMessage` or `SendAddonMessage` from `UNIT_SPELLCAST`, combat log, `C_Timer`, or `OnUpdate`
+
+**Working rule:** lighting the kit writes a **local pin** only. Join + `H:` / `S:` / `X:` only from **Find** or `/smores host` (hardware). Heartbeat and seek-reply timers must not send. TBC still needs the click for chat `H:` as well.
+
+### Camping items (trainer **Camping** category, skill 20, 1 hour shared place CD)
+
+**Tanning** is Skinning’s *place-skill*, not an object. Cooking’s kit is the fire, not a slot filter.
+
+| Profession | Tier 1 object | Sit-nearby | Exclusive with |
+| --- | --- | --- | --- |
+| Alchemy | **Mana Well** | +10 Mana / 5s | Blessing of Wisdom |
+| Mining | **Lodestone** | +12 melee AP | Blessing of Might |
+| Blacksmithing | **Sharpening Wheel** | **+6 Strength** (pre-beta tooltip said +34) | Strength of Earth Totem |
+| Tailoring | **Faction Banner** | +14 Spirit (own faction) | Divine Spirit |
+| Enchanting | **Enchanted Lute** | +28 Armor | Mark of the Wild |
+| Herbalism | **Incense Candle** | +2 Intellect | Arcane Intellect |
+| Skinning | **Camp Chair** | +2% crit (spells and attacks) | Moonkin Aura |
+| First Aid | **First Aid Kit** | +3 Stamina | Power Word: Fortitude |
+| Cooking | **Basic Campfire Kit** | Places the fire | — |
+| Engineering | *not seen* | | |
+| Leatherworking | *Tier 1 not seen* (panel still lists **Tanning Rack** later) | | |
+
+Host/Seeker filters label these **Camping items**. Hover in settings follows the cursor (reagents, Use, exclusive-with).
+
+### Still open when servers return
+
+- Two-client share on Zephras (both click Find).
+- Find button visible on Map & Quest Log.
+- Time a **placed** fire for `CAMPFIRE_DURATION` (do not use the 1 hour feature CD or buff).
+- Engineering + Leatherworking Tier 1 names.
+- Whether Zephras intro is an instance (chat lockdown).
+- Auto-read of world objects / slots (still no API).
+
+---
+
+## Addon API (Q&A before beta)
+
+Forever does **not** use the Classic addon API. Pre-beta Q&A: it uses the **modern (retail / Mainline) API and its restrictions**. Blizzard’s UI Discord / press: Forever shares Mainline UI architecture with Midnight (~12.1.5). Think two game types in one code family — Forever (Camelot) and Standard (retail) — not a Classic client with extra zones.
+
+That includes **Midnight addon disarmament**:
+
+- **Secret values** — combat, auras, some unit/cooldown data cannot be read or branched on by tainted addon code
+- **AuraContainer / AuraButton** — Blizzard-owned aura display; addons do not parse other players’ auras in combat
+- **Communication lockdown** — in encounters, M+, PvP, and some instance maps, chat/addon messaging can be restricted the same way as retail
+- **Computational combat addons** are out (auto-assigns, interrupt rotations, live raid parsing). QoL / map / camping UI is the intended remaining class
+
+**What this means for S'more Skills**
+
+We are a **map + channel QoL** addon, not a combat calculator. We should stay allowed. Do not add combat aura/health/cooldown logic.
+
+Beta still has to prove the retail-restriction surface:
+
+| Area | TBC Anniversary (what we tested) | Forever (retail API) — check first login |
+| --- | --- | --- |
+| Profession scan | Classic `GetNumSkillLines` / `GetSkillLineInfo` | Likely `GetProfessions` / `GetProfessionInfo` (retail). If empty, Find says set `/smores prof` |
+| Hidden channel `H:` / `S:` | Prefixed chat + addon CHANNEL; chat only from Find / `/smores host` click | Same taint rules, plus **chat lockdown in instances**. First Skyborne test is **Zephras Isle** (open world). Do not test share inside a dungeon |
+| Map coords | `C_Map.GetPlayerMapPosition` | Confirm coords are **not** secret in open world. If they are secret in combat, host while standing at the fire out of combat |
+| Layer from nameplates | Unit GUID / nameplate scan | Unit APIs may return secrets; layer may stay “unknown” more often |
+| Spell hook 818 | `UNIT_SPELLCAST_SUCCEEDED` | Keep until a real campsite event exists; retail spell APIs (`C_Spell`) already have a fallback |
+| UI frames | Classic textures / Backdrop | Mainline FrameXML — map Find button, minimap, settings may need new anchors |
+
+Classic-only addons often need a rewrite. Midnight addons port more easily. We were written against TBC Anniversary, so treat Forever as a **new client pass**, not a toc bump.
+
+Do **not** try to bypass secrets or chat lockdown. If a host ping cannot send in an instance, that is the game rule — share in the open world.
 
 ---
 
 ## Install
+
+Battle.net installs Forever beta as `_classic_beta_` (product `wow_classic_beta`, `WowB.exe`). There is no `_forever_` folder.
 
 ```powershell
 .\scripts\deploy-to-wow.ps1 -Client forever
@@ -16,7 +117,7 @@ Screenshots from the pre-beta client (Sep 2026) show how the **world map** diffe
 
 After first login on Forever:
 
-1. Read `## Interface:` from `_forever_\Interface\FrameXML\FrameXML.toc` (or equivalent). Expected **16001** for game **1.60.1**; confirm on first login.
+1. FrameXML is packed in CASC — there is no loose `Interface\FrameXML\FrameXML.toc`. Confirm Interface with `/dump select(4, GetBuildInfo())` (expected **16001** for game **1.60.1.69893**).
 2. Update `SmoreSkills/SmoreSkills.toc` `## Interface:` if Forever reports a different number.
 3. Enable **Load out of date AddOns** if needed; `/reload`.
 
@@ -82,7 +183,26 @@ Player: 42.6, 23.6 (Zephras Isle)
 | **Map hooks** | `OnShow`, `OnMapChanged`, canvas `OnSizeChanged`. | Log `GetMapID()` at each breadcrumb level; note ids for test zones. |
 | **Camp tooltip** | Custom frame (not GameTooltip): opaque dialog background, three circular gold-ring profession sockets. | Verify TBC-safe color APIs still work; no silent fallback to text-only tooltip. |
 | **Seek pulse** | World map Find button fades while seeking. | Confirm animation on Forever map frame. |
-| **New zones** | — | Names like **Zephras Isle** may not exist on TBC — verify `C_Map.GetBestMapForUnit("player")` returns stable ids. |
+| **New zones** | Pins follow `C_Map` (no Elwynn-only list). Sibling zones must not share fractions. | **Skyborne starts on Zephras Isle (1–12).** Also Hyjal, Shen'dralas, Riverglades. Record mapId + mapType from `/smores status`. If the isle map is typed Continent, pins hide — that is a bug to fix. |
+
+---
+
+## New zones (Skyborne first)
+
+Pins are **not** hardcoded to Elwynn or Ashenvale. Host/Find use the player's current `C_Map` zone. Forever still has new canvases we have never seen:
+
+| Zone | Who / when | What to watch |
+| --- | --- | --- |
+| **Zephras Isle** | Skyborne starting zone, **levels 1–12**. Elemental / Skywall-inspired island. Horde or Alliance from creation (Horde Shaman / Alliance Mage). | First camp test. `/smores status` with the map open: **Zone** vs **Map view**, map **id**, **type** (Zone / Micro / Continent / Orphan), **pins** yes/no. A Zephras pin must not appear on Elwynn or Kalimdor at the same fractions. |
+| **Mount Hyjal** | Restored / expanded after Archimonde | Nested maps, continent parent |
+| **Shen'dralas** | Between Mulgore and Desolace | New zone vs old neighbours — sibling-zone rule |
+| **Riverglades** | Mid-30s to mid-40s frontier | Same |
+
+If Zephras is an **instance** for the intro, retail **chat lockdown** may block `H:` until you are in open world. Note that; do not work around it.
+
+If the isle map `mapType` is **Continent** (or World), treat that canvas like a zone when it has few/no zone children (Zephras under World). Kalimdor / EK still hide pins.
+
+`/smores status` prints `id`, map type, and `pins` / `no pins` so you can paste it from Zephras without guessing.
 
 ---
 
@@ -90,12 +210,13 @@ Player: 42.6, 23.6 (Zephras Isle)
 
 | | TBC Anniversary | Forever |
 | --- | --- | --- |
-| Basic campfire / campsite | **Cooking Basic Campfire** as a **placeholder** host ping (not a Forever campsite) | Real mechanic (see [CAMPING.md](CAMPING.md)); keep spell-818 host until API exists |
+| Basic campfire / campsite | **Cooking Basic Campfire** as a **placeholder** host ping (not a Forever campsite) | Real kit: **Create** = bags; **Use Basic Campfire Kit** = fire + local pin (see [CAMPING.md](CAMPING.md)) |
 | Three object slots | Manual `/smores slot` | Auto-read when API exposed |
-| Auto host on campfire | Lights **Basic Campfire** → `H:` at your coords (General setting, on by default) | Same placeholder; replace with campfire/object events when exposed |
+| Auto host on campfire | Lights **Basic Campfire** → local pin; Find/`/smores host` for `H:` | **Create** kit = bags only. **Use** kit = local pin. Sit does not host. Find/`/smores host` for `H:`. |
 | Chat messages | General toggle; off mutes automatic addon chat. `/smores` still replies | Same |
 | Pin lifetime | Hide after **10 min from the lit fire** (same remaining time for every seeker), **3/3** slots, pack-up, or a **new** fire | **Unknown.** Live items: 1 hour is a **camping-feature cooldown**, not camp length. Marketing also said 1 hour **buffs**. Time the campsite on beta before changing `CAMPFIRE_DURATION`. |
-| Profession specs | TBC specs mapped (Spellfire → Tailoring, etc.) | Re-verify when Forever skill names are known |
+| Nearby awareness | None (our pins) | Player buff **Campfire Nearby** (no coords). Do not aura-scan. Pins are the finder. |
+| Skinning camp object | n/a | **Tanning** = place-skill. Object is **Camp Chair**. Also live: Lute, Incense, Lodestone, Wheel, Banner, **First Aid Kit**. |
 | Who updates camp state | Host rebroadcasts (guests without addon cannot) | Host + addon users at fire when API allows |
 
 ---
@@ -110,12 +231,14 @@ Use **two same-faction characters** in the **same zone**.
 - [ ] Fix `## Interface:` in toc if addon is red
 - [ ] `/reload` both clients
 - [ ] Set professions: `/smores prof alch` / `/smores prof tail` (or your trades)
-- [ ] Confirm minimap fire icon (cropped s'more art); right-click opens **S'more Skills Settings** (General / Host / Seeker tabs)
+- [ ] `/smores status` shows learned trades (not empty). If empty, professions API changed — use `/smores prof` and note it
+- [ ] Open-world Find/host still puts `H:` on the channel (not inside a dungeon/raid)
+- [ ] Camping while in combat: pin/share still works, or document if coords/chat are locked
 
 ### Map & pins
 
 - [ ] Open **zone** map (not only World/continent)
-- [ ] Host: light **Basic Campfire** (Auto host on) or `/smores host` at a campfire (or stand-in spot if fires are scarce)
+- [ ] Host: **Use** a **Basic Campfire Kit** (Auto host on) or `/smores host` at a fire. Create at the trainer must not pin. Walk **100 yards** from another fire first.
 - [ ] Seeker: map **Find** button (or `/smores find`); minimap S'more icon opens map only
 - [ ] Bonfire pin appears at host coords on **zone** map
 - [ ] Seeker does **not** get a pin of their own — only hosted camps appear
@@ -150,10 +273,13 @@ Record in issue or chat:
 
 ```text
 Interface version: 
-Zone name / mapId at camp: 
+Addon API notes (secrets / chat lockdown / professions): 
+Race / start: Skyborne / Zephras Isle?
+Zone name / mapId / mapType at camp: 
 World mapId: 
 Continent mapId: 
 Pin visible at zone? Y/N
+Pin leaked onto Elwynn or another zone? Y/N
 Pin visible at continent? Y/N
 Find button anchored? Y/N
 Custom tooltip OK? Y/N

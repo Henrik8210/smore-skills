@@ -27,7 +27,7 @@ This is the panel write-up. **Live item text wins** where they disagree (Sharpen
   - Alchemy: **Alchemy Lab**
   - Leatherworking: **Tanning Rack** (needed for advanced LW recipes)
   - Cooking: **upgraded campfires** that allow **five or ten** objects — not a Basic 3-slot camp. `SmoreSkills.MAX_SLOTS = 3` is Basic only; do not extend the `H:` wire until we see a 5/10 fire on beta.
-- Panel examples still say Sharpening Wheel = **Attack Power**. Live tooltip is **+34 Strength**. Keep Strength.
+- Panel examples still say Sharpening Wheel = **Attack Power**. Live Zephras trainer is **+6 Strength** (pre-beta client said +34). Keep Strength.
 
 **Addon notes from this recap**
 
@@ -59,13 +59,13 @@ In-game item text (pre-beta client, Sep 2026). This overrides Camping 101 number
 
 | Object | Requires | Use |
 | --- | --- | --- |
-| Sharpening Wheel | Blacksmithing (20) | Constructs a wheel; you and others **sitting nearby** get **+34 Strength**, exclusive with Strength of Earth Totem. Campfire nearby. |
+| Sharpening Wheel | Blacksmithing (20) | Constructs a wheel; you and others **sitting nearby** get Strength, exclusive with Strength of Earth Totem. Campfire nearby. **Live beta (Zephras): +6 Strength.** Pre-beta client text said **+34**. |
 | Anvil | Blacksmithing (**140**) | Places an anvil; **all Sharpening Wheel benefits**. May be placed over a wheel to replace it. Campfire nearby. Tooltip does **not** mention repairs. |
 | Master Forge | Blacksmithing (300) | Usable for recipes that require it, **plus all wheel benefits**. May replace a wheel. Campfire nearby. |
 
 All three: **All camping features share a cooldown of 1 hour.**
 
-Camping 101 had Anvil at skill **160** and Strength **+4**. Live text is **140** and **+34**.
+Camping 101 had Anvil at skill **160** and Strength **+4**. Pre-beta client text was **140** and **+34**. Live Zephras trainer is **+6** Strength.
 
 ### Camping 101: Blacksmithing (quest)
 
@@ -81,11 +81,16 @@ Quest text that matters for the addon:
 
 | Profession | Object | Buff / utility |
 | --- | --- | --- |
-| Tailoring | Faction banner | Spirit |
-| Herbalism | Incense candle | Intellect |
-| Alchemy | Alchemy Lab | Workspace (buff unknown) |
-| Leatherworking | Tanning Rack | Required for advanced LW recipes |
-| Cooking | Upgraded campfires | **5 or 10** object slots (not Basic 3) |
+| Mining | **Lodestone** (live, skill 20) | +12 melee AP, exclusive with Blessing of Might |
+| Blacksmithing | **Sharpening Wheel** (live, skill 20) | +6 Strength, exclusive with Strength of Earth |
+| Tailoring | **Faction Banner** (live, skill 20) | +14 Spirit (own faction), exclusive with Divine Spirit |
+| Enchanting | **Enchanted Lute** (live, skill 20) | +28 Armor, exclusive with Mark of the Wild |
+| Herbalism | **Incense Candle** (live, skill 20) | +2 Intellect, exclusive with Arcane Intellect |
+| Skinning | **Camp Chair** (live, skill 20). **Tanning** is the place-skill, not an object. | +2% crit, exclusive with Moonkin Aura |
+| First Aid | **First Aid Kit** (live, skill 20) | +3 Stamina, exclusive with Power Word: Fortitude |
+| Alchemy | **Mana Well** (live, skill 20) | +10 Mana / 5 sec, exclusive with Blessing of Wisdom |
+| Leatherworking | Tanning Rack (panel; not seen yet) | Advanced LW recipes |
+| Cooking | **Basic Campfire Kit** (places the fire); upgraded campfires | **5 or 10** object slots (not Basic 3) |
 
 Cooking also teaches the **Basic Campfire** that *starts* a site. That is separate from the upgraded 5/10 fires.
 
@@ -97,7 +102,7 @@ Source: [WoW Forever Camping System](https://www.zockify.com/forever/camping-sys
 
 **Use with care:**
 
-- Their object table correctly says Sharpening Wheel = **+34 Strength**. Their buffs section still lists **Attack Power**. Keep Strength (live tooltip).
+- Their object table still says Sharpening Wheel = **+34 Strength**. Live Zephras trainer is **+6**. Keep Strength, not Attack Power.
 - They skip **Field Guide**. Talent tooltip still has it (−8% place cooldown, 3 ranks).
 - They write Permanence as **50% per rank**. Unspent tooltip only shows **50%**; later ranks unverified.
 
@@ -148,7 +153,7 @@ When their signals **match**, the night elf sees a **map pin**: a bonfire icon w
 
 Signals are **addon messages** on the hidden `SmoreSkills` channel (not guild/party/raid). If CHANNEL addon messages are dropped, the same hidden channel carries a prefixed chat fallback (`SmoreSk …`). That is still not visible guild chat.
 
-When a host answers a seek, we do **not** `SendChatMessage` from the `CHAT_MSG_*` handler or from a campfire timer (that taints: *Interface action failed because of an AddOn*, and `H:` never leaves). Addon CHANNEL may still go. **Channel chat `H:` is sent on the next Find or `/smores host` click** (hardware). Lighting a fire hosts locally; click **Find** once so the other player can see it. Do not let the 8 s outbound cooldown eat that click (0.5.47 did — Find printed *Wait a moment* and never sent `H:`). Addon **whisper** is only if the channel is not joined.
+When a host answers a seek, we do **not** `SendChatMessage` or `SendAddonMessage` from the `CHAT_MSG_*` handler or from a campfire timer (Forever: *blocked from an action only available to the Blizzard UI*; TBC: *Interface action failed*). **Channel chat `H:` is sent on the next Find or `/smores host` click** (hardware). Lighting a fire hosts locally; click **Find** once so the other player can see it. Addon **whisper** is only if the channel is not joined, and only from that click.
 
 ## Map UX (Forever target)
 
@@ -208,9 +213,9 @@ Hidden channel: `SmoreSkills`. Prefix: `SmoreSk`. Same faction only.
 - `layer` = `zoneUID` or `zoneUID/N` on the wire. Tooltip: own pin **Layer N — Your camp**; others **Layer N — same as you** / **Layer N — you are on Layer M**. N is the host's display number so both clients agree. `0` or omitted if unknown.
 - Coords use the same fixed-point wire encoding as `C:`
 
-A late seeker (logged in after the fire is already up) does **not** get a dump on login. They click Find → `S:` → the host replies with `H:` on the hidden channel (0.15 s timer; Classic cannot `SendChatMessage` from `CHAT_MSG_*`). Addon **whisper** is only if that channel is not joined. Host heartbeat every 90 s is the backup. Walking away from the fire does not stop hosting; we keep the **original fire coords**.
+A late seeker (logged in after the fire is already up) does **not** get a dump on login. They click Find → `S:` → the host replies with `H:` on the **next Find or `/smores host` click** (not from a `CHAT_MSG_*` timer). Addon **whisper** is only if that channel is not joined, and only from that click. Walking away from the fire does not stop hosting; we keep the **original fire coords**.
 
-Do **not** call `ChatFrame_RemoveChannel` from this addon (login, ping, or channel events). That taints Blizzard chat and shows *Interface action failed because of an AddOn*. Hide `SmoreSk` payloads with a chat filter. Auto-host must not `SendChatMessage` from `UNIT_SPELLCAST`; after the fire **lands**, a **0.25 s** timer sends the same hidden-channel `H:` as `/smores host`. Do not hook WorldFrame / UIParent or steal the keyboard to flush. Interrupted casts never host. Other players still only get a pin after **Find**. Continent / world zoom has no pins — stay on the **zone** map.
+Do **not** call `ChatFrame_RemoveChannel` from this addon (login, ping, or channel events). That taints Blizzard chat and shows *Interface action failed because of an AddOn*. Hide `SmoreSk` payloads with a chat filter. Auto-host must not `SendChatMessage`, `SendAddonMessage`, or `JoinPermanentChannel` from `UNIT_SPELLCAST`, combat log, login, zoning, or `C_Timer`. After the fire **lands**, host locally. Hidden-channel **chat** `H:` on **Find** or `/smores host`. Do not hook WorldFrame / UIParent or steal the keyboard to flush. Interrupted casts never host. Other players still only get a pin after **Find**. Continent / world **overview** has no pins — stay on the **zone** map (or a continent-typed leaf island like Zephras).
 
 **Sibling zones:** an Elwynn pin must not appear on Duskwood at the same 39,70-style fractions (same-name map ids like Elwynn 37 vs 1429 still share a pin; nested city maps still draw).
 
@@ -224,7 +229,7 @@ Map id, x/y, zone name, faction, host/owner, **three slots** (player, profession
 
 # TBC Anniversary testbed (until Forever beta)
 
-**Forever beta:** 17 Sep 2026 — swap `## Interface:` and install path to `_forever_` then. Map layout, breadcrumb hierarchy, and beta checklist: [FOREVER.md](FOREVER.md).
+**Forever beta:** 17 Sep 2026 — `_classic_beta_` install path (Battle.net product `wow_classic_beta`). Forever uses the **modern retail addon API and restrictions**, not Classic (details in [FOREVER.md](FOREVER.md)). Map layout, breadcrumb hierarchy, and beta checklist: [FOREVER.md](FOREVER.md).
 
 TBC Anniversary has **no camping mechanic**. We still use it to prove:
 
@@ -242,7 +247,30 @@ TBC Anniversary has **no camping mechanic**. We still use it to prove:
 | “Find camps in zone” | `/smores find` or map button → seek ping |
 | “Open camp for visitors” | Lighting Basic Campfire (if Auto host is on) or `/smores host` |
 
-**Placeholder (until Forever campsite API):** we cannot read a real campsite. Lighting the Cooking spell **Basic Campfire** (spell **818**) is treated as “I placed a fire here.” If **Auto host when lighting a campfire** is on, the addon **hosts locally** at your zone coords. Hidden-channel **chat** `H:` is sent when you click **Find** or `/smores host` (a timer after the spell taints `SendChatMessage`). Map pins use the **Basic Campfire** icon. Slot 1 is the host’s chosen profession (Host tab) until placed objects exist. Same spell hook should still fire on Forever if Cooking keeps that spell; swap it for the real campfire/object event when Blizzard exposes one.
+**Placeholder (until Forever campsite API):** we cannot read a real campsite object. Auto-host fires when you **place** a fire: TBC spell **818**, Forever **Use** of a Campfire Kit (or any player spell whose name contains campfire) **while the profession window is closed**. Crafting the kit does **not** host. Sitting (`/sit`) at someone else’s fire does **not** host. Local pin at your zone coords; hidden-channel **chat** `H:` on **Find** or `/smores host`.
+
+**Live beta (17 Sep, Zephras):**
+
+- Tutorial object **Welcoming Campfire** — sit **1 min** without moving; quest *The Great Outdoors* uses `/sit` and **Boosted Rest**. One tutorial fire showed **30 seconds remaining** — time a fire **you** place before changing `CAMPFIRE_DURATION`.
+- Cooking recipe **Basic Campfire** → item **Basic Campfire Kit** (Camping category). **Create** puts a kit in your bags — **no pin**. **Use** the kit in the world: builds a campfire, cooking, **up to 3 additional camp features**. Sit or craft nearby **1 min** for feature benefits. Requires **Cooking (1)**, **Flint and Tinder**, **1 Simple Wood**. That Use is the host trigger.
+- Blizzard will not let you **place a new campfire within 100 yards** of an existing one. That is a game rule, not our pin spacing. Walk farther, then Use the kit.
+- Blizzard’s only “a camp is near you” cue is the player buff **Campfire Nearby** (“pleasant smoke … from somewhere nearby”). It has **no coords** and no map pin. That is why we share hosts on the zone map. Do **not** parse other players’ auras (or this buff) for location — retail secrets / lockdown; the buff is flavor, not a seeker API.
+- Skinning **Tanning** is the skill that lets you place camp features, not an object. Skinning’s trainer Camping item is **Camp Chair**.
+- **Every profession trainer** has a **Camping** category. Tier 1 is skill **20**, craft, then **Use** at a fire (campfire nearby; all features share a **1 hour** cooldown). Sit nearby for the buff. Live Zephras trainers:
+
+| Profession | Camping item (Tier 1) | Reagents | Sit-nearby buff | Exclusive with |
+| --- | --- | --- | --- | --- |
+| Alchemy | **Mana Well** | Peacebloom, Empty Vial | +10 Mana / 5 sec | Blessing of Wisdom |
+| Mining | **Lodestone** | Rough Stone, Copper Bar | +12 melee Attack Power | Blessing of Might |
+| Blacksmithing | **Sharpening Wheel** | Rough Stone, Copper Bar | +6 Strength | Strength of Earth Totem |
+| Tailoring | **Faction Banner** | Bolt of Linen Cloth, Coarse Thread | +14 Spirit (own faction) | Divine Spirit |
+| Enchanting | **Enchanted Lute** | Simple Wood, Strange Dust | +28 Armor | Mark of the Wild |
+| Herbalism | **Incense Candle** | Peacebloom, Silverleaf | +2 Intellect | Arcane Intellect |
+| Skinning | **Camp Chair** | Light Leather (3), Simple Wood (2) | +2% crit (spells and attacks) | Moonkin Aura |
+| First Aid | **First Aid Kit** | Linen Bandage (3), Refreshing Spring Water | +3 Stamina | Power Word: Fortitude |
+| Cooking | **Basic Campfire Kit** | Flint and Tinder, 1 Simple Wood | Places the fire (not a slot object) | — |
+
+Cooking’s kit is the campsite, not a filterable slot. Host/seeker **Camping items** filters use the slot objects (Lodestone, Wheel, Banner, …). Pre-beta BS tooltip said **+34** Strength; live apprentice trainer is **+6**.
 
 ### Two-client smoke test (Elwynn — **passed** 16 Sep 2026)
 
@@ -264,24 +292,19 @@ Earlier that evening: lighting printed *Interface action failed*, then *Wait a m
 
 `/smores status` — channel joined, hosting/seeking, trades, zone, map view, seeker filter.
 
-### Shipped (v0.5.49) vs Forever beta
+### Shipped (v0.5.62) vs Forever live (17–18 Sep)
 
-| Feature | v0.5.49 (TBC testbed) | Forever beta |
+| Feature | TBC Anniversary | Forever live (Zephras) |
 | --- | --- | --- |
-| Seeker signal `S:` (`/smores find`, map Find button) | Yes | Same |
-| Host signal `H:` (`/smores host`) | Yes | Same + auto-host on Basic Campfire (placeholder) |
-| Auto host on Basic Campfire (spell 818) | Yes (placeholder) | Keep until real campsite API; then replace |
-| Manual slot edit (`/smores slot`) | Yes | Auto from game API |
-| Client-side matching + rate limits | Yes | Same |
-| Map bonfire pin + three socket art | Yes | Same art; verify coords API |
-| Custom camp hover tooltip | Yes | Same |
-| Settings popup (Host/Seeker filters) | Yes | Same |
-| Minimap fire icon | Yes | Same |
-| Auto-read placed objects | No | When API exposed |
-| Pin lifetime | **10 min from lit fire**, 3/3, pack-up, or a **new** fire (`X:`) | **Unknown.** Copy says **buffs** last 1 hour; that is not camp/pin length. Measure the campsite on beta. |
-| Nested city maps | Draw zone coords if the widget reports the city (Elwynn/Stormwind) | Confirm Forever breadcrumb / GetMapID |
-| Pins at continent/world zoom | Hidden — zone map only (nested city still draws zone coords) | Same |
-| Occupancy: sitters vs object slots | Host broadcasts state | May need extra `H:` field |
+| Seeker / host / pack wire | Yes | Same protocol; send only from Find / `/smores host` |
+| Auto host | Cooking spell **818** | **Use Basic Campfire Kit** (Create does not pin) |
+| Join hidden channel | Login join OK | Join only from Find / `/smores host` |
+| Nearby cue | None | Buff **Campfire Nearby** (no coords — do not aura-scan) |
+| Pin on Zephras | n/a | Draw on leaf continent-typed isle maps (id **2521**) |
+| Camping-item filters | Placeholder names | Live Tier 1 list in [CAMPING.md](CAMPING.md) / Host-Seeker **Camping items** |
+| Auto-read placed objects | No | Still no API |
+| Pin lifetime | 10 min from lit fire | **Unmeasured** (1 hour is feature CD / buffs) |
+| Two-client share | Passed 16 Sep | **Not re-tested** (servers down) |
 
 ---
 

@@ -2,7 +2,7 @@ SmoreSkills = SmoreSkills or {}
 SmoreSkills.Settings = SmoreSkills.Settings or {}
 
 local Settings = SmoreSkills.Settings
-local SETTINGS_UI_BUILD = 52
+local SETTINGS_UI_BUILD = 57
 local ICON = SmoreSkills.ICON or "Interface\\Icons\\Spell_Fire_Fire"
 local POPUP_WIDTH = 720
 local POPUP_HEIGHT = 620
@@ -636,7 +636,7 @@ local function CreateItemPicker(parent, wantKey)
     empty:SetPoint("TOPLEFT", 2, -2)
     empty:SetPoint("RIGHT", wrap, "RIGHT", 0, 0)
     empty:SetJustifyH("LEFT")
-    empty:SetText("Tick a profession above to pick items.")
+    empty:SetText("Tick a profession above to pick camping items.")
     wrap.empty = empty
 
     for _, prof in ipairs(SmoreSkills.PROFESSIONS) do
@@ -664,6 +664,32 @@ local function CreateItemPicker(parent, wantKey)
             text:SetText(label)
             text:SetTextColor(0.92, 0.92, 0.92)
             row.checkbox = cb
+            local function ShowItemTip(anchor)
+                if SmoreSkills_ShowCampingItemTooltip then
+                    SmoreSkills_ShowCampingItemTooltip(anchor or labelBtn, item)
+                end
+                if cb and cb.LockHighlight then
+                    cb:LockHighlight()
+                end
+            end
+            local function HideItemTip()
+                if GameTooltip then
+                    GameTooltip:Hide()
+                end
+                if cb and cb.UnlockHighlight then
+                    cb:UnlockHighlight()
+                end
+            end
+            labelBtn:SetScript("OnEnter", function()
+                ShowItemTip(labelBtn)
+            end)
+            labelBtn:SetScript("OnLeave", HideItemTip)
+            if cb.SetScript then
+                cb:SetScript("OnEnter", function()
+                    ShowItemTip(cb)
+                end)
+                cb:SetScript("OnLeave", HideItemTip)
+            end
             cb:SetScript("OnClick", function()
                 if not SmoreSkills_ToggleWantItem(wantKey, item.id) then
                     cb:SetChecked(SmoreSkills_WantHasItem(wantKey, item.id))
@@ -1081,8 +1107,15 @@ function Settings:UpdateMinimapButton()
         return
     end
     local angle = math.rad(GetMinimapAngle())
-    local x = math.cos(angle) * MINIMAP_RADIUS
-    local y = math.sin(angle) * MINIMAP_RADIUS
+    local radius = MINIMAP_RADIUS
+    if Minimap.GetWidth then
+        local w = Minimap:GetWidth()
+        if w and w > 20 then
+            radius = (w / 2) + 2
+        end
+    end
+    local x = math.cos(angle) * radius
+    local y = math.sin(angle) * radius
     self.minimapButton:ClearAllPoints()
     self.minimapButton:SetPoint("CENTER", Minimap, "CENTER", x, y)
 end
@@ -1245,10 +1278,10 @@ function Settings:BuildGeneralPanel(parent)
     local content = page.content
 
     local title = CreateSectionTitle(content, "General", -GAP_TITLE)
-    self.autoHost = CreateCheckbox(content, "Auto host when lighting a campfire", title, -GAP_TITLE)
+    self.autoHost = CreateCheckbox(content, "Auto host when placing a Basic Campfire Kit", title, -GAP_TITLE)
     self.autoHostHint = CreateHint(
         content,
-        "Placeholder: lighting Basic Campfire broadcasts your location to seekers. Replace with Forever's campsite API later.",
+        "Use a Campfire Kit (or light a campfire) in the world to host locally. Crafting the kit at the cooking window does not host. Click Find or /smores host so seekers get the pin.",
         self.autoHost,
         -GAP_HINT
     )
@@ -1394,7 +1427,7 @@ function Settings:BuildHostPanel(parent)
 
     self.hostItemHint = CreateItemHeading(
         content,
-        "Optional: Request up to 3 items you want campers to bring.",
+        "Optional: Request up to 3 camping items you want campers to bring.",
         self.hostGridArea,
         -GAP_SECTION
     )
@@ -1439,7 +1472,7 @@ function Settings:BuildSeekerPanel(parent)
 
     self.seekerItemHint = CreateItemHeading(
         content,
-        "Optional: Only find camps that have at least one of these items (pick up to 3)",
+        "Optional: Only find camps that have at least one of these camping items (pick up to 3)",
         self.seekerGridArea,
         -GAP_SECTION
     )

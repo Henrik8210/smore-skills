@@ -1,5 +1,59 @@
 # Changelog
 
+## v0.5.62
+
+- Forever first-night notes (Zephras, kit vs craft, 100-yard rule, Campfire Nearby, camping-item table, Mainline taint). CurseForge release for **WoW Forever 1.60.1**.
+
+## v0.5.61
+
+- Camping-item settings tooltips follow the cursor. Alchemy **Mana Well** (+10 mana / 5s, exclusive with Blessing of Wisdom).
+
+## v0.5.60
+
+- First Aid camping item is **First Aid Kit** (+3 Stamina). Forever: do not send addon or chat from timers, combat log, or login (that was still popping the blocked-action dialog). Share only on Find or `/smores host`.
+
+## v0.5.59
+
+- Do not join the hidden channel on login or zoning (Forever treats `JoinPermanentChannel` as Blizzard-only). Join on Find or `/smores host`. Load line says place a **Basic Campfire Kit**.
+
+## v0.5.58
+
+- Skinning camping item is **Camp Chair** (+2% crit). **Tanning** is the skill that lets you place features, not a filter object. Added **Enchanted Lute** and live **Incense Candle**. Hover a camping item in Host/Seeker settings for reagents, use, and exclusive-with.
+
+## v0.5.57
+
+- Auto-host no longer joins the hidden channel from the campfire timer. Forever blocks that as a Blizzard-only UI action. Local pin still appears; click Find or `/smores host` to join and share.
+
+## v0.5.56
+
+- Host/seeker filters say **Camping items**. Live trainer objects: Mining **Lodestone** (+12 melee AP), Blacksmithing **Sharpening Wheel** (+6 Strength), Tailoring **Faction Banner** (+14 Spirit).
+
+## v0.5.55
+
+- Zephras-style maps typed **Continent** still show camp pins (leaf island under World). Kalimdor / EK overview stay empty.
+- Auto-host learns the **Basic Campfire Kit** use spell from the item in bags, and watches combat-log create/success, so Using a kit can pin even when it is not Cooking 818. Failed place inside **100 yards** of another fire does not host.
+
+## v0.5.54
+
+- Cooking **Create** of Basic Campfire Kit never hosts (profession cast is tracked even if the window closes mid-craft). **Use** the kit in the world to pin.
+
+## v0.5.53
+
+- Skinning’s first camp object is live **Tanning** (not a Leatherworking rack). Blizzard’s only nearby cue is the **Campfire Nearby** buff — no coords; we still do not read auras for location.
+
+## v0.5.52
+
+- Forever **Basic Campfire Kit** is crafted, then **Used** to place the fire. Auto-host ignores campfire spells while the profession window is open so cooking the kit does not pin the trainer.
+
+## v0.5.51
+
+- Auto-host treats any player spell whose name contains **campfire** as a placed fire (Forever **Welcoming Campfire**, not only Cooking 818). Sitting at a fire still does not host. Click Find or `/smores host` for the channel `H:`.
+
+## v0.5.50
+
+- Forever map init no longer HookScripts `OnClick` on the maximize/minimize **Frame** (that error aborted init and hid the minimap button). Hook the child buttons, and skip script types the widget does not support.
+- Profession scan uses retail `GetProfessions` on Forever, with Classic skill lines as fallback.
+
 ## v0.5.49
 
 - Settings sidebar credits are back under the three icons: Created by Weber8210 / Tested by Stik.
