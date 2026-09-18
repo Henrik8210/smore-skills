@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.67
+
+- World-map pin tooltip lists the short benefit after each known camping object (`Camp Chair — +2% crit`), so seekers can see what they gain by sitting down.
+- Pin TTL is **20 minutes from when that fire was lit** (Forever camp was still up after 10).
+- CurseForge **beta** `v0.5.67-beta`.
+
 ## v0.5.66
 
 - Hidden `SmoreSkills` channel no longer steals `/1` General (or `/2` Trade / `/3` Local Defense). Join is temporary and not added to a chat window; send still uses the channel name. If we land on 1–3 (or an older join left us there), swap **by channel index** with General / Trade / Local Defense. The edit box leaves `[n. SmoreSkills]`.

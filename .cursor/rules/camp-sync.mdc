@@ -33,7 +33,7 @@ Design: **Forever first.** [CAMPING.md](../../CAMPING.md). TBC Anniversary is on
 - Same-faction only
 - Three slots. Each player places at most one object (the game enforces that; we display it)
 - Cooldowns: seek 45 s, host rebroadcast 90 s, outbound 8 s per player (`X:` skips the 8 s cooldown)
-- Signal TTL ~3 min; campfire pin ~10 min from when the fire was lit (same remaining time for every seeker; heartbeats do not extend it) or until full/packed/replaced; forget camps older than 30 minutes
+- Signal TTL ~3 min; campfire pin ~20 min from when the fire was lit (same remaining time for every seeker; heartbeats do not extend it) or until full/packed/replaced; forget camps older than 30 minutes
 - Max 12 pins per zone
 - Host pin is **local**; other host pins only after **Find** (and an `H:`). Do not show C: snapshots as pins
 - Answering a seek does **not** `SendChatMessage` or `SendAddonMessage` from `CHAT_MSG_*` or a timer (taints). Channel-chat `H:` is sent on the next Find or `/smores host` click. Addon whisper only if the channel is not joined, and only from that click.

@@ -2,7 +2,7 @@
 
 **Product is Forever.** TBC Anniversary is only the two-client share testbed. Do not design for Anniversary and back-port.
 
-**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). Servers dropped overnight; they were **up again 18 Sep**. Last CurseForge full file before this pass was **v0.5.62**. This pass is CurseForge **beta** `v0.5.66-beta` (`/1` stays General; host camp panel faint gold hover).
+**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). Servers dropped overnight; they were **up again 18 Sep**. Last CurseForge full file before this pass was **v0.5.62**. This pass is CurseForge **beta** `v0.5.67-beta` (pin object benefits; 20 min pin TTL).
 
 ---
 
@@ -246,7 +246,7 @@ If the isle map `mapType` is **Continent** (or World), treat that canvas like a 
 | Three object slots | Manual `/smores slot` | Auto-read when API exposed |
 | Auto host on campfire | Lights **Basic Campfire** → local pin; Find/`/smores host` for `H:` | **Create** kit = bags only. **Use** kit = local pin. Sit does not host. Find/`/smores host` for `H:`. |
 | Chat messages | General toggle; off mutes automatic addon chat. `/smores` still replies | Same |
-| Pin lifetime | Hide after **10 min from the lit fire** (same remaining time for every seeker), **3/3** slots, pack-up, or a **new** fire | **Unknown.** Live items: 1 hour is a **camping-feature cooldown**, not camp length. Marketing also said 1 hour **buffs**. Time the campsite on beta before changing `CAMPFIRE_DURATION`. |
+| Pin lifetime | Hide after **20 min from the lit fire** (same remaining time for every seeker), **3/3** slots, pack-up, or a **new** fire | Still up after 10 min (18 Sep). Live items: 1 hour is a **camping-feature cooldown**, not camp length. Marketing also said 1 hour **buffs**. Time a despawn before raising `CAMPFIRE_DURATION` again. |
 | Nearby awareness | None (our pins) | Player buff **Campfire Nearby** (no coords). Do not aura-scan. Pins are the finder. |
 | Skinning camp object | n/a | **Tanning** = place-skill. Object is **Camp Chair**. Also live: Lute, Incense, Lodestone, Wheel, Banner, **Camp Tent**, **First Aid Kit**. |
 | Socket icons | Same Forever art (trainer/spell lookup; stand-ins if the client has no spell) | Live `C_Spell` / trainer icon. Banner = your faction. Camp Tent sack is a known miss. |
@@ -284,7 +284,7 @@ Use **two same-faction characters** in the **same zone**.
 - [ ] Nested city (Elwynn/Stormwind): pin still shows on the Elwynn canvas; `/smores status` Zone vs Map view
 - [ ] Seeker chat: `Camp found` when the ping arrived (host seeing the pin is **not** enough)
 - [ ] Zoom out to continent/world — note whether pins hide (document map ids)
-- [ ] Time a real Forever campsite (how long the fire/site stays up). Do **not** treat the **1 hour buff** as pin lifetime. Set `SmoreSkills.CAMPFIRE_DURATION` from the measured camp, then also note buff length separately. Pins still drop on 3/3, pack-up, or a new fire. Find at minute 7 must leave 3 min, not a new 10.
+- [ ] Time a real Forever campsite (how long the fire/site stays up). Do **not** treat the **1 hour buff** as pin lifetime. Still up after 10 min (18 Sep); pin is **20 min**. Time a despawn before raising `CAMPFIRE_DURATION`. Pins still drop on 3/3, pack-up, or a new fire. Find at minute 7 must leave 13 min, not a new 20.
 
 ### Matching & settings
 

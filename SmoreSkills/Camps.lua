@@ -145,8 +145,8 @@ function SmoreSkills_GetPlayerProfessions()
 end
 
 SmoreSkills.SIGNAL_TTL = 3 * 60
--- Addon pin TTL (TBC testbed). Classic cooking fire is still 5 min in-game; Forever camp length is unknown.
-SmoreSkills.CAMPFIRE_DURATION = 10 * 60
+-- Addon pin TTL. Forever camp was still up after 10 min (18 Sep); pin is 20 min until we time a despawn.
+SmoreSkills.CAMPFIRE_DURATION = 20 * 60
 SmoreSkills.MAX_PINS_PER_ZONE = 12
 
 -- Wire timestamps are unix seconds. Layer ids (e.g. 15654) must not be treated as times.
@@ -1451,6 +1451,20 @@ function SmoreSkills_ItemLabel(id)
     return item and item.label or (id or "")
 end
 
+-- Pin tooltip: "Camp Chair — +2% crit" so seekers see the sit buff, not only the name.
+function SmoreSkills_FormatObjectWithNote(name)
+    if not name or name == "" then
+        return ""
+    end
+    local id = SmoreSkills_NormalizeItem(name)
+    local item = id and SmoreSkills_ItemFromId(id) or nil
+    local label = item and item.label or name
+    if item and item.note and item.note ~= "" then
+        return label .. " — " .. item.note
+    end
+    return label
+end
+
 function SmoreSkills_ShowCampingItemTooltip(owner, item, anchor)
     if not owner or not item or not GameTooltip then
         return
@@ -2213,7 +2227,7 @@ function SmoreSkills_CampPinActive(camp)
     if lit <= 0 then
         return false
     end
-    return (SmoreSkills_Now() - lit) < (SmoreSkills.CAMPFIRE_DURATION or 600)
+    return (SmoreSkills_Now() - lit) < (SmoreSkills.CAMPFIRE_DURATION or 1200)
 end
 
 function SmoreSkills_CampHiddenReason(camp, mapId, seekerProfession)
@@ -2227,7 +2241,7 @@ function SmoreSkills_CampHiddenReason(camp, mapId, seekerProfession)
         return "packed up"
     end
     local lit = SmoreSkills_CampLitTime(camp)
-    if lit <= 0 or (SmoreSkills_Now() - lit) >= (SmoreSkills.CAMPFIRE_DURATION or 600) then
+    if lit <= 0 or (SmoreSkills_Now() - lit) >= (SmoreSkills.CAMPFIRE_DURATION or 1200) then
         return "expired"
     end
     if not SmoreSkills_IsHostedCamp(camp) then
@@ -2609,7 +2623,7 @@ function SmoreSkills_UpsertCamp(incoming)
             elseif existing and existing.litAt then
                 -- Keep the original light. Old clients send "now" on every H:.
                 local oldLit = tonumber(existing.litAt) or 0
-                local live = oldLit > 0 and (SmoreSkills_Now() - oldLit) < (SmoreSkills.CAMPFIRE_DURATION or 600)
+                local live = oldLit > 0 and (SmoreSkills_Now() - oldLit) < (SmoreSkills.CAMPFIRE_DURATION or 1200)
                 if live and stamp >= oldLit then
                     incoming.litAt = oldLit
                 end
@@ -2680,7 +2694,7 @@ function SmoreSkills_AlreadyHaveCampMessage(camp)
         if lit <= 0 then
             lit = SmoreSkills_Now()
         end
-        left = math.max(0, math.ceil((lit + (SmoreSkills.CAMPFIRE_DURATION or 600)) - SmoreSkills_Now()))
+        left = math.max(0, math.ceil((lit + (SmoreSkills.CAMPFIRE_DURATION or 1200)) - SmoreSkills_Now()))
     end
     local wait
     if left >= 60 then
@@ -2991,7 +3005,7 @@ function SmoreSkills_FormatSlotTooltipLine(camp, index)
         if slot and slot.profession then
             local rest = SmoreSkills_ProfessionLabel(slot.profession)
             if slot.object and slot.object ~= "" then
-                rest = rest .. " (" .. slot.object .. ")"
+                rest = rest .. " (" .. SmoreSkills_FormatObjectWithNote(slot.object) .. ")"
             end
             if slot.player and slot.player ~= "" then
                 rest = rest .. " — " .. slot.player
@@ -3006,7 +3020,7 @@ function SmoreSkills_FormatSlotTooltipLine(camp, index)
     if slot and slot.profession then
         local rest = SmoreSkills_ProfessionLabel(slot.profession)
         if slot.object and slot.object ~= "" then
-            rest = rest .. " (" .. slot.object .. ")"
+            rest = rest .. " (" .. SmoreSkills_FormatObjectWithNote(slot.object) .. ")"
         end
         if slot.player and slot.player ~= "" then
             rest = rest .. " — " .. slot.player
@@ -3024,7 +3038,7 @@ function SmoreSkills_FormatSlots(camp)
         if slot and slot.profession then
             local label = SmoreSkills_ProfessionLabel(slot.profession)
             if slot.object and slot.object ~= "" then
-                table.insert(parts, string.format("%s (%s)", label, slot.object))
+                table.insert(parts, string.format("%s (%s)", label, SmoreSkills_FormatObjectWithNote(slot.object)))
             else
                 table.insert(parts, label)
             end

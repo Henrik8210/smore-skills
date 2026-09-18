@@ -1643,7 +1643,7 @@ function Sync:HostHere(fromHardware, newFire)
     SmoreSkills_ApplyHostWantToCamp(camp)
     camp.layer = (SmoreSkills_GetPlayerLayerId and SmoreSkills_GetPlayerLayerId()) or camp.layer
     local now = SmoreSkills_Now()
-    -- New physical fire starts a fresh 10 min pin. Walking away / slash host keep litAt.
+    -- New physical fire starts a fresh pin clock. Walking away / slash host keep litAt.
     if newFire or wasPacked or not camp.litAt or (now - camp.litAt) >= SmoreSkills.CAMPFIRE_DURATION then
         camp.litAt = now
     end
