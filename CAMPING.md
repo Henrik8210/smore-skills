@@ -151,7 +151,7 @@ When their signals **match**, the night elf sees a **map pin**: a bonfire icon w
 | **Seeker** | Player looking for a camp | Map button or `/smores find` | “I'm in this zone and looking for a fire I can join.” |
 | **Host** | Player at a fire with room | Map button or `/smores host` | “I'm at this fire; want more players (any trade or specific ones).” |
 
-Signals are **addon messages** on the hidden `SmoreSkills` channel (not guild/party/raid). If CHANNEL addon messages are dropped, the same hidden channel carries a prefixed chat fallback (`SmoreSk …`). That is still not visible guild chat.
+Signals are **addon messages** on the hidden `SmoreSkills` channel (not guild/party/raid, not `/1` General). If CHANNEL addon messages are dropped, the same hidden channel carries a prefixed chat fallback (`SmoreSk …`). A chat filter hides those lines; it is a quiet bus between clients with the addon, same faction. Anyone else on the channel can hear `S:` / `H:` / `X:` — not a private 1-to-1 link.
 
 When a host answers a seek, we do **not** `SendChatMessage` or `SendAddonMessage` from the `CHAT_MSG_*` handler or from a campfire timer (Forever: *blocked from an action only available to the Blizzard UI*; TBC: *Interface action failed*). **Channel chat `H:` is sent on the next Find or `/smores host` click** (hardware). Lighting a fire hosts locally; click **Find** once so the other player can see it. Addon **whisper** is only if the channel is not joined, and only from that click.
 
@@ -161,7 +161,7 @@ When a host answers a seek, we do **not** `SendChatMessage` or `SendAddonMessage
 - **Seeker click** → one seek ping; listen for matching **host** pings; show those pins only. Seekers never get a pin of their own. Switches the map to the **player's zone** (not a nested city map).
 - **Host click** (while at/near a fire) → host ping with coords + slot state + who you want. Walking away does **not** move or drop the pin; we keep broadcasting the **fire's original coords**. Lighting a **new** campfire does move it: the old pin is packed (`X:`) and the new fire is the only campsite.
 - **Find right-click** → clear *other* people's markers. Your own hosted pin stays until the fire ends, the camp is full, or you pack up.
-- **Own pin left-click** or `/smores camp` → host camp panel (your socket + request chips for this fire). Own pin right-click or `/smores pack` → confirm pack-up. Sends `X:` so seekers drop that pin immediately (overrides the 10 min / 3/3 lifetime).
+- **Own pin left-click** or `/smores camp` → host camp panel (your socket + request chips for this fire). Chips, sockets, the camping-objects bar, dropdown rows, and Pack up use a **faint gold hover** (same hue as selected, weaker fill) so they read as clickable. Own pin right-click or `/smores pack` → confirm pack-up. Sends `X:` so seekers drop that pin immediately (overrides the 10 min / 3/3 lifetime).
 - **Pin art:** bonfire + three sockets (camping **object** icon when the slot names one — live item texture on Forever, stored stand-in on Anniversary; profession icon if only a trade is set; faded greyscale S'more if empty). Hover: zone, coords, layer, `2/3`, owner, slot detail, camping-object requests. Left-click another host to whisper.
 - A green **G** on a pin or list row means a guildie is on that camp. Hint only — guild is not how data moves. You do not see **G** on your own hosted pin.
 - **`/smores list`** prints the same set as the map: hosted camps you can see, **max 12** per zone (not every camp still in memory).
@@ -216,6 +216,8 @@ Hidden channel: `SmoreSkills`. Prefix: `SmoreSk`. Same faction only.
 A late seeker (logged in after the fire is already up) does **not** get a dump on login. They click Find → `S:` → the host replies with `H:` on the **next Find or `/smores host` click** (not from a `CHAT_MSG_*` timer). Addon **whisper** is only if that channel is not joined, and only from that click. Walking away from the fire does not stop hosting; we keep the **original fire coords**.
 
 Do **not** call `ChatFrame_RemoveChannel` from this addon (login, ping, or channel events). That taints Blizzard chat and shows *Interface action failed because of an AddOn*. Hide `SmoreSk` payloads with a chat filter. Auto-host must not `SendChatMessage`, `SendAddonMessage`, or `JoinPermanentChannel` from `UNIT_SPELLCAST`, combat log, login, zoning, or `C_Timer`. After the fire **lands**, host locally. Hidden-channel **chat** `H:` on **Find** or `/smores host`. Do not hook WorldFrame / UIParent or steal the keyboard to flush. Interrupted casts never host. Other players still only get a pin after **Find**. Continent / world **overview** has no pins — stay on the **zone** map (or a continent-typed leaf island like Zephras).
+
+Join the named `SmoreSkills` channel (temporary `JoinChannelByName`, no chat window). Do **not** steal `/1` General, `/2` Trade, or `/3` Local Defense — those numbers are WoW’s, not ours. Send by `GetChannelName("SmoreSkills")` after any swap. Zone General on a leaf isle is still General (`General - Zephras Isle` on `/3` until we swap). If we land on 1–3, swap **by channel index** (`C_ChatInfo.SwapChatChannelsByChannelIndex`) with the zone channel that belongs there — name-swap is not enough on Forever 1.60. If the edit box is `[1. SmoreSkills]`, put it back on General (or SAY). Never `ChatFrame_RemoveChannel`. `/smores status` prints `/1 is …`.
 
 **Sibling zones:** an Elwynn pin must not appear on Duskwood at the same 39,70-style fractions (same-name map ids like Elwynn 37 vs 1429 still share a pin; nested city maps still draw).
 
@@ -316,7 +318,7 @@ Earlier that evening: lighting printed *Interface action failed*, then *Wait a m
 
 `/smores status` — channel joined, hosting/seeking, trades, zone, map view, seeker filter.
 
-### Shipped (v0.5.65) vs Forever live (17–18 Sep)
+### Shipped (v0.5.66) vs Forever live (17–18 Sep)
 
 | Feature | TBC Anniversary | Forever live (Zephras) |
 | --- | --- | --- |

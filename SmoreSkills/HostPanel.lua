@@ -15,9 +15,28 @@ local MENU_MAX_H = 272
 local MENU_SCROLL_W = 10
 local SOCKET_GOLD = { 0.92, 0.78, 0.28 }
 local TITLE_YELLOW = { 1, 0.82, 0.15 }
+local SELECTED_FILL = { 0.42, 0.32, 0.12, 0.95 }
+local HOVER_FILL = { 0.42, 0.32, 0.12, 0.40 }
+local IDLE_FILL = { 0.10, 0.08, 0.06, 0.90 }
+local IDLE_TEXT = { 0.72, 0.72, 0.72 }
+local HOVER_TEXT = { 0.90, 0.78, 0.38 }
+local PACK_IDLE = { 0.38, 0.16, 0.10, 0.95 }
+local PACK_HOVER = { 0.48, 0.26, 0.10, 0.95 }
 local SOCKET_GLOW_MIN = 0.16
 local SOCKET_GLOW_MAX = 0.34
 local SOCKET_PULSE_SPEED = 1.8
+
+local function SetColor(tex, c)
+    if tex and c then
+        tex:SetColorTexture(c[1], c[2], c[3], c[4] or 1)
+    end
+end
+
+local function SetTextColor(fs, c)
+    if fs and c then
+        fs:SetTextColor(c[1], c[2], c[3])
+    end
+end
 
 local function SafeDesaturate(texture, desaturated)
     if not texture then
@@ -97,7 +116,34 @@ local function CreateSocket(parent, size)
     end
     caption:SetTextColor(0.75, 0.75, 0.75)
     btn.caption = caption
+    local hover = btn:CreateTexture(nil, "OVERLAY", nil, 5)
+    hover:SetSize(size, size)
+    hover:SetPoint("CENTER")
+    hover:SetTexture(CIRCLE_BG)
+    hover:SetVertexColor(TITLE_YELLOW[1], TITLE_YELLOW[2], TITLE_YELLOW[3], 0.22)
+    hover:Hide()
+    btn.hover = hover
     return btn
+end
+
+local function ApplySocketHover(btn)
+    if not btn then
+        return
+    end
+    if btn.hover then
+        if btn.hovered then
+            btn.hover:Show()
+        else
+            btn.hover:Hide()
+        end
+    end
+    if btn.gold then
+        if btn.hovered then
+            btn.gold:SetVertexColor(1.0, 0.86, 0.40, 1)
+        else
+            btn.gold:SetVertexColor(SOCKET_GOLD[1], SOCKET_GOLD[2], SOCKET_GOLD[3], 1)
+        end
+    end
 end
 
 local function StopSocketPulse(btn)
@@ -141,15 +187,56 @@ local function StyleSocket(btn, slot, isYours)
         btn.caption:SetText(isYours and "You" or "Open")
         btn.caption:SetTextColor(0.65, 0.65, 0.65)
     end
+    ApplySocketHover(btn)
 end
 
 local function StyleChip(chip, selected)
-    if selected then
-        chip.bg:SetColorTexture(0.42, 0.32, 0.12, 0.95)
-        chip.label:SetTextColor(TITLE_YELLOW[1], TITLE_YELLOW[2], TITLE_YELLOW[3])
+    chip.selected = selected and true or false
+    if chip.selected then
+        SetColor(chip.bg, SELECTED_FILL)
+        SetTextColor(chip.label, TITLE_YELLOW)
+    elseif chip.hovered then
+        SetColor(chip.bg, HOVER_FILL)
+        SetTextColor(chip.label, HOVER_TEXT)
     else
-        chip.bg:SetColorTexture(0.10, 0.08, 0.06, 0.90)
-        chip.label:SetTextColor(0.72, 0.72, 0.72)
+        SetColor(chip.bg, IDLE_FILL)
+        SetTextColor(chip.label, IDLE_TEXT)
+    end
+end
+
+local function StyleDrop(drop, hovered)
+    if not drop then
+        return
+    end
+    if hovered then
+        SetColor(drop.bg, HOVER_FILL)
+        SetTextColor(drop.label, HOVER_TEXT)
+    else
+        SetColor(drop.bg, IDLE_FILL)
+        SetTextColor(drop.label, IDLE_TEXT)
+    end
+end
+
+local function PaintMenuLine(btn)
+    if not btn then
+        return
+    end
+    if btn.isTitle then
+        if btn.hl then
+            btn.hl:SetColorTexture(0, 0, 0, 0)
+        end
+        SetTextColor(btn.label, TITLE_YELLOW)
+        return
+    end
+    if btn.selected then
+        SetColor(btn.hl, SELECTED_FILL)
+        SetTextColor(btn.label, TITLE_YELLOW)
+    elseif btn.hovered then
+        SetColor(btn.hl, HOVER_FILL)
+        SetTextColor(btn.label, HOVER_TEXT)
+    else
+        SetColor(btn.hl, { IDLE_FILL[1], IDLE_FILL[2], IDLE_FILL[3], 0.35 })
+        SetTextColor(btn.label, IDLE_TEXT)
     end
 end
 
@@ -369,6 +456,11 @@ function HostPanel:ResetMenuButtons()
         btn:SetScript("OnLeave", nil)
         btn:SetScript("OnClick", nil)
         btn:EnableMouse(true)
+        btn.hovered = nil
+        btn.selected = nil
+        btn.isTitle = nil
+        btn.tipEnter = nil
+        btn.tipLeave = nil
         if btn.hl then
             btn.hl:SetColorTexture(0, 0, 0, 0)
         end
@@ -427,22 +519,37 @@ function HostPanel:AddMenuLine(menu, y, text, onClick, isTitle, selected, iconPa
         btn.label:SetPoint("LEFT", 8, 0)
     end
     btn.label:SetText(text)
+    btn.hovered = false
+    btn.selected = selected and true or false
+    btn.isTitle = isTitle and true or false
+    btn.tipEnter = nil
+    btn.tipLeave = nil
     if isTitle then
-        btn.hl:SetColorTexture(0, 0, 0, 0)
-        btn.label:SetTextColor(TITLE_YELLOW[1], TITLE_YELLOW[2], TITLE_YELLOW[3])
         btn:EnableMouse(false)
+        btn:SetScript("OnClick", nil)
+        btn:SetScript("OnEnter", nil)
+        btn:SetScript("OnLeave", nil)
+        PaintMenuLine(btn)
     else
         btn:EnableMouse(true)
-        if selected then
-            btn.hl:SetColorTexture(0.42, 0.32, 0.12, 0.95)
-            btn.label:SetTextColor(TITLE_YELLOW[1], TITLE_YELLOW[2], TITLE_YELLOW[3])
-        else
-            btn.hl:SetColorTexture(0.10, 0.08, 0.06, 0.35)
-            btn.label:SetTextColor(0.72, 0.72, 0.72)
-        end
+        PaintMenuLine(btn)
         btn:SetScript("OnClick", function()
             if onClick then
                 onClick()
+            end
+        end)
+        btn:SetScript("OnEnter", function()
+            btn.hovered = true
+            PaintMenuLine(btn)
+            if btn.tipEnter then
+                btn.tipEnter()
+            end
+        end)
+        btn:SetScript("OnLeave", function()
+            btn.hovered = false
+            PaintMenuLine(btn)
+            if btn.tipLeave then
+                btn.tipLeave()
             end
         end)
     end
@@ -476,16 +583,16 @@ function HostPanel:ShowSocketMenu(index)
             SmoreSkills_ShareOwnedCampFromClick()
             HostPanel:HideMenu()
         end, false, false, SmoreSkills_CampingObjectIcon(picked))
-        btn:SetScript("OnEnter", function()
+        btn.tipEnter = function()
             if SmoreSkills_ShowCampingItemTooltip then
                 SmoreSkills_ShowCampingItemTooltip(btn, picked, "ANCHOR_LEFT")
             end
-        end)
-        btn:SetScript("OnLeave", function()
+        end
+        btn.tipLeave = function()
             if GameTooltip then
                 GameTooltip:Hide()
             end
-        end)
+        end
     end
     if index > 1 then
         btn, y = self:AddMenuLine(menu, y, "Clear this socket", function()
@@ -587,16 +694,16 @@ function HostPanel:ShowObjectMenu(refresh)
                             HostPanel:ShowObjectMenu(true)
                         end
                     end, false, selected, SmoreSkills_CampingObjectIcon(picked))
-                    btn:SetScript("OnEnter", function()
+                    btn.tipEnter = function()
                         if SmoreSkills_ShowCampingItemTooltip then
                             SmoreSkills_ShowCampingItemTooltip(btn, picked, "ANCHOR_LEFT")
                         end
-                    end)
-                    btn:SetScript("OnLeave", function()
+                    end
+                    btn.tipLeave = function()
                         if GameTooltip then
                             GameTooltip:Hide()
                         end
-                    end)
+                    end
                 end
             end
         end
@@ -661,6 +768,8 @@ function HostPanel:Build()
             HostPanel:ShowSocketMenu(i)
         end)
         socket:SetScript("OnEnter", function()
+            socket.hovered = true
+            ApplySocketHover(socket)
             GameTooltip:SetOwner(socket, "ANCHOR_CURSOR")
             if i == 1 then
                 GameTooltip:AddLine("Your socket", 1, 0.82, 0)
@@ -672,6 +781,8 @@ function HostPanel:Build()
             GameTooltip:Show()
         end)
         socket:SetScript("OnLeave", function()
+            socket.hovered = false
+            ApplySocketHover(socket)
             GameTooltip:Hide()
         end)
         self.sockets[i] = socket
@@ -691,9 +802,8 @@ function HostPanel:Build()
                 if socket.icon then
                     socket.icon:SetAlpha(glowA)
                 end
-            else
-                StopSocketPulse(socket)
             end
+            ApplySocketHover(socket)
         end
     end)
 
@@ -756,6 +866,14 @@ function HostPanel:Build()
     objDrop:SetScript("OnClick", function()
         HostPanel:ShowObjectMenu()
     end)
+    objDrop:SetScript("OnEnter", function()
+        objDrop.hovered = true
+        StyleDrop(objDrop, true)
+    end)
+    objDrop:SetScript("OnLeave", function()
+        objDrop.hovered = false
+        StyleDrop(objDrop, false)
+    end)
     self.objDrop = objDrop
 
     local hint = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -774,7 +892,8 @@ function HostPanel:Build()
     pack:SetSize(96, 22)
     local packBg = pack:CreateTexture(nil, "BACKGROUND")
     packBg:SetAllPoints()
-    packBg:SetColorTexture(0.38, 0.16, 0.10, 0.95)
+    packBg:SetColorTexture(PACK_IDLE[1], PACK_IDLE[2], PACK_IDLE[3], PACK_IDLE[4])
+    pack.bg = packBg
     pack.label = pack:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     pack.label:SetPoint("CENTER")
     pack.label:SetText("Pack up")
@@ -789,6 +908,12 @@ function HostPanel:Build()
         elseif SmoreSkills.Sync and SmoreSkills.Sync.PackUpCamp then
             SmoreSkills.Sync:PackUpCamp(camp)
         end
+    end)
+    pack:SetScript("OnEnter", function()
+        SetColor(pack.bg, PACK_HOVER)
+    end)
+    pack:SetScript("OnLeave", function()
+        SetColor(pack.bg, PACK_IDLE)
     end)
     self.packBtn = pack
 
@@ -809,6 +934,14 @@ function HostPanel:MakeChip(parent, text)
     label:SetText(text)
     btn.label = label
     btn:SetWidth(math.max(52, (label:GetStringWidth() or 40) + 16))
+    btn:SetScript("OnEnter", function()
+        btn.hovered = true
+        StyleChip(btn, btn.selected)
+    end)
+    btn:SetScript("OnLeave", function()
+        btn.hovered = false
+        StyleChip(btn, btn.selected)
+    end)
     return btn
 end
 
@@ -859,6 +992,7 @@ function HostPanel:Refresh()
         self.objDrop:SetPoint("TOPLEFT", self.objTitle, "BOTTOMLEFT", 0, -6)
         self.objDrop:SetPoint("RIGHT", self.frame, "RIGHT", -14, 0)
         self.objDrop.label:SetText(self:ObjectDropLabel(camp))
+        StyleDrop(self.objDrop, self.objDrop.hovered)
         last = self.objDrop
         if self.menu and self.menu:IsShown() and self.menuKind == "objects" then
             self:ShowObjectMenu(true)

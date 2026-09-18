@@ -85,6 +85,7 @@ local pendingCampfireAt = 0
 
 -- Never call ChatFrame_RemoveChannel — that taints Blizzard chat and shows
 -- "Interface action failed because of an AddOn". Hide our payloads with a filter.
+-- Sync uses the named channel; we must not occupy /1 General, /2 Trade, /3 Local Defense.
 local function InstallChatFilters()
     if not ChatFrame_AddMessageEventFilter then
         return
@@ -95,6 +96,241 @@ local function InstallChatFilters()
         end
         return false
     end)
+end
+
+local function IsSmoreChannelName(name)
+    return name and strlower(tostring(name)):find(strlower(CHANNEL_NAME), 1, true)
+end
+
+-- GetChannelName(n) is the roster the chat box uses ([3. General - Zephras Isle]).
+-- GetChannelList can omit zone channels or use a shorter name.
+local function EnumChatChannels()
+    local out = {}
+    local seen = {}
+    local function add(id, name)
+        id = tonumber(id)
+        if not id or id < 1 or seen[id] or type(name) ~= "string" or name == "" then
+            return
+        end
+        seen[id] = true
+        out[#out + 1] = { id = id, name = name }
+    end
+    for i = 1, 20 do
+        local id, name = GetChannelName(i)
+        add(id, name)
+    end
+    if GetChannelList then
+        local list = { GetChannelList() }
+        for i = 1, #list, 3 do
+            add(list[i], list[i + 1])
+        end
+    end
+    return out
+end
+
+local function ZonePreferredSlot(name)
+    name = strlower(tostring(name or ""))
+    name = name:gsub("^%d+%.%s*", "")
+    local head = strtrim(name:match("^(.-)%s+%-%s+") or name)
+    local compact = head:gsub("%s+", "")
+    local function compactLabel(label)
+        if not label or label == "" then
+            return nil
+        end
+        return strlower(tostring(label)):gsub("%s+", "")
+    end
+    if compact == "general" or compact == compactLabel(GENERAL) then
+        return 1
+    end
+    if compact == "trade" or compact == compactLabel(TRADE) then
+        return 2
+    end
+    if compact == "localdefense" or compact:find("localdefense", 1, true) or compact == compactLabel(LOCAL_DEFENSE) then
+        return 3
+    end
+    return nil
+end
+
+-- Forever/Mainline: SwapChatChannelsByChannelIndex(id, id). Name-swap is optional.
+local function SwapChannelSlots(a, b)
+    a, b = tonumber(a), tonumber(b)
+    if not a or not b or a == b or a < 1 or b < 1 then
+        return false
+    end
+    local before = select(2, GetChannelName(a))
+    if C_ChatInfo and C_ChatInfo.SwapChatChannelsByChannelIndex then
+        local ok = pcall(C_ChatInfo.SwapChatChannelsByChannelIndex, a, b)
+        if ok and select(2, GetChannelName(a)) ~= before then
+            return true
+        end
+    end
+    if C_ChatInfo and C_ChatInfo.SwapChatChannelsByChannelName then
+        local _, nameA = GetChannelName(a)
+        local _, nameB = GetChannelName(b)
+        if nameA and nameB then
+            local ok = pcall(C_ChatInfo.SwapChatChannelsByChannelName, nameA, nameB)
+            if ok and select(2, GetChannelName(a)) ~= before then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function EditBoxAttr(editBox, key)
+    if editBox.GetAttribute then
+        return editBox:GetAttribute(key)
+    end
+    return editBox[key]
+end
+
+local function SetEditBoxAttr(editBox, key, value)
+    if editBox.SetAttribute then
+        editBox:SetAttribute(key, value)
+    else
+        editBox[key] = value
+    end
+end
+
+local function EachChatEditBox(callback)
+    local seen = {}
+    local function visit(editBox)
+        if editBox and not seen[editBox] then
+            seen[editBox] = true
+            callback(editBox)
+        end
+    end
+    local n = NUM_CHAT_WINDOWS or 10
+    for i = 1, n do
+        local frame = _G["ChatFrame" .. i]
+        visit(frame and frame.editBox)
+    end
+    visit(DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+    if ChatEdit_GetActiveWindow then
+        visit(ChatEdit_GetActiveWindow())
+    end
+end
+
+local function EditBoxTargetsSmore(editBox)
+    if EditBoxAttr(editBox, "chatType") ~= "CHANNEL" then
+        return false
+    end
+    local id = tonumber(EditBoxAttr(editBox, "channelTarget"))
+    if not id then
+        return false
+    end
+    local _, name = GetChannelName(id)
+    return IsSmoreChannelName(name)
+end
+
+-- If the box is aimed at SmoreSkills, put it on /1 General when that slot is
+-- General; otherwise SAY. Numbers can change under us after a swap.
+local restoringEdit = false
+local function RestoreChatEditIfOnSmoreChannel()
+    if restoringEdit then
+        return
+    end
+    restoringEdit = true
+    EachChatEditBox(function(editBox)
+        if not EditBoxTargetsSmore(editBox) then
+            return
+        end
+        local id1, name1 = GetChannelName(1)
+        if id1 and id1 > 0 and ZonePreferredSlot(name1) == 1 then
+            SetEditBoxAttr(editBox, "chatType", "CHANNEL")
+            SetEditBoxAttr(editBox, "channelTarget", "1")
+        else
+            SetEditBoxAttr(editBox, "chatType", "SAY")
+            SetEditBoxAttr(editBox, "channelTarget", nil)
+        end
+        if ChatEdit_UpdateHeader then
+            pcall(ChatEdit_UpdateHeader, editBox)
+        end
+    end)
+    restoringEdit = false
+end
+
+local function ChannelNamed(kind)
+    for _, ch in ipairs(EnumChatChannels()) do
+        if ZonePreferredSlot(ch.name) == kind then
+            return ch
+        end
+    end
+    return nil
+end
+
+-- Give General / Trade / Local Defense /1 /2 /3 back. Sending uses GetChannelName
+-- after this, so sync still works at whatever number we land on.
+local function YieldZoneChatSlots()
+    Sync:RefreshChannelId()
+    local swaps = 0
+    while channelId > 0 and channelId <= 3 and swaps < 5 do
+        local partner = ChannelNamed(channelId)
+        if (not partner or partner.id == channelId) then
+            partner = nil
+            for _, ch in ipairs(EnumChatChannels()) do
+                if ch.id > 3 and not IsSmoreChannelName(ch.name) then
+                    if not partner or ch.id > partner.id then
+                        partner = ch
+                    end
+                end
+            end
+        end
+        if not partner or not SwapChannelSlots(channelId, partner.id) then
+            break
+        end
+        swaps = swaps + 1
+        Sync:RefreshChannelId()
+    end
+    RestoreChatEditIfOnSmoreChannel()
+end
+
+local function ScheduleYieldZoneChatSlots()
+    YieldZoneChatSlots()
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0, YieldZoneChatSlots)
+        C_Timer.After(0.2, YieldZoneChatSlots)
+        C_Timer.After(1, YieldZoneChatSlots)
+    end
+end
+
+local function InstallChatEditGuard()
+    if Sync._chatEditGuarded then
+        return
+    end
+    Sync._chatEditGuarded = true
+    if hooksecurefunc and ChatEdit_UpdateHeader then
+        hooksecurefunc("ChatEdit_UpdateHeader", function()
+            RestoreChatEditIfOnSmoreChannel()
+        end)
+    end
+    EachChatEditBox(function(editBox)
+        if editBox.HookScript then
+            editBox:HookScript("OnShow", RestoreChatEditIfOnSmoreChannel)
+        end
+    end)
+end
+
+-- Temporary join, no chat window. JoinPermanentChannel stickies in chat-config
+-- and can become /1 on the next login before General exists.
+local function JoinHiddenChannel()
+    if JoinChannelByName then
+        local ok, id = pcall(JoinChannelByName, CHANNEL_NAME)
+        if ok and tonumber(id) and tonumber(id) > 0 then
+            channelId = tonumber(id)
+        end
+        return
+    end
+    if JoinTemporaryChannel then
+        local ok, id = pcall(JoinTemporaryChannel, CHANNEL_NAME)
+        if ok and tonumber(id) and tonumber(id) > 0 then
+            channelId = tonumber(id)
+        end
+        return
+    end
+    if JoinPermanentChannel then
+        pcall(JoinPermanentChannel, CHANNEL_NAME)
+    end
 end
 
 local function RefreshUI()
@@ -337,11 +573,13 @@ end
 function Sync:JoinCommunity(allowJoin)
     if self:RefreshChannelId() then
         joinAttempts = 0
+        ScheduleYieldZoneChatSlots()
         return true
     end
-    -- JoinPermanentChannel is Blizzard-only. Login, zoning, spellcast, and
-    -- timers are tainted on Forever and pop the blocked-action dialog.
+    -- Join is Blizzard-only. Login, zoning, spellcast, and timers are tainted
+    -- on Forever and pop the blocked-action dialog.
     if not allowJoin then
+        YieldZoneChatSlots()
         return false
     end
     if InCombatLockdown and InCombatLockdown() then
@@ -351,15 +589,17 @@ function Sync:JoinCommunity(allowJoin)
         return false
     end
     joinAttempts = joinAttempts + 1
-    if JoinPermanentChannel then
-        pcall(JoinPermanentChannel, CHANNEL_NAME)
-    elseif JoinChannelByName then
-        pcall(JoinChannelByName, CHANNEL_NAME)
+    JoinHiddenChannel()
+    if self:RefreshChannelId() then
+        joinAttempts = 0
+        ScheduleYieldZoneChatSlots()
+        return true
     end
     if C_Timer and C_Timer.After then
         C_Timer.After(1.5, function()
             if self:RefreshChannelId() then
                 joinAttempts = 0
+                YieldZoneChatSlots()
                 return
             end
             if joinAttempts < MAX_JOIN_ATTEMPTS then
@@ -513,6 +753,7 @@ function Sync:Init()
         RegisterAddonMessagePrefix(PREFIX)
     end
     InstallChatFilters()
+    InstallChatEditGuard()
     self:StartOutboundPump()
     local frame = CreateFrame("Frame")
     frame:RegisterEvent("CHAT_MSG_ADDON")
@@ -543,6 +784,9 @@ function Sync:Init()
             self:JoinCommunity(false)
         else
             self:RefreshChannelId()
+            if channelId > 0 then
+                YieldZoneChatSlots()
+            end
         end
     end)
     self:WatchCampfires()

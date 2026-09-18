@@ -2,7 +2,7 @@
 
 **Product is Forever.** TBC Anniversary is only the two-client share testbed. Do not design for Anniversary and back-port.
 
-**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). Servers dropped overnight; they were **up again 18 Sep**. Last CurseForge full file before this pass was **v0.5.62**. This pass is CurseForge **beta** `v0.5.65-beta` (36 confirmed camping objects, host camp panel).
+**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). Servers dropped overnight; they were **up again 18 Sep**. Last CurseForge full file before this pass was **v0.5.62**. This pass is CurseForge **beta** `v0.5.66-beta` (`/1` stays General; host camp panel faint gold hover).
 
 ---
 
@@ -41,7 +41,7 @@ Blizzard’s only “a camp is near you” cue is the player buff **Campfire Nea
 
 Forever pops *SmoreSkills has been blocked from an action only available to the Blizzard UI* if we:
 
-- `JoinPermanentChannel` from login, zoning, or the campfire timer
+- `JoinPermanentChannel` / `JoinChannelByName` from login, zoning, or the campfire timer
 - `SendChatMessage` or `SendAddonMessage` from `UNIT_SPELLCAST`, combat log, `C_Timer`, or `OnUpdate`
 
 **Working rule:** lighting the kit writes a **local pin** only. Join + `H:` / `S:` / `X:` only from **Find** or `/smores host` (hardware). Heartbeat and seek-reply timers must not send. TBC still needs the click for chat `H:` as well.

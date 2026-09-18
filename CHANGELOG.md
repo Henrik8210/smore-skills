@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.66
+
+- Hidden `SmoreSkills` channel no longer steals `/1` General (or `/2` Trade / `/3` Local Defense). Join is temporary and not added to a chat window; send still uses the channel name. If we land on 1–3 (or an older join left us there), swap **by channel index** with General / Trade / Local Defense. The edit box leaves `[n. SmoreSkills]`.
+- Host camp panel: faint gold hover on chips, sockets, dropdown bar, menu rows, and Pack up (weaker than the selected fill).
+- CurseForge **beta** `v0.5.66-beta`.
+
 ## v0.5.65
 
 - Indexed all **36** Forever camping objects from Wowhead (Mana Well through Fishing Hut). Faction Banner is two item IDs, one row. Cooking has no skill-20 slot object.

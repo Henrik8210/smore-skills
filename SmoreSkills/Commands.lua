@@ -54,6 +54,10 @@ local function HandleSlash(msg)
         local sync = SmoreSkills.Sync
         local chOk, chId = sync:GetChannelStatus()
         SmoreSkills_Reply("Channel: " .. (chOk and ("joined (#" .. tostring(chId) .. ")") or "NOT JOINED"))
+        local id1, name1 = GetChannelName(1)
+        if id1 and id1 > 0 and name1 then
+            SmoreSkills_Reply("/1 is " .. tostring(name1))
+        end
         if sync:IsHosting() then
             local left = math.max(0, math.ceil((sync.hostingUntil or 0) - SmoreSkills_Now()))
             SmoreSkills_Reply(string.format("Hosting: yes (%ds left). Want: %s", left, SmoreSkills_FormatWant(SmoreSkills_GetEffectiveHostWant(), SmoreSkills_GetEffectiveHostWantItems())))
