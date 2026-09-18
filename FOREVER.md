@@ -2,7 +2,7 @@
 
 **Product is Forever.** TBC Anniversary is only the two-client share testbed. Do not design for Anniversary and back-port.
 
-**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). Servers dropped overnight; they were **up again 18 Sep**. Last CurseForge full file before this pass was **v0.5.62**. Host persist + kit Use vs Create: CurseForge **beta** `v0.5.77-beta`. How `/reload` keeps the pin: [HOST-PERSIST.md](HOST-PERSIST.md).
+**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). Servers dropped overnight; they were **up again 18 Sep**. Last CurseForge full file before this pass was **v0.5.62**. Host persist + kit Use vs Create: CurseForge **beta** `v0.5.78-beta`. How `/reload` keeps the pin: [HOST-PERSIST.md](HOST-PERSIST.md).
 
 ---
 

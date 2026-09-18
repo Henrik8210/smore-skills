@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.78
+
+- A hosted pin more than 20 minutes old (realm time) no longer comes back after `/reload` as a fresh 20-minute camp. Saved `remaining` subtracts time since the snapshot clock; leftover snapshots are cleared when that hits 0.
+- CurseForge **beta** `v0.5.78-beta`.
+
 ## v0.5.77
 
 - After `/reload`, Forever often does not reload nested `camps` or the per-character host file into memory, even though they sit on disk. Restore now uses **flat account fields** (`hostCampId` + `hostSnapRemaining`, and `hostSnap_*` coords) so the pin comes back without reading `litAt` from the nested table.

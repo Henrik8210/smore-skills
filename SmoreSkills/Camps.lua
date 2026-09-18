@@ -2345,6 +2345,30 @@ function SmoreSkills_CampLitTime(camp)
     return tonumber(camp.litAt) or tonumber(camp.updatedAt) or 0
 end
 
+-- Realm seconds left from a snapshot. Same-scale GetServerTime subtracts elapsed
+-- (an hour later the fire is dead). Unit jumps (ms vs sec, now==0) keep remaining.
+local function RemainingAfterElapsed(remaining, savedClock)
+    remaining = tonumber(remaining)
+    if remaining == nil then
+        return nil
+    end
+    local now = SmoreSkills_Now()
+    savedClock = tonumber(savedClock)
+    if now <= 0 or not savedClock or savedClock <= 0 then
+        return remaining
+    end
+    local nowMs = now > 1000000000000
+    local clockMs = savedClock > 1000000000000
+    if nowMs ~= clockMs then
+        return remaining
+    end
+    local elapsed = now - savedClock
+    if elapsed < -60 then
+        return remaining
+    end
+    return remaining - elapsed
+end
+
 function SmoreSkills_CampPinActive(camp)
     if not camp then
         return false
@@ -2366,7 +2390,7 @@ function SmoreSkills_CampPinActive(camp)
     return (SmoreSkills_Now() - lit) < (SmoreSkills.CAMPFIRE_DURATION or 1200)
 end
 
--- Seconds left on YOUR fire. Uses remaining + GetTime so US realm vs Denmark PC never expires it.
+-- Seconds left on YOUR fire. Realm elapsed from the snapshot clock, then session GetTime.
 function SmoreSkills_OwnedHostRemaining(camp)
     if not camp or camp.packed then
         return nil
@@ -2378,29 +2402,40 @@ function SmoreSkills_OwnedHostRemaining(camp)
         return nil
     end
     local duration = SmoreSkills.CAMPFIRE_DURATION or 1200
-    local sync = SmoreSkills.Sync
-    if sync and tonumber(sync.hostRemainAt) then
-        local elapsed = ((GetTime and GetTime()) or 0) - (tonumber(sync.hostRemainStarted) or 0)
-        return (tonumber(sync.hostRemainAt) or 0) - elapsed
-    end
     local db = SmoreSkillsHostDB
     local remaining = type(db) == "table" and tonumber(db.remaining)
+    local savedClock = type(db) == "table" and tonumber(db.clock)
     if not remaining and SmoreSkillsDB then
         remaining = tonumber(SmoreSkillsDB.hostSnapRemaining)
+        savedClock = savedClock or tonumber(SmoreSkillsDB.hostSnap_clock)
     end
-    if remaining then
-        return remaining
-    end
-    local lit = SmoreSkills_CampLitTime(camp)
-    local now = SmoreSkills_Now()
-    if lit > 0 and now > 0 then
-        local age = now - lit
-        if age > duration + 300 or age < -60 then
-            return duration
+    local realmLeft = RemainingAfterElapsed(remaining, savedClock)
+    if realmLeft == nil then
+        local lit = SmoreSkills_CampLitTime(camp)
+        local now = SmoreSkills_Now()
+        if lit > 0 and now > 0 then
+            realmLeft = duration - (now - lit)
         end
-        return duration - age
     end
-    return duration
+    if realmLeft ~= nil and realmLeft <= 0 then
+        return 0
+    end
+    local sync = SmoreSkills.Sync
+    if sync and tonumber(sync.hostRemainAt) then
+        local sessionLeft = (tonumber(sync.hostRemainAt) or 0)
+            - (((GetTime and GetTime()) or 0) - (tonumber(sync.hostRemainStarted) or 0))
+        if realmLeft ~= nil then
+            if sessionLeft < realmLeft then
+                return sessionLeft
+            end
+            return realmLeft
+        end
+        return sessionLeft
+    end
+    if realmLeft ~= nil then
+        return realmLeft
+    end
+    return 0
 end
 
 function SmoreSkills_CampHiddenReason(camp, mapId, seekerProfession)
@@ -2941,7 +2976,17 @@ end
 -- Flat primitives only. Nested camp tables in SmoreSkillsDB.camps did not survive /reload.
 function SmoreSkills_SnapshotOwnedHost()
     local camp = SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp()
-    if not camp or not SmoreSkills_CampPinActive(camp) then
+    if camp and SmoreSkills_CampPinActive(camp) then
+        -- write below
+    else
+        local db = SmoreSkillsHostDB
+        local rem = RemainingAfterElapsed(
+            type(db) == "table" and db.remaining or (SmoreSkillsDB and SmoreSkillsDB.hostSnapRemaining),
+            type(db) == "table" and db.clock or (SmoreSkillsDB and SmoreSkillsDB.hostSnap_clock)
+        )
+        if rem ~= nil and rem <= 0 and SmoreSkills_ClearOwnedHostSnapshot then
+            SmoreSkills_ClearOwnedHostSnapshot()
+        end
         return
     end
     local db = EnsureHostDB()
@@ -2966,9 +3011,6 @@ function SmoreSkills_SnapshotOwnedHost()
     local remaining = SmoreSkills_OwnedHostRemaining(camp)
     if not remaining then
         remaining = duration - (now - litAt)
-    end
-    if now <= 0 or (now > 0 and (now - litAt > duration + 300 or now - litAt < -60)) then
-        remaining = remaining or duration
     end
     if remaining < 0 then
         remaining = 0
@@ -3051,13 +3093,18 @@ function SmoreSkills_RestoreOwnedHost()
     if remaining == nil then
         local now = SmoreSkills_Now()
         local lit = tonumber(camp.litAt) or 0
-        if now > 0 and lit > 0 and math.abs(now - lit) <= duration + 300 then
+        if now > 0 and lit > 0 then
             remaining = duration - (now - lit)
         else
-            remaining = duration
+            remaining = 0
         end
+    else
+        remaining = RemainingAfterElapsed(remaining, db.clock or db.litAt or (SmoreSkillsDB and SmoreSkillsDB.hostSnap_clock))
     end
-    if remaining <= 0 then
+    if not remaining or remaining <= 0 then
+        if SmoreSkills_ClearOwnedHostSnapshot then
+            SmoreSkills_ClearOwnedHostSnapshot()
+        end
         return nil, "the fire burned out"
     end
     if remaining > duration then

@@ -388,6 +388,11 @@ function Sync:IsHosting()
         if left > 0 then
             return true
         end
+        if SmoreSkills_ClearOwnedHostSnapshot then
+            SmoreSkills_ClearOwnedHostSnapshot()
+        end
+        self.hostRemainAt = nil
+        self.hostRemainStarted = nil
         return false
     end
     local camp = SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp()

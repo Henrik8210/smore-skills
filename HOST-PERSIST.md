@@ -2,7 +2,7 @@
 
 If the pin vanishes after `/reload` while the fire is still on the ground, **do not** treat it as “we forgot to save.” On Forever the files on disk are usually fine. The client often **does not put the nested tables back into memory**, and the 20-minute TTL is easy to fail if two clocks are mixed.
 
-Verified live **18 Sep 2026** on `_classic_beta_` (Zephras Isle, Horde **No Bunda**): kit **Use**, `/smores host`, and `/reload` keep the pin; **Create** kit does not host. Shipped in **v0.5.77**.
+Verified live **18 Sep 2026** on `_classic_beta_` (Zephras Isle, Horde **No Bunda**): kit **Use**, `/smores host`, and `/reload` keep the pin; **Create** kit does not host (**v0.5.77**). An hour-old leftover pin must not come back as a new 20 minutes (**v0.5.78**).
 
 ## What you will see
 
@@ -12,6 +12,7 @@ Verified live **18 Sep 2026** on `_classic_beta_` (Zephras Isle, Horde **No Bund
 | Chat: `Your campfire in … is still yours (N min left)` | Restore worked. If the pin is still missing, it is map drawing, not save/restore. |
 | Explorer: `WTF\…\SavedVariables\SmoreSkills.lua` still has the camp | Save worked. The bug is **load** or **TTL**, not write. |
 | Nested `["camps"] = { … }` on disk, empty `camps` in `/reload` | Forever dropped the nested table on load. This is the usual case. |
+| Own pin comes back **more than 20 min** after you left | Stale snapshot. `remaining` was restored as-is (v0.5.77). v0.5.78 subtracts realm time since `clock`. |
 
 Do not “fix” this by writing a richer nested camp into `SmoreSkillsDB.camps`. That is what v0.5.68 tried. The nested table is written and then comes back empty.
 
@@ -43,12 +44,14 @@ While you play, hosting uses `GetServerTime()` consistently, so the pin is fine.
 
 `GetServerTime()` can also be **0** (or milliseconds) at login. Writing `litAt = now - elapsed` then stores a **negative** time. Every later check with a real clock treats the fire as years old.
 
-**Rule:** camp TTL for *your* fire is **seconds remaining**, not `now - litAt` across a reload.
+**Rule:** camp TTL for *your* fire is **seconds remaining**, counted down on the **realm clock**.
 
-- On snapshot: store `remaining` (and `hostSnapRemaining`).
-- On restore: do not subtract wall clocks. Keep `remaining`. Start `Sync.hostRemainAt` + `Sync.hostRemainStarted = GetTime()`.
-- `SmoreSkills_CampPinActive` for an owned host uses that remaining countdown.
-- `SmoreSkills_Now()` is `GetServerTime()` only. If it is 0, wait and retry restore. Never fall back to `time()`.
+- On snapshot: store `remaining` and `clock` (`GetServerTime()`), plus `hostSnapRemaining` / `hostSnap_clock`.
+- On restore: `left = remaining - (now - clock)` when both times are the same scale (unix seconds). `/reload` a few seconds later keeps ~the same remaining. Logout for an **hour** → left ≤ 0 → **do not restore**, clear the snapshot.
+- If `now` is 0 or one stamp is milliseconds and the other is seconds, do **not** treat that as an hour passing — keep `remaining` (that is the `/reload` clock-unit jump).
+- After a live restore, count down with `GetTime()` for the rest of this session (`Sync.hostRemainAt`).
+- `SmoreSkills_Now()` is `GetServerTime()` only. Never fall back to `time()`.
+- Never gift a full 20 minutes because `now - litAt` looks “insane.” That is how an hour-old camp came back as **Your campfire … (20 min left)**.
 
 Other people’s pins can still use `litAt` vs `GetServerTime()` — those stamps come from the wire in the same session.
 
@@ -58,7 +61,7 @@ Cooking **Create** (Basic Campfire Kit) and **Use** (place the fire) share a cas
 
 **Rule:** profession window open at `UNIT_SPELLCAST_START` → craft, ignore. Window closed → place, host. Do not host from Create. Do not skip Use because the craft fix was too broad. Spell handlers stay tiny (no bag scan, no `C_Timer` from the event — queue on the outbound pump) or Forever taints (*Interface action failed*).
 
-## Working snapshot (v0.5.77)
+## Working snapshot (v0.5.78)
 
 Write on host, slot change, `ReloadUI` hook, and `PLAYER_LOGOUT`:
 
@@ -75,7 +78,7 @@ Restore on `ADDON_LOADED`, `PLAYER_LOGIN`, `PLAYER_ENTERING_WORLD`, and a few de
 
 Rebuild the in-memory camp, set session remaining from `GetTime()`, then draw the pin. Chat **Your campfire in \<zone\> is still yours** only after `Sync:RestoreHostSession()` actually succeeds.
 
-Clear the snapshot only on **pack-up** or a real 20-minute burn. A failed restore or a 3/3 camp must not wipe it.
+Clear the snapshot on **pack-up** or when realm time says the 20 minutes are gone (`remaining - (now - clock) <= 0`). Do not restore a leftover snapshot an hour later as a fresh 20-minute pin. A failed restore or a 3/3 camp must not wipe a still-live snapshot.
 
 This does **not** auto-broadcast stored camps on login. The pin is **local**. `H:` still waits for Find or `/smores host`.
 
@@ -84,7 +87,7 @@ This does **not** auto-broadcast stored camps on login. The pin is **local**. `H
 - Trust `SmoreSkillsDB.camps` after `/reload` as the source of truth.
 - Mix `time()` and `GetServerTime()` for pin TTL.
 - Rewrite `litAt` from a `0` clock.
-- Expire an owned fire because `now - litAt` is hours (timezone or ms/sec jump).
+- Expire an owned fire because `now - litAt` is hours **and** the clocks are different units (ms vs sec). Same-scale realm time an hour later **does** expire it.
 - Wipe `HostDB` when restore returns “no saved campfire” or “waiting for clock”.
 - Host when the profession window is open (Create kit).
 - Call `C_Timer.After` / bag scans / `SendChatMessage` from `UNIT_SPELLCAST_*`.
@@ -105,7 +108,8 @@ This does **not** auto-broadcast stored camps on login. The pin is **local**. `H
 1. Deploy Forever (`_classic_beta_`). `/reload` until chat shows the new version.
 2. **Create** a Basic Campfire Kit at the trainer — no pin.
 3. **Use** the kit in the wilderness (or `/smores host` at a fire) — pin + host panel.
-4. `/reload`. Chat: **Your campfire in … is still yours**. Pin on the zone map. `/smores camp` opens the panel (not “Host a camp first”).
-5. Optional: `/smores status` — Hosting yes; Host snapshot line if present.
+4. `/reload` **within** 20 minutes. Chat: **Your campfire in … is still yours**. Pin on the zone map. `/smores camp` opens the panel (not “Host a camp first”).
+5. Wait until more than 20 minutes have passed (or set leftover `remaining`/`clock` an hour back). `/reload` — **no** pin, no “still yours.”
+6. Optional: `/smores status` — Hosting yes only while the fire is still in the 20-minute window.
 
 If step 4 fails, read the two `SmoreSkills.lua` files under `WTF\Account\…` **before** the next `/reload`. If they still contain coords/`remaining`, it is load/TTL again, not save.

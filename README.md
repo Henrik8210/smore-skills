@@ -4,7 +4,7 @@ Find **WoW Forever** campsites while you level: see fires near you, which of the
 
 **Testing now:** Forever is the product. `_classic_beta_` (1.60.1) when servers are up; TBC Anniversary (`_anniversary_`) only for two-client share while they are down. See [CAMPING.md](CAMPING.md), [FOREVER.md](FOREVER.md), and [HOST-PERSIST.md](HOST-PERSIST.md).
 
-**CurseForge:** beta `v0.5.77-beta` for **WoW Forever 1.60.1**. `CF_API_KEY` secret + version tag via GitHub Actions (webhook stays off). See [GUIDELINES.md](GUIDELINES.md). Last full file was **v0.5.62**.
+**CurseForge:** beta `v0.5.78-beta` for **WoW Forever 1.60.1**. `CF_API_KEY` secret + version tag via GitHub Actions (webhook stays off). See [GUIDELINES.md](GUIDELINES.md). Last full file was **v0.5.62**.
 
 ## The idea
 
@@ -14,7 +14,7 @@ Meanwhile a blacksmith sits alone at a fire across the zone and sends a **host s
 
 All opt-in. No login dump. Community channel, not guild chat.
 
-## Status (v0.5.77)
+## Status (v0.5.78)
 
 | | |
 | --- | --- |
