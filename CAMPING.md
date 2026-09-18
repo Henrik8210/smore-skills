@@ -275,9 +275,26 @@ TBC Anniversary has **no camping mechanic**. We still use it to prove:
 
 Cooking’s kit is the campsite, not a filterable slot. Host/seeker **Camping objects** filters use the slot objects (Lodestone, Wheel, Banner, Camp Tent, …). Pre-beta BS tooltip said **+34** Strength; live apprentice trainer is **+6**.
 
-**Object icons (Forever, 18 Sep):** copy the trainer row. Sharpening Wheel is a **gold bar**, not a cog. Faction Banner is **your faction** (Horde ≠ Alliance lion). Enchanted Lute is a **lute**, not a flute. Camp Tent live art is a grey tent — addon sack stand-in is wrong (fix later).
+**Confirmed camping objects (36 item IDs):** [Wowhead shared cooldown](https://www.wowhead.com/forever/item=279956/mana-well#shared-cooldown) plus **Mana Well** itself. 35 UI rows — Faction Banner is two items (Horde **279972** / Alliance **279973**). Cooking has **no** skill-20 slot object. Filters, settings, and the host panel list **only** these; no placeholder “Tier 2/3”, no fake 5/10-slot campfires. Panel recap “Alchemy Lab” is live **Alchemy Laboratory**. Cooking 5/10 *capacity* fires are still unmeasured (Later); they are not objects on this list.
 
-**Host camp panel:** after you place a fire, sockets + request chips for **this camp only**. Host settings remain defaults until you edit them. `/smores camp` or left-click your pin. Pin tooltip follows the camp copy.
+| Profession | 20 | 140 | 300 |
+| --- | --- | --- | --- |
+| Alchemy | **Mana Well** 279956 — +10 mana / 5s (BoW) | **Fermenter** 279970 — reagents + well | **Alchemy Laboratory** 279990 — station + well |
+| Blacksmithing | **Sharpening Wheel** 279944 — +6 Strength (SoE) | **Anvil** 279988 — replaces wheel | **Master Forge** 279955 — station + wheel |
+| Enchanting | **Enchanted Lute** 279976 — +28 Armor (MotW) | **Arcane Salvager** 279985 — DE + lute | **Arcane Forge** 279987 — station + lute |
+| Engineering | **Reagent Bot** 279950 — reagent vendor | **Repair Bot** 279949 — vendor + repair | **Anarchist's Workbench** 279989 — Engineering station |
+| Herbalism | **Incense Candle** 279962 — +2 Intellect (AI) | **Greenhouse** 279964 — herbs + candle | **Seed Hybridizer** 279947 — seeds + candle |
+| Leatherworking | **Camp Tent** 279978 — +5% rest XP | **Tanning Rack** 279941 — reagents + tent | **Sewing Machine** 279945 — station + tent (LW, not Tailoring) |
+| Mining | **Lodestone** 279960 — +12 melee AP (BoM) | **Rock Garden** 279948 — ore + lodestone | **Molten Foundry** 279952 — station + lodestone |
+| Skinning | **Camp Chair** 279979 — +2% crit (Moonkin) | **Field Guide** 279969 — Track Beasts + chair (not the Legacy perk) | **Trapper's Workbench** 279938 — trap + chair |
+| Tailoring | **Faction Banner** 279972/279973 — +14 Spirit (own faction, DS) | **Spinning Wheel** 279943 — reagents + banner | **Loom** 279959 — station + banner |
+| Cooking | — (kit is the fire) | **Cookie's Feast** 279957 — Stamina food; Cooking Fire | **Iron Oven** 279982 — advanced cooking; Cooking Fire |
+| First Aid | **First Aid Kit** 279968 — +3 Stamina (PW:F) | **Toxin Study** 279940 — potions + kit | **Plague Doctor's Laboratory** 279951 — potions + kit |
+| Fishing | **Fish Bowl** 279967 — +8% stats (BoK) | **Fishing Rack** 279965 — uncommon fish + bowl | **Fishing Hut** 279966 — rare fish + bowl |
+
+**Object icons:** live `GetItemIconByID` / trainer / `C_Spell`, then the Wowhead filename. Sharpening Wheel is a **gold bar**, not a cog. Faction Banner is **your** faction (Horde ≠ Alliance lion). Enchanted Lute is a **lute**, not a flute. Camp Tent Wowhead file is still leather scrap until live item texture lands.
+
+**Host camp panel:** after you place a fire (`/smores camp` or left-click your pin). Socket 1 is your profession or a **learned** camping object (open the profession window once so we can see Camp Chair vs Field Guide). Guest sockets mark what someone else placed. Empty sockets pulse the faded S'more. Request chips and the objects dropdown are **this camp only** — *Default settings stay the same until you edit them.* Dropdown sits left under Looking for. Pin tooltip follows the camp copy. Settings camping-object and profession rows use the same 16×16 icons as the panel.
 
 ### Two-client smoke test (Elwynn — **passed** 16 Sep 2026)
 
@@ -299,7 +316,7 @@ Earlier that evening: lighting printed *Interface action failed*, then *Wait a m
 
 `/smores status` — channel joined, hosting/seeking, trades, zone, map view, seeker filter.
 
-### Shipped (v0.5.64) vs Forever live (17–18 Sep)
+### Shipped (v0.5.65) vs Forever live (17–18 Sep)
 
 | Feature | TBC Anniversary | Forever live (Zephras) |
 | --- | --- | --- |
@@ -308,9 +325,9 @@ Earlier that evening: lighting printed *Interface action failed*, then *Wait a m
 | Join hidden channel | Login join OK | Join only from Find / `/smores host` |
 | Nearby cue | None | Buff **Campfire Nearby** (no coords — do not aura-scan) |
 | Pin on Zephras | n/a | Draw on leaf continent-typed isle maps (id **2521**) |
-| Camping-object filters | Placeholder names | Live Tier 1 list / Host-Seeker **Camping objects**. Host camp panel can override this fire only. |
-| LW Tier 1 | n/a | **Camp Tent** (Light Leather ×5, +5% of a level Rest XP) |
-| Object icons | Stand-ins | Trainer/`C_Spell`. Banner = your faction. Tent sack is a known miss. |
+| Camping-object filters | Same 36-ID catalog | Wowhead-confirmed objects only (Mana Well through Fishing Hut). Host camp panel can override this fire only. |
+| Host socket objects | n/a | Only recipes this character has learned (open the profession window once). **Tanning** is not an object. Guest sockets still mark by hand. |
+| Object icons | Stand-ins until Forever textures | Item ID / trainer/`C_Spell`. Banner = your faction. Tent Wowhead file is still scrap. |
 | Auto-read placed objects | No | Still no API — host marks sockets by hand |
 | Pin lifetime | 10 min from lit fire | **Unmeasured** (1 hour is feature CD / buffs) |
 | Two-client share | Passed 16 Sep | **Not re-tested** (18 Sep was trainer/icon pass) |
@@ -333,4 +350,3 @@ If **only the host** has the addon, guests cannot update camp state — the host
 - Occupancy: sitters at fire vs object slots (different numbers)
 - **Cooking 5/10-slot campfires:** pin sockets and `H:` slot fields are built for Basic **3**. Measure before extending the wire.
 - **Two-part character names** on `own` — keep messages under 250 bytes
-- **Learned camp objects:** if Forever exposes recipes in the profession spellbook (or a camping API), hard-filter host/seeker item picks to what that character can actually place. TBC has no camping recipes to scan.

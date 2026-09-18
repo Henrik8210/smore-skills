@@ -16,47 +16,49 @@ SmoreSkills.PROFESSIONS = {
     { id = "tailoring", code = "tail", label = "Tailoring", icon = "Interface\\Icons\\Trade_Tailoring" },
     { id = "cooking", code = "cook", label = "Cooking", icon = "Interface\\Icons\\INV_Misc_Food_15" },
     { id = "firstaid", code = "fa", label = "First Aid", icon = "Interface\\Icons\\Spell_Holy_SealOfSacrifice" },
+    { id = "fishing", code = "fish", label = "Fishing", icon = "Interface\\Icons\\Trade_Fishing" },
 }
 
--- Three placeable items per trade. First: skill 20 at the trainer Camping category.
--- Later: dungeon-boss blueprints. Unknown names stay "Tier 2" / "Tier 3".
--- Skinning **Tanning** is the place-skill, not an object. The object is Camp Chair.
--- A Basic Campfire has three object slots. Cooking upgrades may allow 5 or 10 — wire still encodes three.
--- icon: stand-in only. Forever uses the trainer/spell texture (C_Spell / GetTrainerServiceIcon).
+-- Confirmed Forever camping objects (Wowhead shared-cooldown with Mana Well, 36 item IDs).
+-- Faction Banner is two items (Horde 279972 / Alliance 279973); we show one row.
+-- No placeholders. Cooking has no skill-20 camping object (the kit is the fire).
+-- icon: Wowhead file; itemId: live GetItemInfo* / C_Item on Forever.
 SmoreSkills.PROFESSION_ITEMS = {
-    { id = "bs1", profession = "blacksmithing", label = "Sharpening Wheel", icon = "Interface\\Icons\\INV_Ingot_03", unlock = "Blacksmithing 20", note = "+6 Strength", skill = "Blacksmithing (20)", reagents = "Rough Stone, Copper Bar", use = "Constructs a sharpening wheel that grants you and others sitting nearby 6 increased Strength, exclusive with Strength of Earth Totem.", exclusive = "Strength of Earth Totem" },
-    { id = "bs2", profession = "blacksmithing", label = "Anvil", icon = "Interface\\Icons\\INV_Hammer_20", unlock = "Blacksmithing 140", note = "Replaces wheel", skill = "Blacksmithing (140)", use = "Places an anvil with all Sharpening Wheel benefits. May replace a wheel." },
-    { id = "bs3", profession = "blacksmithing", label = "Master Forge", icon = "Interface\\Icons\\Spell_Fire_Fireball", unlock = "Blacksmithing 300", note = "Crafting + wheel", skill = "Blacksmithing (300)", use = "Usable for recipes that require it, plus all wheel benefits. May replace a wheel." },
-    { id = "tail1", profession = "tailoring", label = "Faction Banner", unlock = "Tailoring 20", note = "+14 Spirit", skill = "Tailoring (20)", reagents = "Bolt of Linen Cloth, Coarse Thread", use = "Unrolls a banner that allows you and other members of your faction sitting nearby to gain 14 increased Spirit, exclusive with Divine Spirit.", exclusive = "Divine Spirit", factionIcons = { Alliance = "Interface\\Icons\\INV_Banner_02", Horde = "Interface\\Icons\\INV_Banner_03" } },
-    { id = "tail2", profession = "tailoring", label = "Tailoring Tier 2", unlock = "Dungeon blueprint" },
-    { id = "tail3", profession = "tailoring", label = "Tailoring Tier 3", unlock = "Dungeon blueprint" },
-    { id = "herb1", profession = "herbalism", label = "Incense Candle", icon = "Interface\\Icons\\INV_Misc_Candle_02", unlock = "Herbalism 20", note = "+2 Intellect", skill = "Herbalism (20)", reagents = "Peacebloom, Silverleaf", use = "Ignites an incense candle that allows you and others sitting nearby to gain 2 increased Intellect, exclusive with Arcane Intellect.", exclusive = "Arcane Intellect" },
-    { id = "herb2", profession = "herbalism", label = "Herbalism Tier 2", unlock = "Dungeon blueprint" },
-    { id = "herb3", profession = "herbalism", label = "Herbalism Tier 3", unlock = "Dungeon blueprint" },
-    { id = "alch1", profession = "alchemy", label = "Mana Well", icon = "Interface\\Icons\\INV_Potion_76", unlock = "Alchemy 20", note = "+10 mana / 5s", skill = "Alchemy (20)", reagents = "Peacebloom, Empty Vial", use = "Constructs a mana well that allows you and others sitting nearby to regenerate 10 Mana every 5 seconds, exclusive with Blessing of Wisdom.", exclusive = "Blessing of Wisdom" },
-    { id = "alch2", profession = "alchemy", label = "Alchemy Lab", icon = "Interface\\Icons\\INV_Misc_Cauldron_Arcane", unlock = "Dungeon blueprint", note = "Workspace" },
-    { id = "alch3", profession = "alchemy", label = "Alchemy Tier 3", unlock = "Dungeon blueprint" },
-    { id = "enc1", profession = "enchanting", label = "Enchanted Lute", unlock = "Enchanting 20", note = "+28 Armor", skill = "Enchanting (20)", reagents = "Simple Wood, Strange Dust", use = "Summons an enchanted lute that allows you and others sitting nearby to gain 28 Increase to Armor, exclusive with Mark of the Wild.", exclusive = "Mark of the Wild" },
-    { id = "enc2", profession = "enchanting", label = "Enchanting Tier 2", unlock = "Dungeon blueprint" },
-    { id = "enc3", profession = "enchanting", label = "Enchanting Tier 3", unlock = "Dungeon blueprint" },
-    { id = "eng1", profession = "engineering", label = "Engineering Tier 1", unlock = "Engineering 20" },
-    { id = "eng2", profession = "engineering", label = "Engineering Tier 2", unlock = "Dungeon blueprint" },
-    { id = "eng3", profession = "engineering", label = "Engineering Tier 3", unlock = "Dungeon blueprint" },
-    { id = "lw1", profession = "leatherworking", label = "Camp Tent", icon = "Interface\\Icons\\INV_Misc_Bag_10", unlock = "Leatherworking 20", note = "+5% rest XP", skill = "Leatherworking (20)", reagents = "Light Leather (5)", use = "Builds a tent that allows you and others sitting nearby to increase Rested experience to 5% of a level. No effect if Rested experience already exceeds that value." },
-    { id = "lw2", profession = "leatherworking", label = "Tanning Rack", icon = "Interface\\Icons\\INV_Misc_ArmorKit_17", unlock = "Dungeon blueprint", note = "Advanced LW recipes" },
-    { id = "lw3", profession = "leatherworking", label = "Leatherworking Tier 3", unlock = "Dungeon blueprint" },
-    { id = "mine1", profession = "mining", label = "Lodestone", icon = "Interface\\Icons\\INV_Misc_Gem_Pearl_03", unlock = "Mining 20", note = "+12 melee AP", skill = "Mining (20)", reagents = "Rough Stone, Copper Bar", use = "Erects a lodestone that allows you and others sitting nearby to gain 12 increased melee Attack Power, exclusive with Blessing of Might.", exclusive = "Blessing of Might" },
-    { id = "mine2", profession = "mining", label = "Mining Tier 2", unlock = "Dungeon blueprint" },
-    { id = "mine3", profession = "mining", label = "Mining Tier 3", unlock = "Dungeon blueprint" },
-    { id = "skin1", profession = "skinning", label = "Camp Chair", icon = "Interface\\Icons\\INV_Misc_Pelt_Bear_03", unlock = "Skinning 20", note = "+2% crit", skill = "Skinning (20)", reagents = "Light Leather (3), Simple Wood (2)", use = "Assembles a camp chair that allows you and others sitting nearby to gain 2% increased critical strike chance with all spells and attacks, exclusive with Moonkin Aura.", exclusive = "Moonkin Aura" },
-    { id = "skin2", profession = "skinning", label = "Skinning Tier 2", unlock = "Dungeon blueprint" },
-    { id = "skin3", profession = "skinning", label = "Skinning Tier 3", unlock = "Dungeon blueprint" },
-    { id = "cook1", profession = "cooking", label = "Cooking Tier 1", unlock = "Cooking 20" },
-    { id = "cook2", profession = "cooking", label = "Campfire (5 slots)", icon = "Interface\\Icons\\Spell_Fire_Fire", unlock = "Dungeon blueprint", note = "Not Basic 3" },
-    { id = "cook3", profession = "cooking", label = "Campfire (10 slots)", icon = "Interface\\Icons\\Spell_Fire_Fire", unlock = "Dungeon blueprint", note = "Not Basic 3" },
-    { id = "fa1", profession = "firstaid", label = "First Aid Kit", icon = "Interface\\Icons\\INV_Box_01", unlock = "First Aid 20", note = "+3 Stamina", skill = "First Aid (20)", reagents = "Linen Bandage (3), Refreshing Spring Water", use = "Unpacks a first aid kit that allows you and others sitting nearby to gain 3 increased Stamina, exclusive with Power Word: Fortitude.", exclusive = "Power Word: Fortitude" },
-    { id = "fa2", profession = "firstaid", label = "First Aid Tier 2", unlock = "Dungeon blueprint" },
-    { id = "fa3", profession = "firstaid", label = "First Aid Tier 3", unlock = "Dungeon blueprint" },
+    { id = "alch1", profession = "alchemy", label = "Mana Well", itemId = 279956, icon = "Interface\\Icons\\Spell_Arcane_ManaTap", unlock = "Alchemy 20", note = "+10 mana / 5s", skill = "Alchemy (20)", reagents = "Peacebloom, Empty Vial", use = "Constructs a mana well that allows you and others sitting nearby to regenerate 10 Mana every 5 seconds, exclusive with Blessing of Wisdom.", exclusive = "Blessing of Wisdom" },
+    { id = "alch2", profession = "alchemy", label = "Fermenter", itemId = 279970, icon = "Interface\\Icons\\INV_Alchemy_90_Cauldron", unlock = "Alchemy 140", note = "Reagents + well", skill = "Alchemy (140)", use = "Places a fermenter that allows the creation of certain reagents, and provides all of the benefits of a Mana Well. May replace a Mana Well." },
+    { id = "alch3", profession = "alchemy", label = "Alchemy Laboratory", itemId = 279990, icon = "Interface\\Icons\\10Prof_PortableTable_Alchemy01", unlock = "Alchemy 300", note = "Station + well", skill = "Alchemy (300)", use = "Places an Alchemy Laboratory usable for recipes that require it, and provides all of the benefits of a Mana Well. May replace a Mana Well." },
+    { id = "bs1", profession = "blacksmithing", label = "Sharpening Wheel", itemId = 279944, icon = "Interface\\Icons\\INV_Stone_GrindingStone_01", unlock = "Blacksmithing 20", note = "+6 Strength", skill = "Blacksmithing (20)", reagents = "Rough Stone, Copper Bar", use = "Constructs a sharpening wheel that grants you and others sitting nearby 6 increased Strength, exclusive with Strength of Earth Totem.", exclusive = "Strength of Earth Totem" },
+    { id = "bs2", profession = "blacksmithing", label = "Anvil", itemId = 279988, icon = "Interface\\Icons\\INV_Blacksmith_Anvil", unlock = "Blacksmithing 140", note = "Replaces wheel", skill = "Blacksmithing (140)", use = "Places an anvil with all Sharpening Wheel benefits. May replace a wheel." },
+    { id = "bs3", profession = "blacksmithing", label = "Master Forge", itemId = 279955, icon = "Interface\\Icons\\INV_Mace_1H_Blacksmithing_B_01_Black", unlock = "Blacksmithing 300", note = "Crafting + wheel", skill = "Blacksmithing (300)", use = "Usable for recipes that require it, plus all wheel benefits. May replace a wheel." },
+    { id = "enc1", profession = "enchanting", label = "Enchanted Lute", itemId = 279976, icon = "Interface\\Icons\\INV_10_Enchanting2_MagicSwirl_Bronze", unlock = "Enchanting 20", note = "+28 Armor", skill = "Enchanting (20)", reagents = "Simple Wood, Strange Dust", use = "Summons an enchanted lute that allows you and others sitting nearby to gain 28 Increase to Armor, exclusive with Mark of the Wild.", exclusive = "Mark of the Wild" },
+    { id = "enc2", profession = "enchanting", label = "Arcane Salvager", itemId = 279985, icon = "Interface\\Icons\\INV_Eng_BottledElements", unlock = "Enchanting 140", note = "Disenchant + lute", skill = "Enchanting (140)", use = "Places an Arcane Salvager that enables more efficient disenchanting, and provides all the benefits of an Enchanted Lute. May replace a lute." },
+    { id = "enc3", profession = "enchanting", label = "Arcane Forge", itemId = 279987, icon = "Interface\\Icons\\INV_Enchanting_ModifiedCraftingReagent_Indigo", unlock = "Enchanting 300", note = "Station + lute", skill = "Enchanting (300)", use = "Places an Arcane Forge usable for recipes that require it, and provides all the benefits of an Enchanted Lute. May replace a lute." },
+    { id = "eng1", profession = "engineering", label = "Reagent Bot", itemId = 279950, icon = "Interface\\Icons\\INV_Misc_EngGizmos_13", unlock = "Engineering 20", note = "Reagent vendor", skill = "Engineering (20)", use = "Summons a Reagent Bot that allows you and others nearby to purchase reagents." },
+    { id = "eng2", profession = "engineering", label = "Repair Bot", itemId = 279949, icon = "Interface\\Icons\\INV_RobotPet", unlock = "Engineering 140", note = "Vendor + repair", skill = "Engineering (140)", use = "Summons a Repair Bot that allows you and others nearby to buy reagents and repair gear. May replace a Reagent Bot." },
+    { id = "eng3", profession = "engineering", label = "Anarchist's Workbench", itemId = 279989, icon = "Interface\\Icons\\INV_10_Specialization_ProfessionBook_Engineering_Color1", unlock = "Engineering 300", note = "Engineering station", skill = "Engineering (300)", use = "Places an Anarchist's Workbench usable for recipes that require it." },
+    { id = "herb1", profession = "herbalism", label = "Incense Candle", itemId = 279962, icon = "Interface\\Icons\\INV_Misc_Candle_02", unlock = "Herbalism 20", note = "+2 Intellect", skill = "Herbalism (20)", reagents = "Peacebloom, Silverleaf", use = "Ignites an incense candle that allows you and others sitting nearby to gain 2 increased Intellect, exclusive with Arcane Intellect.", exclusive = "Arcane Intellect" },
+    { id = "herb2", profession = "herbalism", label = "Greenhouse", itemId = 279964, icon = "Interface\\Icons\\INV_Misc_Herb_08", unlock = "Herbalism 140", note = "Grows herbs + candle", skill = "Herbalism (140)", use = "Places a Greenhouse that will grow herbs over time from seeds planted, and provides all of the benefits of an Incense Candle. May replace a candle." },
+    { id = "herb3", profession = "herbalism", label = "Seed Hybridizer", itemId = 279947, icon = "Interface\\Icons\\INV_Farm_HerbSeed", unlock = "Herbalism 300", note = "Seeds + candle", skill = "Herbalism (300)", use = "Places a Seed Hybridizer that allows seeds to be multiplied or combined into rarer tiers, and provides all of the benefits of an Incense Candle. May replace a candle." },
+    { id = "lw1", profession = "leatherworking", label = "Camp Tent", itemId = 279978, icon = "Interface\\Icons\\INV_Misc_LeatherScrap_01", unlock = "Leatherworking 20", note = "+5% rest XP", skill = "Leatherworking (20)", reagents = "Light Leather (5)", use = "Builds a tent that allows you and others sitting nearby to increase Rested experience to 5% of a level. No effect if Rested experience already exceeds that value." },
+    { id = "lw2", profession = "leatherworking", label = "Tanning Rack", itemId = 279941, icon = "Interface\\Icons\\INV_10_Skinning_Leather_RareHide_Color1", unlock = "Leatherworking 140", note = "Reagents + tent", skill = "Leatherworking (140)", use = "Places a Tanning Rack that allows the creation of certain reagents, and provides all of the benefits of a Camp Tent. May replace a tent." },
+    { id = "lw3", profession = "leatherworking", label = "Sewing Machine", itemId = 279945, icon = "Interface\\Icons\\INV_Tailoring_ModifiedCraftingReagent_Orange", unlock = "Leatherworking 300", note = "Station + tent", skill = "Leatherworking (300)", use = "Places a Sewing Machine usable for recipes that require it, and provides all of the benefits of a Camp Tent. May replace a tent." },
+    { id = "mine1", profession = "mining", label = "Lodestone", itemId = 279960, icon = "Interface\\Icons\\INV_Misc_Rune_06", unlock = "Mining 20", note = "+12 melee AP", skill = "Mining (20)", reagents = "Rough Stone, Copper Bar", use = "Erects a lodestone that allows you and others sitting nearby to gain 12 increased melee Attack Power, exclusive with Blessing of Might.", exclusive = "Blessing of Might" },
+    { id = "mine2", profession = "mining", label = "Rock Garden", itemId = 279948, icon = "Interface\\Icons\\INV_Misc_Powder_Iron", unlock = "Mining 140", note = "Ore node + lodestone", skill = "Mining (140)", use = "Places a Rock Garden that spawns a common mining node over time, and provides all the benefits of a Lodestone. May replace a lodestone." },
+    { id = "mine3", profession = "mining", label = "Molten Foundry", itemId = 279952, icon = "Interface\\Icons\\INV_BlacksmithingAlloys_Red", unlock = "Mining 300", note = "Station + lodestone", skill = "Mining (300)", use = "Places a Molten Foundry usable for recipes that require it, and provides all the benefits of a Lodestone. May replace a lodestone." },
+    { id = "skin1", profession = "skinning", label = "Camp Chair", itemId = 279979, icon = "Interface\\Icons\\INV_Crate_01", unlock = "Skinning 20", note = "+2% crit", skill = "Skinning (20)", reagents = "Light Leather (3), Simple Wood (2)", use = "Assembles a camp chair that allows you and others sitting nearby to gain 2% increased critical strike chance with all spells and attacks, exclusive with Moonkin Aura.", exclusive = "Moonkin Aura" },
+    { id = "skin2", profession = "skinning", label = "Field Guide", itemId = 279969, icon = "Interface\\Icons\\INV_Misc_Book_03", unlock = "Skinning 140", note = "Track Beasts + chair", skill = "Skinning (140)", use = "Places a Field Guide that allows players to read it and gain Track Beasts, and provides all the benefits of a Camp Chair. May replace a chair." },
+    { id = "skin3", profession = "skinning", label = "Trapper's Workbench", itemId = 279938, icon = "Interface\\Icons\\INV_Misc_KobySSTools_KnifeTrap_Color3", unlock = "Skinning 300", note = "Trap + chair", skill = "Skinning (300)", use = "Places a Trapper's Workbench containing 1 trap, and provides all the benefits of a Camp Chair. May replace a chair." },
+    { id = "tail1", profession = "tailoring", label = "Faction Banner", itemId = 279973, itemIdByFaction = { Alliance = 279973, Horde = 279972 }, icon = "Interface\\Icons\\INV_Banner_03", unlock = "Tailoring 20", note = "+14 Spirit", skill = "Tailoring (20)", reagents = "Bolt of Linen Cloth, Coarse Thread", use = "Unrolls a banner that allows you and other members of your faction sitting nearby to gain 14 increased Spirit, exclusive with Divine Spirit.", exclusive = "Divine Spirit", factionIcons = { Alliance = "Interface\\Icons\\INV_Banner_02", Horde = "Interface\\Icons\\INV_Banner_03" } },
+    { id = "tail2", profession = "tailoring", label = "Spinning Wheel", itemId = 279943, icon = "Interface\\Icons\\10Prof_Table_Tailoring01", unlock = "Tailoring 140", note = "Reagents + banner", skill = "Tailoring (140)", use = "Places a Spinning Wheel that allows the creation of certain reagents, and provides all the benefits of a Faction Banner. May replace a banner." },
+    { id = "tail3", profession = "tailoring", label = "Loom", itemId = 279959, icon = "Interface\\Icons\\INV_Tailoring_80_TidesprayLinen", unlock = "Tailoring 300", note = "Station + banner", skill = "Tailoring (300)", use = "Places a Loom usable for recipes that require it, and provides all the benefits of a Faction Banner. May replace a banner." },
+    { id = "cook2", profession = "cooking", label = "Cookie's Feast", itemId = 279957, icon = "Interface\\Icons\\INV_Cooking_80_MajorFeast", unlock = "Cooking 140", note = "Stamina food", skill = "Cooking (140)", use = "Lay out Cookie's Feast that contains Stamina-boosting food. Requires a Cooking Fire nearby." },
+    { id = "cook3", profession = "cooking", label = "Iron Oven", itemId = 279982, icon = "Interface\\Icons\\Achievement_Cooking_MasterOfTheOven", unlock = "Cooking 300", note = "Advanced cooking", skill = "Cooking (300)", use = "Places an Iron Oven required for the most advanced cooking recipes. Requires a Cooking Fire nearby." },
+    { id = "fa1", profession = "firstaid", label = "First Aid Kit", itemId = 279968, icon = "Interface\\Icons\\INV_Misc_Bandage_11", unlock = "First Aid 20", note = "+3 Stamina", skill = "First Aid (20)", reagents = "Linen Bandage (3), Refreshing Spring Water", use = "Unpacks a first aid kit that allows you and others sitting nearby to gain 3 increased Stamina, exclusive with Power Word: Fortitude.", exclusive = "Power Word: Fortitude" },
+    { id = "fa2", profession = "firstaid", label = "Toxin Study", itemId = 279940, icon = "Interface\\Icons\\INV_Misc_Potion_A3", unlock = "First Aid 140", note = "Potions + kit", skill = "First Aid (140)", use = "Places a Toxin Study that contains healing potions, anti-venom, and provides all of the benefits of a First Aid Kit. May replace a kit." },
+    { id = "fa3", profession = "firstaid", label = "Plague Doctor's Laboratory", itemId = 279951, icon = "Interface\\Icons\\INV_10_Alchemy_IncenseHolder_Color1", unlock = "First Aid 300", note = "Potions + kit", skill = "First Aid (300)", use = "Places a Plague Doctor's Laboratory that contains healing potions, poultices, and provides all of the benefits of a First Aid Kit. May replace a kit." },
+    { id = "fish1", profession = "fishing", label = "Fish Bowl", itemId = 279967, icon = "Interface\\Icons\\INV_MagicalFishPet", unlock = "Fishing 20", note = "+8% stats", skill = "Fishing (20)", reagents = "Raw Brilliant Smallfish, Empty Vial", use = "Places a small fish bowl that allows you and others sitting nearby to gain 8% increased stats, exclusive with Blessing of Kings.", exclusive = "Blessing of Kings" },
+    { id = "fish2", profession = "fishing", label = "Fishing Rack", itemId = 279965, icon = "Interface\\Icons\\INV_Misc_2H_DraenorFishingPole_A_01", unlock = "Fishing 140", note = "Uncommon fish + bowl", skill = "Fishing (140)", use = "Places a Fishing Rack that grants the ability to catch uncommon fish for 1 hour, Fishing Skill lures, and provides all of the benefits of a Fish Bowl. May replace a Fish Bowl." },
+    { id = "fish3", profession = "fishing", label = "Fishing Hut", itemId = 279966, icon = "Interface\\Icons\\INV_FishingChair", unlock = "Fishing 300", note = "Rare fish + bowl", skill = "Fishing (300)", use = "Places a Fishing Hut that grants the ability to catch rare fish for 1 hour, Fishing Skill lures, and provides all of the benefits of a Fish Bowl. May replace a Fish Bowl." },
 }
 local ITEM_BY_ID = {}
 local ITEMS_BY_PROF = {}
@@ -288,6 +290,20 @@ local function ItemTexture(name, itemId)
     return nil
 end
 
+local function ResolvedItemId(item)
+    if not item then
+        return nil
+    end
+    if item.itemIdByFaction then
+        local faction = UnitFactionGroup("player")
+        local id = faction and item.itemIdByFaction[faction]
+        if id then
+            return id
+        end
+    end
+    return item.itemId
+end
+
 local function LiveObjectTexture(item)
     local name = NormalizeObjectName(item and item.label)
     if not name then
@@ -297,19 +313,15 @@ local function LiveObjectTexture(item)
     if cached then
         return cached
     end
-    -- Faction Banner: Spell.db2 may be Alliance-default. Trainer cache + factionIcons only.
-    if item.factionIcons then
-        return nil
+    local tex = ItemTexture(name, ResolvedItemId(item))
+    if not tex then
+        tex = SpellTexture(name)
     end
-    local tex = SpellTexture(name)
     if not tex and item.profession then
         local prof = SmoreSkills_ProfessionLabel(item.profession)
         if prof and prof ~= "" then
             tex = SpellTexture(prof .. ": " .. name)
         end
-    end
-    if not tex then
-        tex = ItemTexture(name, item.itemId)
     end
     if tex then
         CacheLiveObjectIcon(name, tex)
@@ -420,9 +432,292 @@ local function ScanTradeSkillObjectIcons()
     end
 end
 
+local function LearnedCharKey()
+    local name = UnitName("player") or "?"
+    local realm = (GetNormalizedRealmName and GetNormalizedRealmName()) or GetRealmName() or ""
+    return name .. "-" .. realm
+end
+
+local function LearnedStore()
+    if not SmoreSkillsDB then
+        return nil
+    end
+    SmoreSkillsDB.learnedCamping = SmoreSkillsDB.learnedCamping or {}
+    local key = LearnedCharKey()
+    local store = SmoreSkillsDB.learnedCamping[key]
+    if not store then
+        store = { objects = {}, scanned = {} }
+        SmoreSkillsDB.learnedCamping[key] = store
+    end
+    store.objects = store.objects or {}
+    store.scanned = store.scanned or {}
+    return store
+end
+
+local function RecipeIsLearned(info)
+    if type(info) ~= "table" then
+        return false
+    end
+    if info.learned ~= nil then
+        return info.learned == true
+    end
+    return true
+end
+
+local function CampingItemFromRecipeName(name)
+    name = NormalizeObjectName(name)
+    if not name then
+        return nil
+    end
+    if SmoreSkills_NormalizeItem then
+        local id = SmoreSkills_NormalizeItem(name)
+        if id then
+            return SmoreSkills_ItemFromId(id)
+        end
+        local colon = name:match("^[^:]+:%s*(.+)$")
+        if colon then
+            id = SmoreSkills_NormalizeItem(colon)
+            if id then
+                return SmoreSkills_ItemFromId(id)
+            end
+        end
+    end
+    local lower = strlower(name)
+    for _, row in ipairs(SmoreSkills.PROFESSION_ITEMS) do
+        if strlower(row.label) == lower then
+            return row
+        end
+    end
+    return nil
+end
+
+local function MarkLearnedObject(itemId)
+    if not itemId then
+        return
+    end
+    local store = LearnedStore()
+    if store then
+        store.objects[itemId] = true
+    end
+end
+
+local function ReplaceProfessionLearned(profId, ids)
+    local store = LearnedStore()
+    if not store or not profId then
+        return
+    end
+    for _, row in ipairs(SmoreSkills.PROFESSION_ITEMS) do
+        if row.profession == profId then
+            store.objects[row.id] = nil
+        end
+    end
+    for i = 1, #ids do
+        store.objects[ids[i]] = true
+    end
+    store.scanned[profId] = true
+end
+
+local function OpenTradeSkillProfessionId()
+    if C_TradeSkillUI then
+        if C_TradeSkillUI.GetBaseProfessionInfo then
+            local ok, info = pcall(C_TradeSkillUI.GetBaseProfessionInfo)
+            if ok and type(info) == "table" then
+                local name = info.parentProfessionName or info.professionName or info.profession
+                local id = SmoreSkills_ProfessionIdFromSkillName(name)
+                if id then
+                    return id
+                end
+            end
+        end
+        if C_TradeSkillUI.GetChildProfessionInfo then
+            local ok, info = pcall(C_TradeSkillUI.GetChildProfessionInfo)
+            if ok and type(info) == "table" then
+                local id = SmoreSkills_ProfessionIdFromSkillName(info.professionName or info.profession)
+                if id then
+                    return id
+                end
+            end
+        end
+    end
+    if GetTradeSkillLine then
+        local ok, name = pcall(GetTradeSkillLine)
+        if ok then
+            return SmoreSkills_ProfessionIdFromSkillName(name)
+        end
+    end
+    return nil
+end
+
+local function PlayerKnowsSpellName(name)
+    if not name or name == "" then
+        return false
+    end
+    local spellId
+    if C_Spell and C_Spell.GetSpellInfo then
+        local ok, info = pcall(C_Spell.GetSpellInfo, name)
+        if ok and type(info) == "table" then
+            spellId = info.spellID or info.spellId
+        end
+    end
+    if not spellId and GetSpellInfo then
+        local ok, _, _, _, _, _, id = pcall(GetSpellInfo, name)
+        if ok then
+            spellId = id
+        end
+    end
+    if not spellId then
+        return false
+    end
+    if IsPlayerSpell then
+        local ok, known = pcall(IsPlayerSpell, spellId)
+        if ok and known then
+            return true
+        end
+    end
+    if IsSpellKnown then
+        local ok, known = pcall(IsSpellKnown, spellId)
+        if ok and known then
+            return true
+        end
+    end
+    if C_SpellBook and C_SpellBook.IsSpellInSpellBook then
+        local ok, known = pcall(C_SpellBook.IsSpellInSpellBook, spellId)
+        if ok and known then
+            return true
+        end
+    end
+    return false
+end
+
+local function ScanSpellKnownCampingObjects()
+    for _, item in ipairs(SmoreSkills.PROFESSION_ITEMS) do
+        local names = { item.label }
+        local prof = SmoreSkills_ProfessionLabel(item.profession)
+        if prof and prof ~= "" then
+            table.insert(names, prof .. ": " .. item.label)
+        end
+        for i = 1, #names do
+            if PlayerKnowsSpellName(names[i]) then
+                MarkLearnedObject(item.id)
+                break
+            end
+        end
+    end
+end
+
+local function ScanTradeSkillLearnedCampingObjects()
+    local found = {}
+    local foundByProf = {}
+    local function takeName(name, learned)
+        if learned == false then
+            return
+        end
+        local item = CampingItemFromRecipeName(name)
+        if not item then
+            return
+        end
+        found[item.id] = item
+        foundByProf[item.profession] = foundByProf[item.profession] or {}
+        foundByProf[item.profession][item.id] = true
+    end
+    if C_TradeSkillUI and C_TradeSkillUI.GetAllRecipeIDs and C_TradeSkillUI.GetRecipeInfo then
+        local ok, ids = pcall(C_TradeSkillUI.GetAllRecipeIDs)
+        if ok and type(ids) == "table" then
+            for i = 1, #ids do
+                local okInfo, info = pcall(C_TradeSkillUI.GetRecipeInfo, ids[i])
+                if okInfo and type(info) == "table" and info.name then
+                    takeName(info.name, RecipeIsLearned(info))
+                end
+            end
+        end
+    end
+    if GetNumTradeSkills then
+        local ok, n = pcall(GetNumTradeSkills)
+        if ok and n and n > 0 then
+            for i = 1, n do
+                local okInfo, name, skillType = pcall(GetTradeSkillInfo, i)
+                if okInfo and type(name) == "string" and skillType ~= "header" then
+                    takeName(name, true)
+                end
+            end
+        end
+    end
+    local openProf = OpenTradeSkillProfessionId()
+    if openProf then
+        local ids = {}
+        local set = foundByProf[openProf] or {}
+        for itemId in pairs(set) do
+            table.insert(ids, itemId)
+        end
+        ReplaceProfessionLearned(openProf, ids)
+    else
+        for itemId in pairs(found) do
+            MarkLearnedObject(itemId)
+        end
+    end
+end
+
+function SmoreSkills_PlayerKnowsCampingObject(itemOrId)
+    local id = itemOrId
+    if type(itemOrId) == "table" then
+        id = itemOrId.id
+    elseif type(itemOrId) == "string" then
+        id = SmoreSkills_NormalizeItem(itemOrId) or itemOrId
+    end
+    if not id then
+        return false
+    end
+    local store = LearnedStore()
+    return store and store.objects[id] == true
+end
+
+function SmoreSkills_LearnedCampingItems()
+    ScanSpellKnownCampingObjects()
+    ScanTradeSkillLearnedCampingObjects()
+    local list = {}
+    local seen = {}
+    local profs = SmoreSkills_GetPlayerProfessions()
+    if #profs == 0 then
+        return list
+    end
+    for _, profId in ipairs(profs) do
+        for _, item in ipairs(SmoreSkills_ItemsForProfession(profId)) do
+            if not seen[item.id] and SmoreSkills_PlayerKnowsCampingObject(item.id) then
+                seen[item.id] = true
+                table.insert(list, item)
+            end
+        end
+    end
+    return list
+end
+
+function SmoreSkills_ClampHostSlotToLearned(camp)
+    if not camp then
+        return false
+    end
+    SmoreSkills_EnsureSlots(camp)
+    local slot = camp.slots and camp.slots[1]
+    if not slot or not slot.object or slot.object == "" then
+        return false
+    end
+    if SmoreSkills_PlayerKnowsCampingObject(slot.object) then
+        return false
+    end
+    local store = LearnedStore()
+    local prof = slot.profession
+    if not store or not prof or not store.scanned[prof] then
+        return false
+    end
+    slot.object = nil
+    camp.updatedAt = SmoreSkills_Now()
+    return true
+end
+
 local function ScanLiveObjectIcons()
     ScanTrainerObjectIcons()
     ScanTradeSkillObjectIcons()
+    ScanSpellKnownCampingObjects()
+    ScanTradeSkillLearnedCampingObjects()
 end
 
 local lastLiveIconScan = 0
@@ -452,6 +747,10 @@ iconScanFrame:SetScript("OnEvent", function()
     iconScanFrame._refreshQueued = true
     local function flush()
         iconScanFrame._refreshQueued = nil
+        local camp = SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp()
+        if camp then
+            SmoreSkills_ClampHostSlotToLearned(camp)
+        end
         SmoreSkills.HostPanel:Refresh()
     end
     if C_Timer and C_Timer.After then
@@ -985,8 +1284,12 @@ function SmoreSkills_SetCampSlotDeclaration(camp, index, profession, object)
     if object and object ~= "" then
         local item = SmoreSkills_ItemFromId(SmoreSkills_NormalizeItem(object))
         if item then
-            profId = item.profession
-            object = item.label
+            if index == 1 and SmoreSkills_PlayerKnowsCampingObject and not SmoreSkills_PlayerKnowsCampingObject(item.id) then
+                object = nil
+            else
+                profId = item.profession
+                object = item.label
+            end
         end
     else
         object = nil
@@ -1148,11 +1451,11 @@ function SmoreSkills_ItemLabel(id)
     return item and item.label or (id or "")
 end
 
-function SmoreSkills_ShowCampingItemTooltip(owner, item)
+function SmoreSkills_ShowCampingItemTooltip(owner, item, anchor)
     if not owner or not item or not GameTooltip then
         return
     end
-    GameTooltip:SetOwner(owner, "ANCHOR_NONE")
+    GameTooltip:SetOwner(owner, anchor or "ANCHOR_NONE")
     GameTooltip:ClearLines()
     GameTooltip:AddLine(item.label, 1, 0.82, 0)
     if item.skill then
@@ -1165,13 +1468,21 @@ function SmoreSkills_ShowCampingItemTooltip(owner, item)
     end
     if item.use then
         GameTooltip:AddLine("Use: " .. item.use, 0.1, 1, 0.1, true)
-        GameTooltip:AddLine("Requires a Campfire nearby. All camping features share a cooldown of 1 hour.", 0.1, 1, 0.1, true)
+        local useLower = strlower(item.use)
+        if not string.find(useLower, "camping features share", 1, true) then
+            if string.find(useLower, "cooking fire", 1, true) or string.find(useLower, "campfire", 1, true) then
+                GameTooltip:AddLine("All camping features share a cooldown of 1 hour.", 0.1, 1, 0.1, true)
+            else
+                GameTooltip:AddLine("Requires a Campfire nearby. All camping features share a cooldown of 1 hour.", 0.1, 1, 0.1, true)
+            end
+        end
     elseif item.note then
         GameTooltip:AddLine(item.note, 0.92, 0.92, 0.92)
-    else
-        GameTooltip:AddLine("Name not confirmed on beta yet.", 0.65, 0.65, 0.65)
     end
     GameTooltip:Show()
+    if anchor then
+        return
+    end
     local x, y = GetCursorPosition()
     local scale = UIParent:GetEffectiveScale() or 1
     if scale == 0 then
@@ -1186,8 +1497,30 @@ function SmoreSkills_NormalizeItem(id)
         return nil
     end
     local lower = strlower(strtrim(id))
-    if lower == "leatherworking tier 1" then
-        return "lw1"
+    local aliases = {
+        ["leatherworking tier 1"] = "lw1",
+        ["engineering tier 1"] = "eng1",
+        ["blacksmithing tier 1"] = "bs1",
+        ["alchemy lab"] = "alch3",
+        ["alchemy laboratory"] = "alch3",
+        ["mana well"] = "alch1",
+    }
+    if aliases[lower] then
+        return aliases[lower]
+    end
+    if tonumber(lower) then
+        for _, row in ipairs(SmoreSkills.PROFESSION_ITEMS) do
+            if row.itemId and tostring(row.itemId) == lower then
+                return row.id
+            end
+            if row.itemIdByFaction then
+                for _, itemId in pairs(row.itemIdByFaction) do
+                    if tostring(itemId) == lower then
+                        return row.id
+                    end
+                end
+            end
+        end
     end
     local item = ITEM_BY_ID[lower] or ITEM_BY_ID[id]
     if item then

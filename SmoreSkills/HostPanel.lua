@@ -15,6 +15,9 @@ local MENU_MAX_H = 272
 local MENU_SCROLL_W = 10
 local SOCKET_GOLD = { 0.92, 0.78, 0.28 }
 local TITLE_YELLOW = { 1, 0.82, 0.15 }
+local SOCKET_GLOW_MIN = 0.16
+local SOCKET_GLOW_MAX = 0.34
+local SOCKET_PULSE_SPEED = 1.8
 
 local function SafeDesaturate(texture, desaturated)
     if not texture then
@@ -97,8 +100,28 @@ local function CreateSocket(parent, size)
     return btn
 end
 
+local function StopSocketPulse(btn)
+    if not btn then
+        return
+    end
+    btn.needsPulse = false
+    if btn.icon then
+        if btn.icon.SetBlendMode then
+            btn.icon:SetBlendMode("BLEND")
+        end
+        btn.icon:SetAlpha(1)
+        btn.icon:SetVertexColor(1, 1, 1)
+    end
+    if btn.gold then
+        btn.gold:SetAlpha(1)
+        btn.gold:SetVertexColor(SOCKET_GOLD[1], SOCKET_GOLD[2], SOCKET_GOLD[3], 1)
+    end
+end
+
 local function StyleSocket(btn, slot, isYours)
-    if slot and slot.profession then
+    local open = not (slot and slot.profession)
+    if not open then
+        StopSocketPulse(btn)
         btn.icon:SetTexture(SmoreSkills_SlotIcon(slot))
         SafeDesaturate(btn.icon, false)
         btn.icon:SetVertexColor(1, 1, 1)
@@ -110,10 +133,11 @@ local function StyleSocket(btn, slot, isYours)
         end
         btn.caption:SetTextColor(TITLE_YELLOW[1], TITLE_YELLOW[2], TITLE_YELLOW[3])
     else
+        btn.needsPulse = true
         btn.icon:SetTexture(ICON)
         SafeDesaturate(btn.icon, true)
-        btn.icon:SetVertexColor(0.65, 0.65, 0.65)
-        btn.icon:SetAlpha(0.22)
+        btn.icon:SetVertexColor(0.72, 0.62, 0.32)
+        btn.icon:SetAlpha(SOCKET_GLOW_MIN)
         btn.caption:SetText(isYours and "You" or "Open")
         btn.caption:SetTextColor(0.65, 0.65, 0.65)
     end
@@ -151,7 +175,7 @@ local function LayoutChipRow(chips, wrapWidth, anchor, relPoint)
                 x = x + w + 6
             end
             prev = chip
-            last = chip
+            last = rowStart
         end
     end
     return last
@@ -169,14 +193,11 @@ local function ContributionChoices()
         end
     end
     local seen = {}
-    local list = { professions = {}, objects = {} }
+    local list = { professions = {} }
     for _, id in ipairs(learned) do
         if not seen[id] then
             seen[id] = true
             table.insert(list.professions, id)
-            for _, item in ipairs(SmoreSkills_ItemsForProfession(id)) do
-                table.insert(list.objects, item)
-            end
         end
     end
     return list
@@ -220,6 +241,7 @@ function HostPanel:BuildMenu()
     menu:SetFrameStrata("HIGH")
     menu:SetFrameLevel((self.frame:GetFrameLevel() or 1) + 8)
     menu:SetWidth(260)
+    menu:SetClampedToScreen(true)
     ApplyChrome(menu)
     menu:Hide()
     menu.buttons = {}
@@ -322,6 +344,23 @@ function HostPanel:FinishMenuLayout(contentH)
     end
 end
 
+function HostPanel:AnchorMenu(anchor)
+    local menu = self.menu
+    if not menu or not anchor then
+        return
+    end
+    menu:SetParent(self.frame)
+    menu:SetFrameStrata("HIGH")
+    menu:SetFrameLevel((self.frame:GetFrameLevel() or 1) + 20)
+    menu:ClearAllPoints()
+    menu:SetWidth(260)
+    menu:SetClampedToScreen(true)
+    menu:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -2)
+    if anchor.GetWidth and (anchor:GetWidth() or 0) >= 200 then
+        menu:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, -2)
+    end
+end
+
 function HostPanel:ResetMenuButtons()
     local menu = self:BuildMenu()
     for _, btn in ipairs(menu.buttons) do
@@ -353,6 +392,7 @@ function HostPanel:AddMenuLine(menu, y, text, onClick, isTitle, selected, iconPa
         btn.icon = btn:CreateTexture(nil, "ARTWORK")
         btn.icon:SetSize(16, 16)
         btn.icon:SetPoint("LEFT", 6, 0)
+        btn.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
         btn.label = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         btn.label:SetPoint("LEFT", 8, 0)
         btn.label:SetPoint("RIGHT", -8, 0)
@@ -372,6 +412,7 @@ function HostPanel:AddMenuLine(menu, y, text, onClick, isTitle, selected, iconPa
         btn.icon = btn:CreateTexture(nil, "ARTWORK")
         btn.icon:SetSize(16, 16)
         btn.icon:SetPoint("LEFT", 6, 0)
+        btn.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     end
     btn:ClearAllPoints()
     local host = menu.content or menu
@@ -437,7 +478,7 @@ function HostPanel:ShowSocketMenu(index)
         end, false, false, SmoreSkills_CampingObjectIcon(picked))
         btn:SetScript("OnEnter", function()
             if SmoreSkills_ShowCampingItemTooltip then
-                SmoreSkills_ShowCampingItemTooltip(btn, picked)
+                SmoreSkills_ShowCampingItemTooltip(btn, picked, "ANCHOR_LEFT")
             end
         end)
         btn:SetScript("OnLeave", function()
@@ -484,18 +525,17 @@ function HostPanel:ShowSocketMenu(index)
                 HostPanel:HideMenu()
             end, false, false, SmoreSkills_ProfessionIcon(id))
         end
-        if #choices.objects > 0 then
+        local learnedObjects = SmoreSkills_LearnedCampingItems and SmoreSkills_LearnedCampingItems() or {}
+        if #learnedObjects > 0 then
             y = y + 4
             btn, y = self:AddMenuLine(menu, y, "Camping object", nil, true)
-            for _, item in ipairs(choices.objects) do
+            for _, item in ipairs(learnedObjects) do
                 addObjectLine(item)
             end
         end
     end
     self:FinishMenuLayout(y + 4)
-    menu:ClearAllPoints()
-    local anchor = self.sockets[index] or self.sockets[1]
-    menu:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", -8, -22)
+    self:AnchorMenu(self.sockets[index] or self.sockets[1])
     menu:Show()
 end
 
@@ -549,7 +589,7 @@ function HostPanel:ShowObjectMenu(refresh)
                     end, false, selected, SmoreSkills_CampingObjectIcon(picked))
                     btn:SetScript("OnEnter", function()
                         if SmoreSkills_ShowCampingItemTooltip then
-                            SmoreSkills_ShowCampingItemTooltip(btn, picked)
+                            SmoreSkills_ShowCampingItemTooltip(btn, picked, "ANCHOR_LEFT")
                         end
                     end)
                     btn:SetScript("OnLeave", function()
@@ -562,9 +602,7 @@ function HostPanel:ShowObjectMenu(refresh)
         end
     end
     self:FinishMenuLayout(y + 4)
-    menu:ClearAllPoints()
-    menu:SetPoint("TOPLEFT", self.objDrop, "BOTTOMLEFT", 0, -2)
-    menu:SetPoint("TOPRIGHT", self.objDrop, "BOTTOMRIGHT", 0, -2)
+    self:AnchorMenu(self.objDrop)
     menu:Show()
     self._buildingObjectMenu = nil
 end
@@ -638,6 +676,26 @@ function HostPanel:Build()
         end)
         self.sockets[i] = socket
     end
+    socketRow:SetScript("OnUpdate", function()
+        local sockets = HostPanel.sockets
+        if not sockets then
+            return
+        end
+        local phase = 0.5 + 0.5 * math.sin((GetTime() or 0) * SOCKET_PULSE_SPEED)
+        local glowA = SOCKET_GLOW_MIN + (SOCKET_GLOW_MAX - SOCKET_GLOW_MIN) * phase
+        for i = 1, #sockets do
+            local socket = sockets[i]
+            if not socket then
+                -- skip
+            elseif socket.needsPulse then
+                if socket.icon then
+                    socket.icon:SetAlpha(glowA)
+                end
+            else
+                StopSocketPulse(socket)
+            end
+        end
+    end)
 
     local look = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     look:SetPoint("TOPLEFT", socketRow, "BOTTOMLEFT", -8, -8)
@@ -649,7 +707,7 @@ function HostPanel:Build()
     lookHint:SetPoint("TOPLEFT", look, "BOTTOMLEFT", 0, -2)
     lookHint:SetPoint("RIGHT", frame, "RIGHT", -14, 0)
     lookHint:SetJustifyH("LEFT")
-    lookHint:SetText("This camp only. Settings stay the same until you edit them.")
+    lookHint:SetText("This camp only. Default settings stay the same until you edit them.")
     lookHint:SetTextColor(0.65, 0.65, 0.65)
     self.lookHint = lookHint
 
@@ -771,6 +829,9 @@ function HostPanel:Refresh()
         SmoreSkills.MAX_SLOTS
     ))
     SmoreSkills_EnsureSlots(camp)
+    if SmoreSkills_ClampHostSlotToLearned then
+        SmoreSkills_ClampHostSlotToLearned(camp)
+    end
     for i = 1, SmoreSkills.MAX_SLOTS do
         StyleSocket(self.sockets[i], camp.slots[i], i == 1)
     end

@@ -4,7 +4,7 @@ Find **WoW Forever** campsites while you level: see fires near you, which of the
 
 **Testing now:** Forever is the product. `_classic_beta_` (1.60.1) when servers are up; TBC Anniversary (`_anniversary_`) only for two-client share while they are down. See [CAMPING.md](CAMPING.md) and [FOREVER.md](FOREVER.md).
 
-**CurseForge:** beta `v0.5.64-beta` for **WoW Forever 1.60.1**. `CF_API_KEY` secret + version tag via GitHub Actions (webhook stays off). See [GUIDELINES.md](GUIDELINES.md). Last full file was **v0.5.62**.
+**CurseForge:** beta `v0.5.65-beta` for **WoW Forever 1.60.1**. `CF_API_KEY` secret + version tag via GitHub Actions (webhook stays off). See [GUIDELINES.md](GUIDELINES.md). Last full file was **v0.5.62**.
 
 ## The idea
 
@@ -14,7 +14,7 @@ Meanwhile a blacksmith sits alone at a fire across the zone and sends a **host s
 
 All opt-in. No login dump. Community channel, not guild chat.
 
-## Status (v0.5.64)
+## Status (v0.5.65)
 
 | | |
 | --- | --- |
@@ -23,8 +23,8 @@ All opt-in. No login dump. Community channel, not guild chat.
 | **Minimap** | S'more icon opens world map; right-click settings; drag to move (can hide or lock in General) |
 | **Settings** | Larger centered window. General: auto-host, pin size, minimap, chat, guild mark, cross-layer. Host/Seeker profession + camping-object filters |
 | **Professions** | Auto-detect all trades; TBC specs map to base (Spellfire → Tailoring, etc.) |
-| **Host camp panel** | Sockets + this-camp requests after you place a fire (`/smores camp`) |
-| **Camping objects** | Live Tier 1 list including **Camp Tent** (LW). Icons from trainer/`C_Spell`; banner is your faction |
+| **Host camp panel** | After you place a fire: sockets, this-camp request chips, camping-objects dropdown, Pack up (`/smores camp`). Defaults stay in settings. Open slots pulse the faded S'more. Your socket only lists recipes you have learned. |
+| **Camping objects** | 36 confirmed item IDs (Wowhead). Tiny icons in settings match the camp panel. Banner is your faction |
 | **Art** | Forever-style logo (`SmoreSkillsLogo`) + cropped icon (`SmoreSkillsIcon`) |
 | **Forever beta** | Real campfire/object API, auto-fill slots, Camp Tent live icon |
 
@@ -36,7 +36,7 @@ All opt-in. No login dump. Community channel, not guild chat.
 | **Map Find button** | Left-click: seek in zone (switches to your zone map). Right-click: clear **other** pins; your hosted pin stays. |
 | **Own camp pin** | Left-click: host camp panel. Right-click: pack up (confirm). Hover: **Layer N — Your camp**. |
 | **Other camp pin** | Left-click: whisper the host. Hover: **Layer N — same as you** or **Layer N — you are on Layer M**. |
-| **Host camp panel** | Opens when you host. Socket 1 = your profession or camping object. Request chips below (this fire only; settings stay put). |
+| **Host camp panel** | Opens when you host. Socket 1 = your profession or a **learned** camping object. Empty sockets pulse the faded S'more. Request chips and the objects dropdown are this fire only (settings stay the defaults). |
 | **Settings popup** | General: auto-host, pin size, minimap/chat/guild options. Host/Seeker profession + camping-object grids. |
 | **Camp pin hover** | Custom tooltip: host, three gold-ring sockets (camping object, or profession if unnamed, or faded S'more if empty), coords, guild hint if applicable. |
 

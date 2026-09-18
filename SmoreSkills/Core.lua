@@ -7,7 +7,7 @@ if not strtrim then
 end
 
 SmoreSkills = SmoreSkills or {}
-SmoreSkills.VERSION = "0.5.64"
+SmoreSkills.VERSION = "0.5.65"
 SmoreSkills.AUTHOR = "Weber8210"
 SmoreSkills.TESTER = "Stik"
 SmoreSkills.LOGO = "Interface\\AddOns\\SmoreSkills\\Art\\SmoreSkillsLogo"
@@ -68,6 +68,7 @@ frame:SetScript("OnEvent", function(_, event, name)
         SmoreSkillsDB = SmoreSkillsDB or { camps = {}, settings = { dataVersion = 1 } }
         SmoreSkillsDB.camps = SmoreSkillsDB.camps or {}
         SmoreSkillsDB.settings = SmoreSkillsDB.settings or { dataVersion = 1 }
+        SmoreSkillsDB.learnedCamping = SmoreSkillsDB.learnedCamping or {}
         if SmoreSkills.Sync and SmoreSkills.Sync.Init then
             SmoreSkills.Sync:Init()
         end

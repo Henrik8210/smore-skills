@@ -2,7 +2,7 @@
 
 **Product is Forever.** TBC Anniversary is only the two-client share testbed. Do not design for Anniversary and back-port.
 
-**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). Servers dropped overnight; they were **up again 18 Sep**. Last CurseForge full file before this pass was **v0.5.62**. This pass is CurseForge **beta** `v0.5.64-beta`.
+**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). Servers dropped overnight; they were **up again 18 Sep**. Last CurseForge full file before this pass was **v0.5.62**. This pass is CurseForge **beta** `v0.5.65-beta` (36 confirmed camping objects, host camp panel).
 
 ---
 
@@ -50,7 +50,7 @@ Forever pops *SmoreSkills has been blocked from an action only available to the 
 
 Trainer list names are **Name (Tier I)**. Tooltips use the short name. Recipes are **spells** (craft, then Use at a fire) — not bag items.
 
-**Tanning** is Skinning’s *place-skill*, not an object. Cooking’s kit is the fire, not a slot filter.
+**Tanning** is Skinning’s *place-skill*, not an object. Cooking’s kit is the fire, not a slot filter. Cooking has no skill-20 camping object.
 
 | Profession | Tier 1 object | Reagents | Sit-nearby | Exclusive with |
 | --- | --- | --- | --- | --- |
@@ -63,10 +63,13 @@ Trainer list names are **Name (Tier I)**. Tooltips use the short name. Recipes a
 | Skinning | **Camp Chair** | Light Leather (3), Simple Wood (2) | +2% crit (spells and attacks) | Moonkin Aura |
 | First Aid | **First Aid Kit** | Linen Bandage (3), Refreshing Spring Water | +3 Stamina | Power Word: Fortitude |
 | Leatherworking | **Camp Tent** (live 18 Sep) | Light Leather (5) | +5% of a level Rest XP (no extra if already above that) | — |
+| Engineering | **Reagent Bot** | | Reagent vendor | — |
+| Fishing | **Fish Bowl** | Raw Brilliant Smallfish, Empty Vial | +8% stats | Blessing of Kings |
 | Cooking | **Basic Campfire Kit** | Flint and Tinder, 1 Simple Wood | Places the fire | — |
-| Engineering | *not seen* | | | |
 
-**Camp Tent** live Use: *Builds a tent that allows you and others sitting nearby to increase Rested experience to 5% of a level. No effect if Rested experience already exceeds that value.* Requires a campfire nearby; all camping features share a 1 hour cooldown. Requires Leatherworking (20). Panel still lists **Tanning Rack** as a later LW object.
+Full 20/140/300 catalog (36 item IDs, Faction Banner counted twice) is in [CAMPING.md](CAMPING.md). Wowhead shared-cooldown + Mana Well. No placeholder names in the addon.
+
+**Camp Tent** live Use: *Builds a tent that allows you and others sitting nearby to increase Rested experience to 5% of a level. No effect if Rested experience already exceeds that value.* Requires a campfire nearby; all camping features share a 1 hour cooldown. Requires Leatherworking (20). **Tanning Rack** is Leatherworking 140.
 
 Host/Seeker filters and the host camp panel label these **Camping objects**. Hover follows the cursor (reagents, Use, exclusive-with).
 
@@ -81,19 +84,24 @@ Live trainer art wins. Do not use profession icons when the slot names an object
 | Enchanted Lute | Pale lute (not a woodwind) | Flute (`INV_Misc_Flute_01`) |
 | Camp Tent | Grey tent / canvas | Sack stand-in is wrong — fix later |
 
-Addon: copy the **open trainer row** (`GetTrainerServiceIcon` / trainer button texture) and `C_Spell` by recipe name. Faction Banner falls back to Horde `INV_Banner_03` / Alliance `INV_Banner_02`. Sockets, host-panel dropdown, and settings lists share `SmoreSkills_CampingObjectIcon`.
+Addon: `GetItemIconByID` for the Forever item, then the open trainer row (`GetTrainerServiceIcon` / trainer button texture) and `C_Spell` by recipe name. Faction Banner uses Horde **279972** / Alliance **279973**. Sockets, host-panel dropdown, and settings lists share `SmoreSkills_CampingObjectIcon` (16×16).
 
-### Host camp panel (v0.5.63+)
+### Host camp panel (v0.5.65)
 
-Opens when you host (`/smores camp` or left-click own pin). Socket 1 = your profession or object; guest sockets can be marked by hand (no world API yet). Request chips are **this fire only**; Host settings stay the defaults until you edit them. Pin tooltip follows the camp copy, not settings.
+Opens when you host (`/smores camp` or left-click own pin).
+
+- Socket 1 = **your** profession or a camping object this character has **learned** (scan the profession window once). Do not offer Field Guide if you only have Camp Chair. **Tanning** is not an object.
+- Guest sockets (2 and 3) can still be marked by hand for whatever someone else placed (no world API yet).
+- Empty sockets pulse the faded S'more icon inside the ring; filling a slot stops it.
+- Request chips and the camping-objects dropdown are **this fire only**. Copy: *This camp only. Default settings stay the same until you edit them.* The dropdown sits on the left under Looking for; the list opens under the bar.
+- Pin tooltip follows the camp copy, not Host settings.
 
 ### Still open
 
 - Two-client share on Zephras (both click Find).
 - Find button visible on Map & Quest Log.
 - Time a **placed** fire for `CAMPFIRE_DURATION` (do not use the 1 hour feature CD or buff).
-- Engineering Tier 1 name.
-- Camp Tent live icon (addon still shows a sack stand-in).
+- Camp Tent live icon (Wowhead file is still leather scrap).
 - Whether Zephras intro is an instance (chat lockdown).
 - Auto-read of world objects / slots (still no API).
 

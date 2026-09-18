@@ -2,7 +2,7 @@
 ## Title: S'more Skills
 ## Notes: Campsite finder for WoW Forever (TBC Anniversary testbed until Forever API). Share a fire, see three object slots.
 ## Author: Henrik8210
-## Version: 0.5.64
+## Version: 0.5.65
 ## X-Curse-Project-ID: 1696940
 ## Icon: Art\SmoreSkillsLogo.tga
 ## SavedVariables: SmoreSkillsDB

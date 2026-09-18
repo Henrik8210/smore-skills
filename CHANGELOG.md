@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.5.65
+
+- Indexed all **36** Forever camping objects from Wowhead (Mana Well through Fishing Hut). Faction Banner is two item IDs, one row. Cooking has no skill-20 slot object.
+- Dropped placeholder names (fake Tier 2/3, fake 5/10 campfires, unnamed Engineering). Settings camping-object and profession rows use the same 16×16 icons as the host camp panel.
+- Host socket (your slot) only lists camping objects this character has learned. Tanning is the Skinning place-skill, not an object; guest sockets can still mark what someone else placed.
+- Open sockets pulse the faded S'more icon (inside the ring). Filling a slot stops it. Camping-objects dropdown sits on the left under Looking for.
+- CurseForge **beta** `v0.5.65-beta`.
+
 ## v0.5.64
 
 - Host camp panel after you place a fire: sockets, profession request chips, camping-objects dropdown, Pack up. Chips start from Host settings (defaults); this fire can differ. Pin tooltip follows the camp.

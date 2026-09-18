@@ -2,7 +2,7 @@ SmoreSkills = SmoreSkills or {}
 SmoreSkills.Settings = SmoreSkills.Settings or {}
 
 local Settings = SmoreSkills.Settings
-local SETTINGS_UI_BUILD = 63
+local SETTINGS_UI_BUILD = 65
 local ICON = SmoreSkills.ICON or "Interface\\Icons\\Spell_Fire_Fire"
 local POPUP_WIDTH = 720
 local POPUP_HEIGHT = 620
@@ -36,6 +36,7 @@ local SETTINGS_TITLE_SIZE = 13
 local SETTINGS_SMALL_SIZE = 12
 local SETTINGS_CHECK_SIZE = SETTINGS_TITLE_SIZE + 3
 local SETTINGS_SMALL_CHECK = 14
+local TINY_ICON = 16
 local GOLD = { 1, 0.82, 0 }
 local TAB_RING_ACTIVE = { 1, 0.82, 0, 1 }
 local TAB_RING_INACTIVE = { 0.55, 0.45, 0.18, 0.9 }
@@ -229,6 +230,16 @@ local function MakeCheckLabel(parent, cb, applyFont)
     end)
     btn.label = text
     return btn, text
+end
+
+local function MakeTinyIcon(parent, texture)
+    local icon = parent:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(TINY_ICON, TINY_ICON)
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    if texture then
+        icon:SetTexture(texture)
+    end
+    return icon
 end
 
 local function CreateSectionTitle(parent, text, y)
@@ -434,7 +445,7 @@ local function LayoutProfGrid(panel)
             maxLabel = w
         end
     end
-    local colW = SETTINGS_SMALL_CHECK + 4 + maxLabel + 2
+    local colW = SETTINGS_SMALL_CHECK + 4 + TINY_ICON + 4 + maxLabel + 2
     local gap = GRID_COL_GAP
     local col, gridRow = 0, 0
     for _, row in ipairs(panel.checks) do
@@ -471,8 +482,10 @@ local function CreateProfGrid(parent, wantKey)
         row.profId = prof.id
         local hold, cb = MakeCheckButton(row, SETTINGS_SMALL_CHECK)
         hold:SetPoint("LEFT", 0, 0)
+        local icon = MakeTinyIcon(row, SmoreSkills_ProfessionIcon(prof.id))
+        icon:SetPoint("LEFT", hold, "RIGHT", 4, 0)
         local labelBtn, text = MakeCheckLabel(row, cb, ApplySmallFont)
-        labelBtn:SetPoint("LEFT", hold, "RIGHT", 4, 0)
+        labelBtn:SetPoint("LEFT", icon, "RIGHT", 4, 0)
         labelBtn:SetPoint("RIGHT", row, "RIGHT", 0, 0)
         labelBtn:SetPoint("TOP", row, "TOP", 0, 0)
         labelBtn:SetPoint("BOTTOM", row, "BOTTOM", 0, 0)
@@ -480,6 +493,7 @@ local function CreateProfGrid(parent, wantKey)
         text:SetTextColor(0.92, 0.92, 0.92)
         row.checkbox = cb
         row.label = text
+        row.profIcon = icon
         cb:SetScript("OnClick", function()
             SmoreSkills_ToggleWantProfession(wantKey, row.profId)
             Settings:RefreshProfessionGrid(panel, wantKey)
@@ -642,10 +656,16 @@ local function CreateItemPicker(parent, wantKey)
 
     for _, prof in ipairs(SmoreSkills.PROFESSIONS) do
         local group = { profId = prof.id, rows = {} }
-        local header = wrap:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        header:SetJustifyH("LEFT")
-        ApplySmallFont(header)
-        header:SetText("|cff" .. TITLE_YELLOW .. prof.label .. "|r")
+        local header = CreateFrame("Frame", nil, wrap)
+        header:SetHeight(TINY_ICON)
+        local headerIcon = MakeTinyIcon(header, SmoreSkills_ProfessionIcon(prof.id))
+        headerIcon:SetPoint("LEFT", 0, 0)
+        local headerText = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        headerText:SetPoint("LEFT", headerIcon, "RIGHT", 4, 0)
+        headerText:SetPoint("RIGHT", header, "RIGHT", 0, 0)
+        headerText:SetJustifyH("LEFT")
+        ApplySmallFont(headerText)
+        headerText:SetText("|cff" .. TITLE_YELLOW .. prof.label .. "|r")
         group.header = header
         for _, item in ipairs(SmoreSkills_ItemsForProfession(prof.id)) do
             local row = CreateFrame("Frame", nil, wrap)
@@ -653,10 +673,10 @@ local function CreateItemPicker(parent, wantKey)
             row.itemId = item.id
             local hold, cb = MakeCheckButton(row, SETTINGS_SMALL_CHECK)
             hold:SetPoint("LEFT", 0, 0)
-            local icon = row:CreateTexture(nil, "ARTWORK")
-            icon:SetSize(16, 16)
+            local icon = MakeTinyIcon(row, SmoreSkills_CampingObjectIcon(item) or SmoreSkills_ProfessionIcon(item.profession))
             icon:SetPoint("LEFT", hold, "RIGHT", 4, 0)
-            icon:SetTexture(SmoreSkills_CampingObjectIcon(item) or SmoreSkills_ProfessionIcon(item.profession))
+            row.itemIcon = icon
+            row.item = item
             local labelBtn, text = MakeCheckLabel(row, cb, ApplySmallFont)
             labelBtn:SetPoint("LEFT", icon, "RIGHT", 4, 0)
             labelBtn:SetPoint("RIGHT", row, "RIGHT", 0, 0)
@@ -729,7 +749,7 @@ function Settings:LayoutItemPicker(picker)
             group.header:ClearAllPoints()
             group.header:SetPoint("TOPLEFT", host, "TOPLEFT", 0, -y)
             group.header:SetPoint("RIGHT", host, "RIGHT", 0, 0)
-            y = y + (group.header:GetStringHeight() or SETTINGS_SMALL_SIZE) + GAP_TITLE
+            y = y + (group.header:GetHeight() or SETTINGS_SMALL_SIZE) + GAP_TITLE
             for _, row in ipairs(group.rows) do
                 row:Show()
                 row:ClearAllPoints()
@@ -737,6 +757,12 @@ function Settings:LayoutItemPicker(picker)
                 row:SetPoint("RIGHT", host, "RIGHT", 0, 0)
                 if row.checkbox then
                     row.checkbox:SetChecked(SmoreSkills_WantHasItem(wantKey, row.itemId))
+                end
+                if row.itemIcon then
+                    row.itemIcon:SetTexture(
+                        (row.item and SmoreSkills_CampingObjectIcon(row.item))
+                            or SmoreSkills_ProfessionIcon(row.item and row.item.profession)
+                    )
                 end
                 y = y + ITEM_ROW_H
                 shown = shown + 1
@@ -945,14 +971,17 @@ function Settings:BuildHostProfessionPicker(parent, anchor)
         row.profId = prof.id
         local hold, cb = MakeCheckButton(row, SETTINGS_SMALL_CHECK)
         hold:SetPoint("LEFT", 0, 0)
+        local icon = MakeTinyIcon(row, SmoreSkills_ProfessionIcon(prof.id))
+        icon:SetPoint("LEFT", hold, "RIGHT", 4, 0)
         local labelBtn, text = MakeCheckLabel(row, cb, ApplySmallFont)
-        labelBtn:SetPoint("LEFT", hold, "RIGHT", 4, 0)
+        labelBtn:SetPoint("LEFT", icon, "RIGHT", 4, 0)
         labelBtn:SetPoint("RIGHT", row, "RIGHT", 0, 0)
         labelBtn:SetPoint("TOP", row, "TOP", 0, 0)
         labelBtn:SetPoint("BOTTOM", row, "BOTTOM", 0, 0)
         text:SetText(prof.label)
         row.checkbox = cb
         row.label = text
+        row.profIcon = icon
         cb:SetScript("OnClick", function()
             SmoreSkills_SetHostProfession(prof.id)
             Settings:RefreshHostProfessionPicker()
