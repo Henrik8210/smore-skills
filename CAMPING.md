@@ -142,7 +142,7 @@ When their signals **match**, the night elf sees a **map pin**: a bonfire icon w
 
 **One camp at a time.** Lighting a **new** campfire (Auto host) packs up the previous pin (`X:`) and hosts the new site — Elwynn then Stormwind does not leave both pins. Walking away, or `/smores host` without a new fire, keeps the **original fire coords**. Pack-up (right-click own pin or `/smores pack`) also ends the camp. There is no `/smores here` snapshot command; sharing a fire is host only.
 
-**The host's pin is local.** Lighting a fire writes the camp into *your* addon and draws it on *your* map. Slot 1 and the Host tooltip line use the Host-tab profession. A seeker only draws that pin after **their** client receives your host ping (`H:`). Standing next to each other is not enough.
+The **host's pin is local.** Lighting a fire writes a per-character snapshot and draws it on *your* map. `/reload` (or logging out and back in within the pin TTL) restores it until pack-up, 3/3, or 20 min — hosting is not RAM-only. Slot 1 and the Host tooltip line use the Host-tab profession. A seeker only draws that pin after **their** client receives your host ping (`H:`). Standing next to each other is not enough.
 
 ## Two roles
 
@@ -318,7 +318,7 @@ Earlier that evening: lighting printed *Interface action failed*, then *Wait a m
 
 `/smores status` — channel joined, hosting/seeking, trades, zone, map view, seeker filter.
 
-### Shipped (v0.5.67) vs Forever live (17–18 Sep)
+### Shipped (v0.5.69) vs Forever live (17–18 Sep)
 
 | Feature | TBC Anniversary | Forever live (Zephras) |
 | --- | --- | --- |
@@ -331,7 +331,7 @@ Earlier that evening: lighting printed *Interface action failed*, then *Wait a m
 | Host socket objects | n/a | Only recipes this character has learned (open the profession window once). **Tanning** is not an object. Guest sockets still mark by hand. |
 | Object icons | Stand-ins until Forever textures | Item ID / trainer/`C_Spell`. Banner = your faction. Tent Wowhead file is still scrap. |
 | Auto-read placed objects | No | Still no API — host marks sockets by hand |
-| Pin lifetime | 20 min from lit fire | Still up after 10 min (18 Sep). 1 hour is feature CD / buffs |
+| Pin lifetime | 20 min from lit fire | Still up after 10 min (18 Sep). 1 hour is feature CD / buffs. `/reload` keeps the host pin |
 | Two-client share | Passed 16 Sep | **Not re-tested** (18 Sep was trainer/icon pass) |
 
 ---

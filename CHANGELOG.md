@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.5.69
+
+- Hosted camp persists across `/reload` in a per-character snapshot (`SmoreSkillsHostDB`). The pin and `/smores camp` stay until the **20 min** clock, pack-up, or 3/3.
+- CurseForge **beta** `v0.5.69-beta`.
+
+## v0.5.68
+
+- Tried to keep the hosted camp in `SmoreSkillsDB.camps` across `/reload`; that table was still written empty, so the pin dropped.
+
 ## v0.5.67
 
 - World-map pin tooltip lists the short benefit after each known camping object (`Camp Chair — +2% crit`), so seekers can see what they gain by sitting down.

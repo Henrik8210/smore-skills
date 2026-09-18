@@ -377,7 +377,20 @@ function Sync:GetSeekListenRemaining()
 end
 
 function Sync:IsHosting()
-    return SmoreSkills_Now() < (self.hostingUntil or 0)
+    if SmoreSkills_Now() < (self.hostingUntil or 0) then
+        return true
+    end
+    local camp = SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp()
+    if not camp then
+        return false
+    end
+    local untilAt = (SmoreSkills_CampLitTime(camp) or 0) + (SmoreSkills.CAMPFIRE_DURATION or 1200)
+    if SmoreSkills_Now() >= untilAt then
+        return false
+    end
+    self.hostCampId = camp.id
+    self.hostingUntil = untilAt
+    return true
 end
 
 function Sync:GetSeekCooldownRemaining()
@@ -477,6 +490,11 @@ function Sync:PackUpCamp(camp, opts)
     end
     camp.packed = true
     camp.packedAt = SmoreSkills_Now()
+    if SmoreSkills_ClearOwnedHostSnapshot then
+        SmoreSkills_ClearOwnedHostSnapshot()
+    elseif SmoreSkillsDB then
+        SmoreSkillsDB.hostCampId = nil
+    end
     self:StopHosting()
     local msg = self:EncodePacked(camp)
     if msg then
@@ -992,6 +1010,53 @@ end
 function Sync:OnLogin()
     joinAttempts = 0
     self:JoinCommunity(false)
+    self:RestoreHostSession()
+end
+
+-- Per-character HostDB keeps the fire. /reload must not drop the pin or /smores camp.
+function Sync:RestoreHostSession()
+    local camp
+    if SmoreSkills_RestoreOwnedHost then
+        camp = SmoreSkills_RestoreOwnedHost()
+    end
+    if (not camp or not SmoreSkills_CampPinActive(camp)) and SmoreSkillsDB and SmoreSkillsDB.hostCampId and SmoreSkillsDB.camps then
+        camp = SmoreSkillsDB.camps[SmoreSkillsDB.hostCampId]
+        if camp and (camp.packed or not SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName())) then
+            camp = nil
+        end
+    end
+    if (not camp or not SmoreSkills_CampPinActive(camp)) and SmoreSkills_GetOwnedActiveCamp then
+        camp = SmoreSkills_GetOwnedActiveCamp()
+    end
+    if not camp or not SmoreSkills_CampPinActive(camp) then
+        if SmoreSkills_ClearOwnedHostSnapshot then
+            SmoreSkills_ClearOwnedHostSnapshot()
+        elseif SmoreSkillsDB then
+            SmoreSkillsDB.hostCampId = nil
+        end
+        return false
+    end
+    camp.source = "host"
+    self.hostCampId = camp.id
+    self.hostingUntil = (SmoreSkills_CampLitTime(camp) or SmoreSkills_Now()) + (SmoreSkills.CAMPFIRE_DURATION or 1200)
+    SmoreSkillsDB.hostCampId = camp.id
+    if self.hostTickHandle and type(self.hostTickHandle) == "table" and self.hostTickHandle.Cancel then
+        pcall(function()
+            self.hostTickHandle:Cancel()
+        end)
+    elseif self.hostTickHandle and C_Timer and C_Timer.CancelTimer then
+        pcall(C_Timer.CancelTimer, self.hostTickHandle)
+    end
+    self.hostTickHandle = nil
+    if C_Timer and C_Timer.After then
+        self.hostTickHandle = C_Timer.After(HOST_COOLDOWN, function()
+            self:HostHeartbeat()
+        end)
+    end
+    if SmoreSkills.Map and SmoreSkills.Map.RefreshPins then
+        SmoreSkills.Map:RefreshPins()
+    end
+    return true
 end
 
 function Sync:TryOutbound()
@@ -1696,6 +1761,12 @@ function Sync:HostHere(fromHardware, newFire)
     self.hostTickHandle = nil
     self.hostCampId = camp.id
     self.hostingUntil = camp.litAt + SmoreSkills.CAMPFIRE_DURATION
+    if SmoreSkillsDB then
+        SmoreSkillsDB.hostCampId = camp.id
+    end
+    if SmoreSkills_SnapshotOwnedHost then
+        SmoreSkills_SnapshotOwnedHost()
+    end
     if C_Timer and C_Timer.After then
         self.hostTickHandle = C_Timer.After(HOST_COOLDOWN, function()
             self:HostHeartbeat()

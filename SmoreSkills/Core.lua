@@ -7,16 +7,11 @@ if not strtrim then
 end
 
 SmoreSkills = SmoreSkills or {}
-SmoreSkills.VERSION = "0.5.67"
+SmoreSkills.VERSION = "0.5.69"
 SmoreSkills.AUTHOR = "Weber8210"
 SmoreSkills.TESTER = "Stik"
 SmoreSkills.LOGO = "Interface\\AddOns\\SmoreSkills\\Art\\SmoreSkillsLogo"
 SmoreSkills.ICON = "Interface\\AddOns\\SmoreSkills\\Art\\SmoreSkillsIcon"
-
-SmoreSkillsDB = SmoreSkillsDB or {
-    camps = {},
-    settings = { dataVersion = 1 },
-}
 
 function SmoreSkills_Now()
     if GetServerTime then
@@ -63,16 +58,28 @@ end
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
+frame:RegisterEvent("PLAYER_LOGOUT")
 frame:SetScript("OnEvent", function(_, event, name)
     if event == "ADDON_LOADED" and name == ADDON_NAME then
         SmoreSkillsDB = SmoreSkillsDB or { camps = {}, settings = { dataVersion = 1 } }
         SmoreSkillsDB.camps = SmoreSkillsDB.camps or {}
         SmoreSkillsDB.settings = SmoreSkillsDB.settings or { dataVersion = 1 }
         SmoreSkillsDB.learnedCamping = SmoreSkillsDB.learnedCamping or {}
+        SmoreSkillsHostDB = SmoreSkillsHostDB or {}
+        if SmoreSkills_RestoreOwnedHost then
+            SmoreSkills_RestoreOwnedHost()
+        end
         if SmoreSkills.Sync and SmoreSkills.Sync.Init then
             SmoreSkills.Sync:Init()
         end
+    elseif event == "PLAYER_LOGOUT" then
+        if SmoreSkills_SnapshotOwnedHost then
+            SmoreSkills_SnapshotOwnedHost()
+        end
     elseif event == "PLAYER_LOGIN" then
+        if SmoreSkills_RestoreOwnedHost then
+            SmoreSkills_RestoreOwnedHost()
+        end
         SmoreSkills_EnsureSettings()
         SmoreSkills_Print(string.format(
             "%s By %s loaded. Host a camp by placing down a Basic Campfire Kit or find camps in your zone by clicking the s'more on your world map. Happy camping :)",

@@ -1130,6 +1130,9 @@ function SmoreSkills_ApplyHostWantToCamp(camp, force)
 end
 
 function SmoreSkills_NotifyHostCampUi()
+    if SmoreSkills_SnapshotOwnedHost then
+        SmoreSkills_SnapshotOwnedHost()
+    end
     if SmoreSkills.HostPanel and SmoreSkills.HostPanel.Refresh then
         SmoreSkills.HostPanel:Refresh()
     end
@@ -2263,9 +2266,13 @@ function SmoreSkills_CampHiddenReason(camp, mapId, seekerProfession)
 end
 
 -- Map pins are hosts only. Seekers never get a pin; leftover C: snapshots do not show.
+-- Your own fire lives in SavedVariables — after /reload it is still a host pin.
 function SmoreSkills_IsHostedCamp(camp)
     if not camp then
         return false
+    end
+    if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
+        return true
     end
     if camp.source == "host" then
         return true
@@ -2644,13 +2651,149 @@ function SmoreSkills_GetOwnedActiveCamp()
     local me = SmoreSkills_PlayerName()
     local best = nil
     for _, camp in pairs(SmoreSkillsDB.camps or {}) do
-        if SmoreSkills_PlayerNamesMatch(camp.owner, me) and SmoreSkills_CampPinActive(camp) and SmoreSkills_IsHostedCamp(camp) then
-            if not best or (camp.litAt or 0) > (best.litAt or 0) then
-                best = camp
+        if SmoreSkills_PlayerNamesMatch(camp.owner, me) and not camp.packed then
+            if (not tonumber(camp.litAt) or tonumber(camp.litAt) <= 0) and camp.updatedAt then
+                camp.litAt = tonumber(camp.updatedAt)
+            end
+            if SmoreSkills_CampPinActive(camp) then
+                camp.source = "host"
+                if not best or (camp.litAt or 0) > (best.litAt or 0) then
+                    best = camp
+                end
             end
         end
     end
     return best
+end
+
+local function WipeHostDB(db)
+    db = db or SmoreSkillsHostDB
+    if type(db) ~= "table" then
+        SmoreSkillsHostDB = {}
+        return SmoreSkillsHostDB
+    end
+    if wipe then
+        wipe(db)
+    else
+        for k in pairs(db) do
+            db[k] = nil
+        end
+    end
+    return db
+end
+
+local function EnsureHostDB()
+    if type(SmoreSkillsHostDB) ~= "table" then
+        SmoreSkillsHostDB = {}
+    end
+    return SmoreSkillsHostDB
+end
+
+function SmoreSkills_ClearOwnedHostSnapshot()
+    local db = EnsureHostDB()
+    WipeHostDB(db)
+    db.v = 1
+    if SmoreSkillsDB then
+        SmoreSkillsDB.hostCampId = nil
+    end
+end
+
+-- Flat primitives only. Nested camp tables in SmoreSkillsDB.camps did not survive /reload.
+function SmoreSkills_SnapshotOwnedHost()
+    local camp = SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp()
+    if not camp or not SmoreSkills_CampPinActive(camp) then
+        return
+    end
+    local db = EnsureHostDB()
+    local id = camp.id or SmoreSkills_CampId(camp.mapId, camp.x, camp.y)
+    local litAt = tonumber(camp.litAt) or tonumber(camp.updatedAt) or SmoreSkills_Now()
+    local updatedAt = tonumber(camp.updatedAt) or litAt
+    WipeHostDB(db)
+    db.v = 1
+    db.id = id
+    db.mapId = tonumber(camp.mapId) or 0
+    db.x = tonumber(camp.x) or 0
+    db.y = tonumber(camp.y) or 0
+    db.zone = camp.zone or ""
+    db.faction = camp.faction or ""
+    db.owner = camp.owner or ""
+    db.want = camp.want or "any"
+    db.wantItems = camp.wantItems or ""
+    db.litAt = litAt
+    db.updatedAt = updatedAt
+    db.layer = tonumber(camp.layer) or 0
+    db.layerOrdinal = tonumber(camp.layerOrdinal) or 0
+    db.wantOverride = camp.wantOverride and 1 or 0
+    db.slot1Override = camp.slot1Override and 1 or 0
+    for i = 1, SmoreSkills.MAX_SLOTS do
+        local slot = camp.slots and camp.slots[i] or {}
+        db["p" .. i] = slot.profession or ""
+        db["o" .. i] = slot.object or ""
+        db["n" .. i] = slot.player or ""
+    end
+    if SmoreSkillsDB then
+        SmoreSkillsDB.hostCampId = id
+    end
+end
+
+function SmoreSkills_RestoreOwnedHost()
+    local db = SmoreSkillsHostDB
+    if type(db) ~= "table" then
+        return nil
+    end
+    local mapId = tonumber(db.mapId)
+    local x, y = tonumber(db.x), tonumber(db.y)
+    if not mapId or mapId <= 0 or not x or not y then
+        return nil
+    end
+    local camp = {
+        id = db.id or SmoreSkills_CampId(mapId, x, y),
+        mapId = mapId,
+        x = x,
+        y = y,
+        zone = (db.zone ~= "" and db.zone) or nil,
+        faction = (db.faction ~= "" and db.faction) or nil,
+        owner = (db.owner ~= "" and db.owner) or nil,
+        want = db.want or "any",
+        wantItems = db.wantItems or "",
+        source = "host",
+        litAt = tonumber(db.litAt) or tonumber(db.updatedAt),
+        updatedAt = tonumber(db.updatedAt) or tonumber(db.litAt),
+        layer = tonumber(db.layer),
+        layerOrdinal = tonumber(db.layerOrdinal),
+        wantOverride = tonumber(db.wantOverride) == 1 or nil,
+        slot1Override = tonumber(db.slot1Override) == 1 or nil,
+        slots = {},
+    }
+    if not camp.litAt or camp.litAt <= 0 then
+        camp.litAt = SmoreSkills_Now()
+        camp.updatedAt = camp.updatedAt or camp.litAt
+    end
+    if camp.layer == 0 then
+        camp.layer = nil
+    end
+    if camp.layerOrdinal == 0 then
+        camp.layerOrdinal = nil
+    end
+    for i = 1, SmoreSkills.MAX_SLOTS do
+        local p = db["p" .. i]
+        local o = db["o" .. i]
+        local n = db["n" .. i]
+        camp.slots[i] = {
+            index = i,
+            profession = (type(p) == "string" and p ~= "" and p) or nil,
+            object = (type(o) == "string" and o ~= "" and o) or nil,
+            player = (type(n) == "string" and n ~= "" and n) or nil,
+        }
+    end
+    if not SmoreSkills_CampPinActive(camp) then
+        return nil
+    end
+    SmoreSkillsDB = SmoreSkillsDB or { camps = {}, settings = { dataVersion = 1 } }
+    SmoreSkillsDB.camps = SmoreSkillsDB.camps or {}
+    SmoreSkillsDB.camps[camp.id] = camp
+    SmoreSkillsDB.hostCampId = camp.id
+    return camp
 end
 
 function SmoreSkills_ForEachOwnedActiveCamp(callback)
@@ -2915,8 +3058,21 @@ function SmoreSkills_ForgetStaleCamps(maxAge)
     maxAge = maxAge or (30 * 60)
     SmoreSkills_ClearTestCamps()
     local now = SmoreSkills_Now()
+    local me = SmoreSkills_PlayerName()
     for id, camp in pairs(SmoreSkillsDB.camps or {}) do
-        if (now - (camp.updatedAt or 0)) > maxAge then
+        local owned = SmoreSkills_PlayerNamesMatch(camp.owner, me)
+        local liveOwned = owned and not camp.packed and SmoreSkills_CampPinActive(camp)
+        if liveOwned then
+            -- Hosted fire stays until pack / 3/3 / 20 min, including across /reload.
+        elseif owned then
+            SmoreSkillsDB.camps[id] = nil
+            if SmoreSkills.Sync and SmoreSkills.Sync.seekDiscoveredIds then
+                SmoreSkills.Sync.seekDiscoveredIds[id] = nil
+            end
+            if SmoreSkillsHostDB and SmoreSkillsHostDB.id == id and SmoreSkills_ClearOwnedHostSnapshot then
+                SmoreSkills_ClearOwnedHostSnapshot()
+            end
+        elseif (now - (camp.updatedAt or camp.litAt or 0)) > maxAge then
             SmoreSkillsDB.camps[id] = nil
             if SmoreSkills.Sync and SmoreSkills.Sync.seekDiscoveredIds then
                 SmoreSkills.Sync.seekDiscoveredIds[id] = nil

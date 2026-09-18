@@ -4,7 +4,7 @@ Find **WoW Forever** campsites while you level: see fires near you, which of the
 
 **Testing now:** Forever is the product. `_classic_beta_` (1.60.1) when servers are up; TBC Anniversary (`_anniversary_`) only for two-client share while they are down. See [CAMPING.md](CAMPING.md) and [FOREVER.md](FOREVER.md).
 
-**CurseForge:** beta `v0.5.65-beta` for **WoW Forever 1.60.1**. `CF_API_KEY` secret + version tag via GitHub Actions (webhook stays off). See [GUIDELINES.md](GUIDELINES.md). Last full file was **v0.5.62**.
+**CurseForge:** beta `v0.5.69-beta` for **WoW Forever 1.60.1**. `CF_API_KEY` secret + version tag via GitHub Actions (webhook stays off). See [GUIDELINES.md](GUIDELINES.md). Last full file was **v0.5.62**.
 
 ## The idea
 
@@ -14,11 +14,11 @@ Meanwhile a blacksmith sits alone at a fire across the zone and sends a **host s
 
 All opt-in. No login dump. Community channel, not guild chat.
 
-## Status (v0.5.65)
+## Status (v0.5.69)
 
 | | |
 | --- | --- |
-| **Sync** | Seek/host/pack (`S:` / `H:` / `X:`), matching, rate limits, same-faction filter. Host keeps the **fire coords** if you walk away. |
+| **Sync** | Seek/host/pack (`S:` / `H:` / `X:`), matching, rate limits, same-faction filter. Host keeps the **fire coords** if you walk away. `/reload` restores your hosted pin until pack-up, 3/3, or 20 min. |
 | **Map** | Zone pins for **hosts only** (bonfire + sockets); hidden at continent/world zoom. Find button, custom hover tooltip, seek fade pulse. Nested city maps (Elwynn/Stormwind) still draw zone pins. |
 | **Minimap** | S'more icon opens world map; right-click settings; drag to move (can hide or lock in General) |
 | **Settings** | Larger centered window. General: auto-host, pin size, minimap, chat, guild mark, cross-layer. Host/Seeker profession + camping-object filters |
