@@ -5,7 +5,7 @@ Forever camping finder. Protocol and UX are documented in [CAMPING.md](CAMPING.m
 - **Remote:** https://github.com/Henrik8210/smore-skills
 - **Addon folder:** `SmoreSkills/` (no apostrophe — WoW toc/folder rule)
 - **Title:** S'more Skills
-- **Version:** 0.5.62 (CurseForge `v0.5.62` for **WoW Forever 1.60.1**)
+- **Version:** 0.5.64 (CurseForge beta `v0.5.64-beta`; last full tag `v0.5.62` for **WoW Forever 1.60.1**)
 
 ## WoW install paths
 
@@ -15,11 +15,11 @@ Forever camping finder. Protocol and UX are documented in [CAMPING.md](CAMPING.m
 | **Forever** (beta 17 Sep) | `_classic_beta_\Interface\AddOns\` | `16001` (game 1.60.1); keep `20505`/`20506` for Anniversary. Battle.net product is `wow_classic_beta` — there is no `_forever_` folder. |
 
 ```powershell
-# Testing on TBC Anniversary (default until Forever beta)
-.\scripts\deploy-to-wow.ps1 -Client anniversary
-
-# Forever when the client exists
+# Forever (product)
 .\scripts\deploy-to-wow.ps1 -Client forever
+
+# Anniversary — two-client share only
+.\scripts\deploy-to-wow.ps1 -Client anniversary
 ```
 
 After Forever beta lands: read `## Interface:` from the client’s `FrameXML.toc`, update `SmoreSkills.toc`, and re-test map hooks. Forever uses the **retail/Mainline addon API** (Midnight-style restrictions), not Classic — see [FOREVER.md](FOREVER.md). **Forever world map layout and Thursday smoke test:** [FOREVER.md](FOREVER.md).
@@ -33,6 +33,7 @@ After Forever beta lands: read `## Interface:` from the client’s `FrameXML.toc
 | `Sync.lua` | Channel join, seek/host/pack, rate limits |
 | `Map.lua` | World map pins, Find button, custom camp tooltip |
 | `Settings.lua` | Minimap button, settings popup (General / Host / Seeker) |
+| `HostPanel.lua` | Host camp panel (sockets + this-camp request chips) |
 | `UI.lua` | Legacy camp list window (minimal; camps live on map) |
 | `Commands.lua` | Slash commands |
 | `Art/` | `SmoreSkillsLogo` (512, addon list) + `SmoreSkillsIcon` (64, minimap/settings — sized for small circular frames) |
@@ -47,6 +48,7 @@ Logo paths: `SmoreSkills.LOGO` (full art), `SmoreSkills.ICON` (cropped, minimap/
 | `/smores list` | Print visible hosted camps in this zone (max 12, same as map pins) |
 | `/smores find` | Seek camps in zone |
 | `/smores host` | Re-share the current fire (walk-away keeps those coords) |
+| `/smores camp` | Host camp panel (sockets + this-camp requests) |
 | `/smores stop` | Stop hosting rebroadcasts |
 | `/smores pack` | Pack up your camp (same Yes/No confirm as the map pin) |
 | `/smores status` | Channel, hosting/seeking, trades, zone, map view |

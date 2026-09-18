@@ -2,7 +2,7 @@ SmoreSkills = SmoreSkills or {}
 SmoreSkills.Settings = SmoreSkills.Settings or {}
 
 local Settings = SmoreSkills.Settings
-local SETTINGS_UI_BUILD = 57
+local SETTINGS_UI_BUILD = 63
 local ICON = SmoreSkills.ICON or "Interface\\Icons\\Spell_Fire_Fire"
 local POPUP_WIDTH = 720
 local POPUP_HEIGHT = 620
@@ -284,6 +284,7 @@ local COMMAND_HELP = {
     { "/smores", "Open these settings. Also /sms or /smoreskills." },
     { "/smores find", "Look for camps in this zone. Also /smores seek." },
     { "/smores host", "Share your campfire with seekers." },
+    { "/smores camp", "Open the host camp panel again if you closed it. Also left-click your map pin." },
     { "/smores stop", "Stop hosting." },
     { "/smores pack", "Pack up your camp (asks you to confirm, same as the map pin)." },
     { "/smores status", "Show channel, hosting, and seeking status." },
@@ -636,7 +637,7 @@ local function CreateItemPicker(parent, wantKey)
     empty:SetPoint("TOPLEFT", 2, -2)
     empty:SetPoint("RIGHT", wrap, "RIGHT", 0, 0)
     empty:SetJustifyH("LEFT")
-    empty:SetText("Tick a profession above to pick camping items.")
+        empty:SetText("Tick a profession above to pick camping objects.")
     wrap.empty = empty
 
     for _, prof in ipairs(SmoreSkills.PROFESSIONS) do
@@ -652,8 +653,12 @@ local function CreateItemPicker(parent, wantKey)
             row.itemId = item.id
             local hold, cb = MakeCheckButton(row, SETTINGS_SMALL_CHECK)
             hold:SetPoint("LEFT", 0, 0)
+            local icon = row:CreateTexture(nil, "ARTWORK")
+            icon:SetSize(16, 16)
+            icon:SetPoint("LEFT", hold, "RIGHT", 4, 0)
+            icon:SetTexture(SmoreSkills_CampingObjectIcon(item) or SmoreSkills_ProfessionIcon(item.profession))
             local labelBtn, text = MakeCheckLabel(row, cb, ApplySmallFont)
-            labelBtn:SetPoint("LEFT", hold, "RIGHT", 4, 0)
+            labelBtn:SetPoint("LEFT", icon, "RIGHT", 4, 0)
             labelBtn:SetPoint("RIGHT", row, "RIGHT", 0, 0)
             labelBtn:SetPoint("TOP", row, "TOP", 0, 0)
             labelBtn:SetPoint("BOTTOM", row, "BOTTOM", 0, 0)
@@ -922,7 +927,7 @@ function Settings:BuildHostProfessionPicker(parent, anchor)
     label:SetJustifyH("LEFT")
     ApplyTitleFont(label)
     label:SetTextColor(1, 1, 1)
-    label:SetText("Profession you are using at this camp")
+    label:SetText("Default profession when you host a camp")
     block.heading = label
 
     local empty = block:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -954,7 +959,10 @@ function Settings:BuildHostProfessionPicker(parent, anchor)
             local camp = (SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp())
                 or (SmoreSkills_GetLocalCamp and SmoreSkills_GetLocalCamp())
             if camp then
-                SmoreSkills_ApplyHostProfession(camp)
+                SmoreSkills_ApplyHostProfession(camp, true)
+                if SmoreSkills.Sync and SmoreSkills.Sync.IsHosting and SmoreSkills.Sync:IsHosting() then
+                    SmoreSkills_ShareOwnedCampFromClick()
+                end
             end
             RefreshAll()
         end)
@@ -1078,6 +1086,9 @@ function Settings:ShowPopup()
     self:SelectTab(self.activeTab or "general")
     self:CenterPopup()
     self.frame:Show()
+    if SmoreSkills.HostPanel and SmoreSkills.HostPanel.HideMenu then
+        SmoreSkills.HostPanel:HideMenu()
+    end
     local function relayout()
         Settings:LayoutHostPage()
         Settings:LayoutSeekerPage()
@@ -1399,11 +1410,17 @@ function Settings:BuildHostPanel(parent)
     self.hostPage = page
     local content = page.content
 
-    local title = CreateSectionTitle(content, "Host", -GAP_TITLE)
-    local profBlock = self:BuildHostProfessionPicker(content, title)
+    local title = CreateSectionTitle(content, "Host defaults", -GAP_TITLE)
+    self.hostDefaultsHint = CreateHint(
+        content,
+        "These apply every time you host a new camp. The camp panel can change them for the fire you have up now — that does not edit these defaults.",
+        title,
+        -GAP_HINT
+    )
+    local profBlock = self:BuildHostProfessionPicker(content, self.hostDefaultsHint)
     self.hostFilter = CreateCheckbox(
         content,
-        "Only have your camp appear on the map to players with specific professions",
+        "By default, only show your camp to players with specific professions",
         profBlock,
         -GAP_SECTION
     )
@@ -1427,7 +1444,7 @@ function Settings:BuildHostPanel(parent)
 
     self.hostItemHint = CreateItemHeading(
         content,
-        "Optional: Request up to 3 camping items you want campers to bring.",
+        "Optional default: request camping objects you want campers to bring.",
         self.hostGridArea,
         -GAP_SECTION
     )
@@ -1472,7 +1489,7 @@ function Settings:BuildSeekerPanel(parent)
 
     self.seekerItemHint = CreateItemHeading(
         content,
-        "Optional: Only find camps that have at least one of these camping items (pick up to 3)",
+        "Optional: Only find camps that have at least one of these camping objects.",
         self.seekerGridArea,
         -GAP_SECTION
     )
@@ -1510,6 +1527,7 @@ function Settings:Init()
         self.hostItemPicker = nil
         self.seekerItemPicker = nil
         self.hostItemHint = nil
+        self.hostDefaultsHint = nil
         self.seekerItemHint = nil
         self.seekerItemSubtext = nil
         self.hostFilter = nil

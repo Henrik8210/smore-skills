@@ -61,7 +61,7 @@ function UI:Init()
     hint:SetPoint("TOPLEFT", 18, -84)
     hint:SetPoint("RIGHT", -18, 0)
     hint:SetJustifyH("LEFT")
-    hint:SetText("/smores slot 1 bs  ·  /smores prof lw  ·  /smores want any")
+        hint:SetText("/smores camp  ·  /smores prof lw  ·  /smores want any")
 
     local scroll = CreateFrame("ScrollFrame", "SmoreSkillsScroll", f, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", 16, -102)

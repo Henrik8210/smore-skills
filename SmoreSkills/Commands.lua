@@ -26,6 +26,12 @@ local function HandleSlash(msg)
         SmoreSkills.Sync:HostHere(true)
         return
     end
+    if lower == "camp" then
+        if SmoreSkills.HostPanel and SmoreSkills.HostPanel.Toggle then
+            SmoreSkills.HostPanel:Toggle()
+        end
+        return
+    end
     if lower == "stop" then
         SmoreSkills.Sync:StopHosting()
         SmoreSkills_Reply("Stopped hosting.")

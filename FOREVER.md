@@ -1,16 +1,18 @@
 # WoW Forever — beta notes
 
-**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). TBC Anniversary remains the two-client share testbed. Last CurseForge file before this pass was **beta** `v0.5.49-beta`.
+**Product is Forever.** TBC Anniversary is only the two-client share testbed. Do not design for Anniversary and back-port.
+
+**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). Servers dropped overnight; they were **up again 18 Sep**. Last CurseForge full file before this pass was **v0.5.62**. This pass is CurseForge **beta** `v0.5.64-beta`.
 
 ---
 
 ## Live beta log (17–18 Sep, Zephras Isle)
 
-Horde Skyborne shaman **No Bunda**, Shen'dar Village / Zephras wilderness. Servers went down before Engineering / Leatherworking trainers and a two-client share test.
+Horde Skyborne shaman **No Bunda**, Shen'dar Village / Zephras wilderness. First night ended before Engineering / Leatherworking trainers and a two-client share test. **18 Sep** trainers were reachable again (blacksmith, leatherworker, tailor, enchanter on the same fire).
 
 ### Client
 
-- Battle.net folder is `_classic_beta_` (`WowB.exe`). No `_forever_` folder.
+- Battle.net folder is `_classic_beta_` (`WowB.exe`). No `_forever_` folder. Deploy: `.\scripts\deploy-to-wow.ps1 -Client forever`
 - Addon API is **Mainline** (secrets, chat lockdown, `JoinPermanentChannel` / `SendChatMessage` / timer `SendAddonMessage` are Blizzard-only).
 - First login: `MaximizeMinimizeFrame` is a **Frame** with child buttons. Hooking `OnClick` on the Frame aborted map init (no minimap). Hook the buttons; skip script types the widget does not support.
 
@@ -18,9 +20,9 @@ Horde Skyborne shaman **No Bunda**, Shen'dar Village / Zephras wilderness. Serve
 
 - **Map & Quest Log** (map + quest list). Breadcrumb **World > Zephras Isle** (no Kalimdor).
 - Zephras is typed like a **Continent** under World but it is the playable camping map. Pins must draw on leaf continent-typed islands; hide EK / Kalimdor overview (many zone children).
-- Saved camp example: mapId **2521**, coords like `0.432, 0.239` / player chrome **44.4, 43.4**.
+- Saved camp example: mapId **2521**, coords like `0.432, 0.239` / player chrome **44.4, 43.4**. Host camp panel on 18 Sep showed **Zephras Isle 46.8, 45.2**.
 - Own host pin worked after kit Use (v0.5.55+). Continent-typed hide was why the first kit Use looked like “no pin.”
-- Two-client `H:` share and Find-button position on this chrome were **not** confirmed before servers died.
+- Two-client `H:` share and Find-button position on this chrome were **not** confirmed before servers died; still not re-tested on 18 Sep.
 
 ### How you place a fire
 
@@ -44,32 +46,54 @@ Forever pops *SmoreSkills has been blocked from an action only available to the 
 
 **Working rule:** lighting the kit writes a **local pin** only. Join + `H:` / `S:` / `X:` only from **Find** or `/smores host` (hardware). Heartbeat and seek-reply timers must not send. TBC still needs the click for chat `H:` as well.
 
-### Camping items (trainer **Camping** category, skill 20, 1 hour shared place CD)
+### Camping objects (trainer **Camping** category, skill 20, 1 hour shared place CD)
+
+Trainer list names are **Name (Tier I)**. Tooltips use the short name. Recipes are **spells** (craft, then Use at a fire) — not bag items.
 
 **Tanning** is Skinning’s *place-skill*, not an object. Cooking’s kit is the fire, not a slot filter.
 
-| Profession | Tier 1 object | Sit-nearby | Exclusive with |
-| --- | --- | --- | --- |
-| Alchemy | **Mana Well** | +10 Mana / 5s | Blessing of Wisdom |
-| Mining | **Lodestone** | +12 melee AP | Blessing of Might |
-| Blacksmithing | **Sharpening Wheel** | **+6 Strength** (pre-beta tooltip said +34) | Strength of Earth Totem |
-| Tailoring | **Faction Banner** | +14 Spirit (own faction) | Divine Spirit |
-| Enchanting | **Enchanted Lute** | +28 Armor | Mark of the Wild |
-| Herbalism | **Incense Candle** | +2 Intellect | Arcane Intellect |
-| Skinning | **Camp Chair** | +2% crit (spells and attacks) | Moonkin Aura |
-| First Aid | **First Aid Kit** | +3 Stamina | Power Word: Fortitude |
-| Cooking | **Basic Campfire Kit** | Places the fire | — |
-| Engineering | *not seen* | | |
-| Leatherworking | *Tier 1 not seen* (panel still lists **Tanning Rack** later) | | |
+| Profession | Tier 1 object | Reagents | Sit-nearby | Exclusive with |
+| --- | --- | --- | --- | --- |
+| Alchemy | **Mana Well** | Peacebloom, Empty Vial | +10 Mana / 5s | Blessing of Wisdom |
+| Mining | **Lodestone** | Rough Stone, Copper Bar | +12 melee AP | Blessing of Might |
+| Blacksmithing | **Sharpening Wheel** | Rough Stone, Copper Bar | **+6 Strength** (pre-beta tooltip said +34) | Strength of Earth Totem |
+| Tailoring | **Faction Banner** | Bolt of Linen Cloth, Coarse Thread | +14 Spirit (**own faction** only) | Divine Spirit |
+| Enchanting | **Enchanted Lute** | Simple Wood, Strange Dust | +28 Armor | Mark of the Wild |
+| Herbalism | **Incense Candle** | Peacebloom, Silverleaf | +2 Intellect | Arcane Intellect |
+| Skinning | **Camp Chair** | Light Leather (3), Simple Wood (2) | +2% crit (spells and attacks) | Moonkin Aura |
+| First Aid | **First Aid Kit** | Linen Bandage (3), Refreshing Spring Water | +3 Stamina | Power Word: Fortitude |
+| Leatherworking | **Camp Tent** (live 18 Sep) | Light Leather (5) | +5% of a level Rest XP (no extra if already above that) | — |
+| Cooking | **Basic Campfire Kit** | Flint and Tinder, 1 Simple Wood | Places the fire | — |
+| Engineering | *not seen* | | | |
 
-Host/Seeker filters label these **Camping items**. Hover in settings follows the cursor (reagents, Use, exclusive-with).
+**Camp Tent** live Use: *Builds a tent that allows you and others sitting nearby to increase Rested experience to 5% of a level. No effect if Rested experience already exceeds that value.* Requires a campfire nearby; all camping features share a 1 hour cooldown. Requires Leatherworking (20). Panel still lists **Tanning Rack** as a later LW object.
 
-### Still open when servers return
+Host/Seeker filters and the host camp panel label these **Camping objects**. Hover follows the cursor (reagents, Use, exclusive-with).
+
+### Object icons (18 Sep trainers)
+
+Live trainer art wins. Do not use profession icons when the slot names an object.
+
+| Object | Live trainer | Do not use |
+| --- | --- | --- |
+| Sharpening Wheel | Gold bar / ingot | Cog / gear (`INV_Misc_Gear_01`) |
+| Faction Banner | **Player’s faction** (Horde saw the dark Horde banner) | Alliance lion banner on Horde |
+| Enchanted Lute | Pale lute (not a woodwind) | Flute (`INV_Misc_Flute_01`) |
+| Camp Tent | Grey tent / canvas | Sack stand-in is wrong — fix later |
+
+Addon: copy the **open trainer row** (`GetTrainerServiceIcon` / trainer button texture) and `C_Spell` by recipe name. Faction Banner falls back to Horde `INV_Banner_03` / Alliance `INV_Banner_02`. Sockets, host-panel dropdown, and settings lists share `SmoreSkills_CampingObjectIcon`.
+
+### Host camp panel (v0.5.63+)
+
+Opens when you host (`/smores camp` or left-click own pin). Socket 1 = your profession or object; guest sockets can be marked by hand (no world API yet). Request chips are **this fire only**; Host settings stay the defaults until you edit them. Pin tooltip follows the camp copy, not settings.
+
+### Still open
 
 - Two-client share on Zephras (both click Find).
 - Find button visible on Map & Quest Log.
 - Time a **placed** fire for `CAMPFIRE_DURATION` (do not use the 1 hour feature CD or buff).
-- Engineering + Leatherworking Tier 1 names.
+- Engineering Tier 1 name.
+- Camp Tent live icon (addon still shows a sack stand-in).
 - Whether Zephras intro is an instance (chat lockdown).
 - Auto-read of world objects / slots (still no API).
 
@@ -216,7 +240,8 @@ If the isle map `mapType` is **Continent** (or World), treat that canvas like a 
 | Chat messages | General toggle; off mutes automatic addon chat. `/smores` still replies | Same |
 | Pin lifetime | Hide after **10 min from the lit fire** (same remaining time for every seeker), **3/3** slots, pack-up, or a **new** fire | **Unknown.** Live items: 1 hour is a **camping-feature cooldown**, not camp length. Marketing also said 1 hour **buffs**. Time the campsite on beta before changing `CAMPFIRE_DURATION`. |
 | Nearby awareness | None (our pins) | Player buff **Campfire Nearby** (no coords). Do not aura-scan. Pins are the finder. |
-| Skinning camp object | n/a | **Tanning** = place-skill. Object is **Camp Chair**. Also live: Lute, Incense, Lodestone, Wheel, Banner, **First Aid Kit**. |
+| Skinning camp object | n/a | **Tanning** = place-skill. Object is **Camp Chair**. Also live: Lute, Incense, Lodestone, Wheel, Banner, **Camp Tent**, **First Aid Kit**. |
+| Socket icons | Same Forever art (trainer/spell lookup; stand-ins if the client has no spell) | Live `C_Spell` / trainer icon. Banner = your faction. Camp Tent sack is a known miss. |
 | Who updates camp state | Host rebroadcasts (guests without addon cannot) | Host + addon users at fire when API allows |
 
 ---
@@ -242,7 +267,7 @@ Use **two same-faction characters** in the **same zone**.
 - [ ] Seeker: map **Find** button (or `/smores find`); minimap S'more icon opens map only
 - [ ] Bonfire pin appears at host coords on **zone** map
 - [ ] Seeker does **not** get a pin of their own — only hosted camps appear
-- [ ] Hover pin: custom tooltip with host line, three gold-ring sockets (profession or faded S'more if empty), coords
+- [ ] Hover pin: custom tooltip with host line, three gold-ring sockets (camping object icon, profession if unnamed, faded S'more if empty), coords
 - [ ] Minimap and Find button pulse while seeking
 - [ ] Right-click map Find button clears **other** pins; **own hosted pin stays**
 - [ ] Right-click own pin or `/smores pack` → pack-up confirm; seekers lose that pin immediately (`X:`)

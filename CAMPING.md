@@ -89,7 +89,7 @@ Quest text that matters for the addon:
 | Skinning | **Camp Chair** (live, skill 20). **Tanning** is the place-skill, not an object. | +2% crit, exclusive with Moonkin Aura |
 | First Aid | **First Aid Kit** (live, skill 20) | +3 Stamina, exclusive with Power Word: Fortitude |
 | Alchemy | **Mana Well** (live, skill 20) | +10 Mana / 5 sec, exclusive with Blessing of Wisdom |
-| Leatherworking | Tanning Rack (panel; not seen yet) | Advanced LW recipes |
+| Leatherworking | **Camp Tent** (live, skill 20); panel still lists **Tanning Rack** later | +5% of a level Rest XP (no extra if already above that) |
 | Cooking | **Basic Campfire Kit** (places the fire); upgraded campfires | **5 or 10** object slots (not Basic 3) |
 
 Cooking also teaches the **Basic Campfire** that *starts* a site. That is separate from the upgraded 5/10 fires.
@@ -161,8 +161,8 @@ When a host answers a seek, we do **not** `SendChatMessage` or `SendAddonMessage
 - **Seeker click** → one seek ping; listen for matching **host** pings; show those pins only. Seekers never get a pin of their own. Switches the map to the **player's zone** (not a nested city map).
 - **Host click** (while at/near a fire) → host ping with coords + slot state + who you want. Walking away does **not** move or drop the pin; we keep broadcasting the **fire's original coords**. Lighting a **new** campfire does move it: the old pin is packed (`X:`) and the new fire is the only campsite.
 - **Find right-click** → clear *other* people's markers. Your own hosted pin stays until the fire ends, the camp is full, or you pack up.
-- **Own pin right-click** or `/smores pack` → confirm pack-up. Sends `X:` so seekers drop that pin immediately (overrides the 10 min / 3/3 lifetime).
-- **Pin art:** bonfire + three sockets (profession icon, or faded greyscale S'more if empty). Hover: zone, coords, layer, `2/3`, owner, slot detail. Left-click whispers the host.
+- **Own pin left-click** or `/smores camp` → host camp panel (your socket + request chips for this fire). Own pin right-click or `/smores pack` → confirm pack-up. Sends `X:` so seekers drop that pin immediately (overrides the 10 min / 3/3 lifetime).
+- **Pin art:** bonfire + three sockets (camping **object** icon when the slot names one — live item texture on Forever, stored stand-in on Anniversary; profession icon if only a trade is set; faded greyscale S'more if empty). Hover: zone, coords, layer, `2/3`, owner, slot detail, camping-object requests. Left-click another host to whisper.
 - A green **G** on a pin or list row means a guildie is on that camp. Hint only — guild is not how data moves. You do not see **G** on your own hosted pin.
 - **`/smores list`** prints the same set as the map: hosted camps you can see, **max 12** per zone (not every camp still in memory).
 
@@ -227,7 +227,9 @@ Map id, x/y, zone name, faction, host/owner, **three slots** (player, profession
 
 ---
 
-# TBC Anniversary testbed (until Forever beta)
+# TBC Anniversary testbed (two-client share)
+
+**Forever is the product.** Implement Forever UX and APIs. Anniversary is only how we test two-client share. Do not keep profession-icon sockets or Classic-only shortcuts as the shipped look.
 
 **Forever beta:** 17 Sep 2026 — `_classic_beta_` install path (Battle.net product `wow_classic_beta`). Forever uses the **modern retail addon API and restrictions**, not Classic (details in [FOREVER.md](FOREVER.md)). Map layout, breadcrumb hierarchy, and beta checklist: [FOREVER.md](FOREVER.md).
 
@@ -256,7 +258,7 @@ TBC Anniversary has **no camping mechanic**. We still use it to prove:
 - Blizzard will not let you **place a new campfire within 100 yards** of an existing one. That is a game rule, not our pin spacing. Walk farther, then Use the kit.
 - Blizzard’s only “a camp is near you” cue is the player buff **Campfire Nearby** (“pleasant smoke … from somewhere nearby”). It has **no coords** and no map pin. That is why we share hosts on the zone map. Do **not** parse other players’ auras (or this buff) for location — retail secrets / lockdown; the buff is flavor, not a seeker API.
 - Skinning **Tanning** is the skill that lets you place camp features, not an object. Skinning’s trainer Camping item is **Camp Chair**.
-- **Every profession trainer** has a **Camping** category. Tier 1 is skill **20**, craft, then **Use** at a fire (campfire nearby; all features share a **1 hour** cooldown). Sit nearby for the buff. Live Zephras trainers:
+- **Every profession trainer** has a **Camping** category. List names are **Name (Tier I)**; tooltips use the short name. Tier 1 is skill **20**, craft, then **Use** at a fire (campfire nearby; all features share a **1 hour** cooldown). Sit nearby for the buff. Live Zephras trainers (18 Sep also confirmed **Camp Tent**):
 
 | Profession | Camping item (Tier 1) | Reagents | Sit-nearby buff | Exclusive with |
 | --- | --- | --- | --- | --- |
@@ -268,9 +270,14 @@ TBC Anniversary has **no camping mechanic**. We still use it to prove:
 | Herbalism | **Incense Candle** | Peacebloom, Silverleaf | +2 Intellect | Arcane Intellect |
 | Skinning | **Camp Chair** | Light Leather (3), Simple Wood (2) | +2% crit (spells and attacks) | Moonkin Aura |
 | First Aid | **First Aid Kit** | Linen Bandage (3), Refreshing Spring Water | +3 Stamina | Power Word: Fortitude |
+| Leatherworking | **Camp Tent** | Light Leather (5) | +5% of a level Rest XP (no extra if already above that) | — |
 | Cooking | **Basic Campfire Kit** | Flint and Tinder, 1 Simple Wood | Places the fire (not a slot object) | — |
 
-Cooking’s kit is the campsite, not a filterable slot. Host/seeker **Camping items** filters use the slot objects (Lodestone, Wheel, Banner, …). Pre-beta BS tooltip said **+34** Strength; live apprentice trainer is **+6**.
+Cooking’s kit is the campsite, not a filterable slot. Host/seeker **Camping objects** filters use the slot objects (Lodestone, Wheel, Banner, Camp Tent, …). Pre-beta BS tooltip said **+34** Strength; live apprentice trainer is **+6**.
+
+**Object icons (Forever, 18 Sep):** copy the trainer row. Sharpening Wheel is a **gold bar**, not a cog. Faction Banner is **your faction** (Horde ≠ Alliance lion). Enchanted Lute is a **lute**, not a flute. Camp Tent live art is a grey tent — addon sack stand-in is wrong (fix later).
+
+**Host camp panel:** after you place a fire, sockets + request chips for **this camp only**. Host settings remain defaults until you edit them. `/smores camp` or left-click your pin. Pin tooltip follows the camp copy.
 
 ### Two-client smoke test (Elwynn — **passed** 16 Sep 2026)
 
@@ -292,7 +299,7 @@ Earlier that evening: lighting printed *Interface action failed*, then *Wait a m
 
 `/smores status` — channel joined, hosting/seeking, trades, zone, map view, seeker filter.
 
-### Shipped (v0.5.62) vs Forever live (17–18 Sep)
+### Shipped (v0.5.64) vs Forever live (17–18 Sep)
 
 | Feature | TBC Anniversary | Forever live (Zephras) |
 | --- | --- | --- |
@@ -301,10 +308,12 @@ Earlier that evening: lighting printed *Interface action failed*, then *Wait a m
 | Join hidden channel | Login join OK | Join only from Find / `/smores host` |
 | Nearby cue | None | Buff **Campfire Nearby** (no coords — do not aura-scan) |
 | Pin on Zephras | n/a | Draw on leaf continent-typed isle maps (id **2521**) |
-| Camping-item filters | Placeholder names | Live Tier 1 list in [CAMPING.md](CAMPING.md) / Host-Seeker **Camping items** |
-| Auto-read placed objects | No | Still no API |
+| Camping-object filters | Placeholder names | Live Tier 1 list / Host-Seeker **Camping objects**. Host camp panel can override this fire only. |
+| LW Tier 1 | n/a | **Camp Tent** (Light Leather ×5, +5% of a level Rest XP) |
+| Object icons | Stand-ins | Trainer/`C_Spell`. Banner = your faction. Tent sack is a known miss. |
+| Auto-read placed objects | No | Still no API — host marks sockets by hand |
 | Pin lifetime | 10 min from lit fire | **Unmeasured** (1 hour is feature CD / buffs) |
-| Two-client share | Passed 16 Sep | **Not re-tested** (servers down) |
+| Two-client share | Passed 16 Sep | **Not re-tested** (18 Sep was trainer/icon pass) |
 
 ---
 

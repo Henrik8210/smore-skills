@@ -1,0 +1,855 @@
+SmoreSkills = SmoreSkills or {}
+SmoreSkills.HostPanel = SmoreSkills.HostPanel or {}
+
+local HostPanel = SmoreSkills.HostPanel
+local ICON = SmoreSkills.ICON or "Interface\\Icons\\Spell_Fire_Fire"
+local PANEL_BG = "Interface\\FrameGeneral\\UI-Background-Rock"
+local PANEL_EDGE = "Interface\\DialogFrame\\UI-DialogBox-Border"
+local CIRCLE_BG = "Interface\\Minimap\\UI-Minimap-Background"
+local CIRCLE_MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
+local PANEL_W = 340
+local SOCKET_SIZE = 32 * 1.5 * 2 * 0.8
+local SOCKET_GAP = 6
+local CHIP_H = 20
+local MENU_MAX_H = 272
+local MENU_SCROLL_W = 10
+local SOCKET_GOLD = { 0.92, 0.78, 0.28 }
+local TITLE_YELLOW = { 1, 0.82, 0.15 }
+
+local function SafeDesaturate(texture, desaturated)
+    if not texture then
+        return
+    end
+    if texture.SetDesaturated then
+        texture:SetDesaturated(desaturated)
+    elseif texture.SetVertexColor then
+        texture:SetVertexColor(desaturated and 0.55 or 1, desaturated and 0.55 or 1, desaturated and 0.55 or 1)
+    end
+end
+
+local function AddCircleMask(owner, texture, size)
+    if not owner.CreateMaskTexture or not texture.AddMaskTexture then
+        return nil
+    end
+    local mask = owner:CreateMaskTexture(nil, "ARTWORK")
+    mask:SetTexture(CIRCLE_MASK, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    mask:SetSize(size, size)
+    mask:SetPoint("CENTER", texture, "CENTER")
+    texture:AddMaskTexture(mask)
+    return mask
+end
+
+local function ApplyChrome(frame)
+    if frame.solidFill then
+        frame.solidFill:SetColorTexture(0.16, 0.13, 0.09, 0.97)
+    else
+        local fill = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
+        fill:SetAllPoints()
+        fill:SetColorTexture(0.16, 0.13, 0.09, 0.97)
+        frame.solidFill = fill
+    end
+    if not frame.SetBackdrop then
+        return
+    end
+    frame:SetBackdrop({
+        bgFile = PANEL_BG,
+        edgeFile = PANEL_EDGE,
+        tile = true,
+        tileSize = 32,
+        edgeSize = 16,
+        insets = { left = 5, right = 5, top = 5, bottom = 5 },
+    })
+    frame:SetBackdropColor(0.24, 0.19, 0.14, 0.97)
+    frame:SetBackdropBorderColor(0.48, 0.40, 0.30, 1)
+end
+
+local function CreateSocket(parent, size)
+    local btn = CreateFrame("Button", nil, parent)
+    btn:SetSize(size, size)
+    local gold = btn:CreateTexture(nil, "BACKGROUND")
+    gold:SetSize(size, size)
+    gold:SetPoint("CENTER")
+    gold:SetTexture(CIRCLE_BG)
+    gold:SetVertexColor(SOCKET_GOLD[1], SOCKET_GOLD[2], SOCKET_GOLD[3], 1)
+    btn.gold = gold
+    local inner = size - 6
+    local fill = btn:CreateTexture(nil, "ARTWORK", nil, -1)
+    fill:SetSize(inner, inner)
+    fill:SetPoint("CENTER")
+    fill:SetTexture(CIRCLE_BG)
+    fill:SetVertexColor(0.14, 0.11, 0.09, 1)
+    btn.fill = fill
+    local icon = btn:CreateTexture(nil, "ARTWORK", nil, 1)
+    icon:SetSize(inner * 0.80, inner * 0.80)
+    icon:SetPoint("CENTER")
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    AddCircleMask(btn, icon, inner * 0.80)
+    btn.icon = icon
+    local caption = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    caption:SetPoint("TOP", btn, "BOTTOM", 0, -3)
+    caption:SetWidth(size + 8)
+    caption:SetJustifyH("CENTER")
+    if caption.SetWordWrap then
+        caption:SetWordWrap(true)
+    end
+    caption:SetTextColor(0.75, 0.75, 0.75)
+    btn.caption = caption
+    return btn
+end
+
+local function StyleSocket(btn, slot, isYours)
+    if slot and slot.profession then
+        btn.icon:SetTexture(SmoreSkills_SlotIcon(slot))
+        SafeDesaturate(btn.icon, false)
+        btn.icon:SetVertexColor(1, 1, 1)
+        btn.icon:SetAlpha(1)
+        if slot.object and slot.object ~= "" then
+            btn.caption:SetText(slot.object)
+        else
+            btn.caption:SetText(isYours and "You" or SmoreSkills_ProfessionLabel(slot.profession))
+        end
+        btn.caption:SetTextColor(TITLE_YELLOW[1], TITLE_YELLOW[2], TITLE_YELLOW[3])
+    else
+        btn.icon:SetTexture(ICON)
+        SafeDesaturate(btn.icon, true)
+        btn.icon:SetVertexColor(0.65, 0.65, 0.65)
+        btn.icon:SetAlpha(0.22)
+        btn.caption:SetText(isYours and "You" or "Open")
+        btn.caption:SetTextColor(0.65, 0.65, 0.65)
+    end
+end
+
+local function StyleChip(chip, selected)
+    if selected then
+        chip.bg:SetColorTexture(0.42, 0.32, 0.12, 0.95)
+        chip.label:SetTextColor(TITLE_YELLOW[1], TITLE_YELLOW[2], TITLE_YELLOW[3])
+    else
+        chip.bg:SetColorTexture(0.10, 0.08, 0.06, 0.90)
+        chip.label:SetTextColor(0.72, 0.72, 0.72)
+    end
+end
+
+local function LayoutChipRow(chips, wrapWidth, anchor, relPoint)
+    local x = 0
+    local rowStart = nil
+    local prev = nil
+    local last = anchor
+    for _, chip in ipairs(chips) do
+        if chip:IsShown() then
+            local w = chip:GetWidth()
+            chip:ClearAllPoints()
+            if not rowStart then
+                chip:SetPoint("TOPLEFT", anchor, relPoint or "BOTTOMLEFT", 0, -8)
+                rowStart = chip
+                x = w + 6
+            elseif x + w > wrapWidth then
+                chip:SetPoint("TOPLEFT", rowStart, "BOTTOMLEFT", 0, -4)
+                rowStart = chip
+                x = w + 6
+            else
+                chip:SetPoint("LEFT", prev, "RIGHT", 6, 0)
+                x = x + w + 6
+            end
+            prev = chip
+            last = chip
+        end
+    end
+    return last
+end
+
+local function ActiveCamp()
+    return SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp() or nil
+end
+
+local function ContributionChoices()
+    local learned = SmoreSkills_GetPlayerProfessions and SmoreSkills_GetPlayerProfessions() or {}
+    if #learned == 0 then
+        for _, row in ipairs(SmoreSkills.PROFESSIONS) do
+            table.insert(learned, row.id)
+        end
+    end
+    local seen = {}
+    local list = { professions = {}, objects = {} }
+    for _, id in ipairs(learned) do
+        if not seen[id] then
+            seen[id] = true
+            table.insert(list.professions, id)
+            for _, item in ipairs(SmoreSkills_ItemsForProfession(id)) do
+                table.insert(list.objects, item)
+            end
+        end
+    end
+    return list
+end
+
+function HostPanel:HideMenu()
+    if self.menu then
+        if self.menu.scroll then
+            self.menu.scroll:SetVerticalScroll(0)
+        end
+        if self.menu.bar then
+            self.menu.bar:SetValue(0)
+        end
+        self.menu:Hide()
+    end
+    self.menuKind = nil
+    self.socketMenuIndex = nil
+end
+
+function HostPanel:Hide()
+    self:HideMenu()
+    if self.frame then
+        self.frame:Hide()
+    end
+end
+
+function HostPanel:Dismiss()
+    self.dismissed = true
+    self:Hide()
+end
+
+function HostPanel:BuildMenu()
+    if self.menu and self.menu.scroll then
+        return self.menu
+    end
+    if self.menu then
+        self.menu:Hide()
+        self.menu = nil
+    end
+    local menu = CreateFrame("Frame", "SmoreSkillsHostSocketMenu", self.frame, BackdropTemplateMixin and "BackdropTemplate" or nil)
+    menu:SetFrameStrata("HIGH")
+    menu:SetFrameLevel((self.frame:GetFrameLevel() or 1) + 8)
+    menu:SetWidth(260)
+    ApplyChrome(menu)
+    menu:Hide()
+    menu.buttons = {}
+
+    local scroll = CreateFrame("ScrollFrame", nil, menu)
+    scroll:SetPoint("TOPLEFT", 6, -6)
+    scroll:SetPoint("BOTTOMRIGHT", -6, 6)
+    scroll:EnableMouseWheel(true)
+    menu.scroll = scroll
+
+    local content = CreateFrame("Frame", nil, scroll)
+    content:SetWidth(248)
+    content:SetHeight(20)
+    scroll:SetScrollChild(content)
+    menu.content = content
+
+    local bar = CreateFrame("Slider", nil, menu)
+    bar:SetWidth(MENU_SCROLL_W)
+    bar:SetOrientation("VERTICAL")
+    bar:SetPoint("TOPRIGHT", -4, -14)
+    bar:SetPoint("BOTTOMRIGHT", -4, 14)
+    bar:SetMinMaxValues(0, 0)
+    bar:SetValue(0)
+    bar:SetValueStep(20)
+    if bar.SetObeyStepOnDrag then
+        bar:SetObeyStepOnDrag(true)
+    end
+    local track = bar:CreateTexture(nil, "BACKGROUND")
+    track:SetAllPoints()
+    track:SetColorTexture(0.10, 0.08, 0.06, 0.95)
+    local thumb = bar:CreateTexture(nil, "OVERLAY")
+    thumb:SetColorTexture(0.85, 0.72, 0.28, 0.95)
+    thumb:SetSize(MENU_SCROLL_W - 2, 28)
+    bar:SetThumbTexture(thumb)
+    bar:Hide()
+    menu.bar = bar
+
+    local function wheel(_, delta)
+        local cur = scroll:GetVerticalScroll() or 0
+        local _, maxV = bar:GetMinMaxValues()
+        maxV = maxV or 0
+        local nextV = cur - (delta * 24)
+        if nextV < 0 then
+            nextV = 0
+        elseif nextV > maxV then
+            nextV = maxV
+        end
+        scroll:SetVerticalScroll(nextV)
+        bar:SetValue(nextV)
+    end
+    menu:EnableMouseWheel(true)
+    menu:SetScript("OnMouseWheel", wheel)
+    scroll:SetScript("OnMouseWheel", wheel)
+    bar:SetScript("OnValueChanged", function(_, value)
+        if menu._syncingBar then
+            return
+        end
+        scroll:SetVerticalScroll(value or 0)
+    end)
+
+    self.menu = menu
+    return menu
+end
+
+function HostPanel:FinishMenuLayout(contentH)
+    local menu = self.menu
+    if not menu or not menu.scroll then
+        return
+    end
+    local inner = math.max(contentH or 20, 20)
+    menu.content:SetHeight(inner)
+    local view = math.min(inner + 12, MENU_MAX_H)
+    menu:SetHeight(view)
+    local needBar = inner + 12 > MENU_MAX_H
+    menu.bar:SetShown(needBar)
+    if needBar then
+        menu.scroll:SetPoint("BOTTOMRIGHT", -6 - MENU_SCROLL_W - 2, 6)
+        menu.content:SetWidth((menu:GetWidth() or 260) - 22)
+    else
+        menu.scroll:SetPoint("BOTTOMRIGHT", -6, 6)
+        menu.content:SetWidth((menu:GetWidth() or 260) - 12)
+    end
+    local scrollH = math.max(1, view - 12)
+    local maxScroll = math.max(0, inner - scrollH)
+    menu._syncingBar = true
+    menu.bar:SetMinMaxValues(0, maxScroll)
+    local keep = menu.scroll:GetVerticalScroll() or 0
+    if keep > maxScroll then
+        keep = maxScroll
+    end
+    menu.scroll:SetVerticalScroll(keep)
+    menu.bar:SetValue(keep)
+    menu._syncingBar = nil
+    if menu.bar.GetThumbTexture then
+        local thumb = menu.bar:GetThumbTexture()
+        if thumb and maxScroll > 0 then
+            local thumbH = math.max(18, scrollH * (scrollH / inner))
+            thumb:SetSize(MENU_SCROLL_W - 2, thumbH)
+        end
+    end
+end
+
+function HostPanel:ResetMenuButtons()
+    local menu = self:BuildMenu()
+    for _, btn in ipairs(menu.buttons) do
+        btn:Hide()
+        btn:SetScript("OnEnter", nil)
+        btn:SetScript("OnLeave", nil)
+        btn:SetScript("OnClick", nil)
+        btn:EnableMouse(true)
+        if btn.hl then
+            btn.hl:SetColorTexture(0, 0, 0, 0)
+        end
+        if btn.icon then
+            btn.icon:Hide()
+        end
+    end
+    return menu
+end
+
+function HostPanel:AddMenuLine(menu, y, text, onClick, isTitle, selected, iconPath)
+    menu._lineIndex = (menu._lineIndex or 0) + 1
+    local btn = menu.buttons[menu._lineIndex]
+    if not btn then
+        btn = CreateFrame("Button", nil, menu)
+        btn:SetHeight(20)
+        local hl = btn:CreateTexture(nil, "BACKGROUND")
+        hl:SetAllPoints()
+        hl:SetColorTexture(0, 0, 0, 0)
+        btn.hl = hl
+        btn.icon = btn:CreateTexture(nil, "ARTWORK")
+        btn.icon:SetSize(16, 16)
+        btn.icon:SetPoint("LEFT", 6, 0)
+        btn.label = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        btn.label:SetPoint("LEFT", 8, 0)
+        btn.label:SetPoint("RIGHT", -8, 0)
+        btn.label:SetJustifyH("LEFT")
+        menu.buttons[menu._lineIndex] = btn
+    end
+    if menu.content then
+        btn:SetParent(menu.content)
+    end
+    if not btn.hl then
+        local hl = btn:CreateTexture(nil, "BACKGROUND")
+        hl:SetAllPoints()
+        hl:SetColorTexture(0, 0, 0, 0)
+        btn.hl = hl
+    end
+    if not btn.icon then
+        btn.icon = btn:CreateTexture(nil, "ARTWORK")
+        btn.icon:SetSize(16, 16)
+        btn.icon:SetPoint("LEFT", 6, 0)
+    end
+    btn:ClearAllPoints()
+    local host = menu.content or menu
+    btn:SetPoint("TOPLEFT", host, "TOPLEFT", 4, -y)
+    btn:SetPoint("RIGHT", host, "RIGHT", -4, 0)
+    if iconPath then
+        btn.icon:SetTexture(iconPath)
+        btn.icon:Show()
+        btn.label:SetPoint("LEFT", 26, 0)
+    else
+        btn.icon:Hide()
+        btn.label:SetPoint("LEFT", 8, 0)
+    end
+    btn.label:SetText(text)
+    if isTitle then
+        btn.hl:SetColorTexture(0, 0, 0, 0)
+        btn.label:SetTextColor(TITLE_YELLOW[1], TITLE_YELLOW[2], TITLE_YELLOW[3])
+        btn:EnableMouse(false)
+    else
+        btn:EnableMouse(true)
+        if selected then
+            btn.hl:SetColorTexture(0.42, 0.32, 0.12, 0.95)
+            btn.label:SetTextColor(TITLE_YELLOW[1], TITLE_YELLOW[2], TITLE_YELLOW[3])
+        else
+            btn.hl:SetColorTexture(0.10, 0.08, 0.06, 0.35)
+            btn.label:SetTextColor(0.72, 0.72, 0.72)
+        end
+        btn:SetScript("OnClick", function()
+            if onClick then
+                onClick()
+            end
+        end)
+    end
+    btn:Show()
+    return btn, y + 20
+end
+
+function HostPanel:ShowSocketMenu(index)
+    local camp = ActiveCamp()
+    if not camp then
+        return
+    end
+    index = tonumber(index) or 1
+    if self.menu and self.menu:IsShown() and self.menuKind == "socket" and self.socketMenuIndex == index then
+        self:HideMenu()
+        return
+    end
+    local menu = self:ResetMenuButtons()
+    menu._lineIndex = 0
+    self.menuKind = "socket"
+    self.socketMenuIndex = index
+    local y = 8
+    local btn
+    local function addObjectLine(picked)
+        local label = picked.label
+        if picked.note then
+            label = label .. " — " .. picked.note
+        end
+        btn, y = self:AddMenuLine(menu, y, label, function()
+            SmoreSkills_SetCampSlotDeclaration(camp, index, picked.profession, picked.id)
+            SmoreSkills_ShareOwnedCampFromClick()
+            HostPanel:HideMenu()
+        end, false, false, SmoreSkills_CampingObjectIcon(picked))
+        btn:SetScript("OnEnter", function()
+            if SmoreSkills_ShowCampingItemTooltip then
+                SmoreSkills_ShowCampingItemTooltip(btn, picked)
+            end
+        end)
+        btn:SetScript("OnLeave", function()
+            if GameTooltip then
+                GameTooltip:Hide()
+            end
+        end)
+    end
+    if index > 1 then
+        btn, y = self:AddMenuLine(menu, y, "Clear this socket", function()
+            SmoreSkills_ClearCampSlotDeclaration(camp, index)
+            SmoreSkills_ShareOwnedCampFromClick()
+            HostPanel:HideMenu()
+        end)
+        y = y + 4
+        btn, y = self:AddMenuLine(menu, y, "Profession", nil, true)
+        for _, row in ipairs(SmoreSkills.PROFESSIONS) do
+            local id = row.id
+            btn, y = self:AddMenuLine(menu, y, row.label, function()
+                SmoreSkills_SetCampSlotDeclaration(camp, index, id)
+                SmoreSkills_ShareOwnedCampFromClick()
+                HostPanel:HideMenu()
+            end, false, false, SmoreSkills_ProfessionIcon(id))
+        end
+        y = y + 4
+        btn, y = self:AddMenuLine(menu, y, "Camping object", nil, true)
+        for _, row in ipairs(SmoreSkills.PROFESSIONS) do
+            local items = SmoreSkills_ItemsForProfession(row.id)
+            if #items > 0 then
+                btn, y = self:AddMenuLine(menu, y, row.label, nil, true)
+                for _, item in ipairs(items) do
+                    addObjectLine(item)
+                end
+            end
+        end
+    else
+        btn, y = self:AddMenuLine(menu, y, "Your profession", nil, true)
+        local choices = ContributionChoices()
+        for _, profId in ipairs(choices.professions) do
+            local id = profId
+            btn, y = self:AddMenuLine(menu, y, SmoreSkills_ProfessionLabel(id), function()
+                SmoreSkills_SetCampSlotDeclaration(camp, 1, id)
+                SmoreSkills_ShareOwnedCampFromClick()
+                HostPanel:HideMenu()
+            end, false, false, SmoreSkills_ProfessionIcon(id))
+        end
+        if #choices.objects > 0 then
+            y = y + 4
+            btn, y = self:AddMenuLine(menu, y, "Camping object", nil, true)
+            for _, item in ipairs(choices.objects) do
+                addObjectLine(item)
+            end
+        end
+    end
+    self:FinishMenuLayout(y + 4)
+    menu:ClearAllPoints()
+    local anchor = self.sockets[index] or self.sockets[1]
+    menu:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", -8, -22)
+    menu:Show()
+end
+
+function HostPanel:ObjectDropLabel(camp)
+    local text = SmoreSkills_FormatItems and SmoreSkills_FormatItems(camp and camp.wantItems)
+    if not text or text == "" then
+        return "Any camping object"
+    end
+    if #text > 42 then
+        return strsub(text, 1, 39) .. "..."
+    end
+    return text
+end
+
+function HostPanel:ShowObjectMenu(refresh)
+    if self._buildingObjectMenu then
+        return
+    end
+    local camp = ActiveCamp()
+    if not camp then
+        return
+    end
+    if not refresh and self.menu and self.menu:IsShown() and self.menuKind == "objects" then
+        self:HideMenu()
+        return
+    end
+    self._buildingObjectMenu = true
+    local menu = self:ResetMenuButtons()
+    menu._lineIndex = 0
+    self.menuKind = "objects"
+    local y = 8
+    local btn
+    for _, row in ipairs(SmoreSkills.PROFESSIONS) do
+        if SmoreSkills_CampWantHasProfession(camp, row.id) then
+            local items = SmoreSkills_ItemsForProfession(row.id)
+            if #items > 0 then
+                y = y + 2
+                btn, y = self:AddMenuLine(menu, y, row.label, nil, true)
+                for _, item in ipairs(items) do
+                    local picked = item
+                    local selected = SmoreSkills_CampWantHasObject(camp, picked.id)
+                    local label = picked.label
+                    if picked.note then
+                        label = label .. " — " .. picked.note
+                    end
+                    btn, y = self:AddMenuLine(menu, y, label, function()
+                        if SmoreSkills_ToggleCampWantObject(camp, picked.id) then
+                            SmoreSkills_ShareOwnedCampFromClick()
+                            HostPanel:ShowObjectMenu(true)
+                        end
+                    end, false, selected, SmoreSkills_CampingObjectIcon(picked))
+                    btn:SetScript("OnEnter", function()
+                        if SmoreSkills_ShowCampingItemTooltip then
+                            SmoreSkills_ShowCampingItemTooltip(btn, picked)
+                        end
+                    end)
+                    btn:SetScript("OnLeave", function()
+                        if GameTooltip then
+                            GameTooltip:Hide()
+                        end
+                    end)
+                end
+            end
+        end
+    end
+    self:FinishMenuLayout(y + 4)
+    menu:ClearAllPoints()
+    menu:SetPoint("TOPLEFT", self.objDrop, "BOTTOMLEFT", 0, -2)
+    menu:SetPoint("TOPRIGHT", self.objDrop, "BOTTOMRIGHT", 0, -2)
+    menu:Show()
+    self._buildingObjectMenu = nil
+end
+
+function HostPanel:Build()
+    if self.frame then
+        return self.frame
+    end
+    local frame = CreateFrame("Frame", "SmoreSkillsHostPanel", UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
+    frame:SetSize(PANEL_W, 280)
+    frame:SetPoint("CENTER", UIParent, "CENTER", 0, -90)
+    frame:SetFrameStrata("HIGH")
+    frame:SetClampedToScreen(true)
+    frame:SetMovable(true)
+    frame:EnableMouse(true)
+    frame:RegisterForDrag("LeftButton")
+    frame:SetScript("OnDragStart", function(selfFrame)
+        selfFrame:StartMoving()
+    end)
+    frame:SetScript("OnDragStop", function(selfFrame)
+        selfFrame:StopMovingOrSizing()
+    end)
+    ApplyChrome(frame)
+    frame:Hide()
+
+    local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    title:SetPoint("TOPLEFT", 14, -12)
+    title:SetText("Your camp")
+    title:SetTextColor(TITLE_YELLOW[1], TITLE_YELLOW[2], TITLE_YELLOW[3])
+    self.title = title
+
+    local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", 2, 2)
+    close:SetScript("OnClick", function()
+        HostPanel:Dismiss()
+    end)
+
+    local where = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    where:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -2)
+    where:SetPoint("RIGHT", frame, "RIGHT", -14, 0)
+    where:SetJustifyH("LEFT")
+    where:SetTextColor(0.72, 0.72, 0.72)
+    self.where = where
+
+    local socketRow = CreateFrame("Frame", nil, frame)
+    socketRow:SetPoint("TOPLEFT", where, "BOTTOMLEFT", 8, -16)
+    socketRow:SetSize(SmoreSkills.MAX_SLOTS * SOCKET_SIZE + (SmoreSkills.MAX_SLOTS - 1) * SOCKET_GAP, SOCKET_SIZE + 28)
+    self.socketRow = socketRow
+    self.sockets = {}
+    for i = 1, SmoreSkills.MAX_SLOTS do
+        local socket = CreateSocket(socketRow, SOCKET_SIZE)
+        socket:SetPoint("LEFT", socketRow, "LEFT", (i - 1) * (SOCKET_SIZE + SOCKET_GAP), 8)
+        socket.index = i
+        socket:EnableMouse(true)
+        socket:SetScript("OnClick", function()
+            HostPanel:ShowSocketMenu(i)
+        end)
+        socket:SetScript("OnEnter", function()
+            GameTooltip:SetOwner(socket, "ANCHOR_CURSOR")
+            if i == 1 then
+                GameTooltip:AddLine("Your socket", 1, 0.82, 0)
+                GameTooltip:AddLine("Click to set your profession or a camping object for this fire.", 1, 1, 1, true)
+            else
+                GameTooltip:AddLine("Guest socket", 1, 0.82, 0)
+                GameTooltip:AddLine("Click to mark a profession or camping object here. We cannot see placed objects yet — this is what seekers see on the pin.", 1, 1, 1, true)
+            end
+            GameTooltip:Show()
+        end)
+        socket:SetScript("OnLeave", function()
+            GameTooltip:Hide()
+        end)
+        self.sockets[i] = socket
+    end
+
+    local look = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    look:SetPoint("TOPLEFT", socketRow, "BOTTOMLEFT", -8, -8)
+    look:SetText("Looking for")
+    look:SetTextColor(1, 1, 1)
+    self.lookLabel = look
+
+    local lookHint = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    lookHint:SetPoint("TOPLEFT", look, "BOTTOMLEFT", 0, -2)
+    lookHint:SetPoint("RIGHT", frame, "RIGHT", -14, 0)
+    lookHint:SetJustifyH("LEFT")
+    lookHint:SetText("This camp only. Settings stay the same until you edit them.")
+    lookHint:SetTextColor(0.65, 0.65, 0.65)
+    self.lookHint = lookHint
+
+    self.anyoneChip = self:MakeChip(frame, "Anyone")
+    self.anyoneChip:SetScript("OnClick", function()
+        local camp = ActiveCamp()
+        if not camp then
+            return
+        end
+        SmoreSkills_SetCampWantAnyone(camp)
+        SmoreSkills_ShareOwnedCampFromClick()
+    end)
+
+    self.profChips = {}
+    for _, row in ipairs(SmoreSkills.PROFESSIONS) do
+        local chip = self:MakeChip(frame, row.label)
+        chip.profId = row.id
+        chip:SetScript("OnClick", function()
+            local camp = ActiveCamp()
+            if not camp then
+                return
+            end
+            SmoreSkills_ToggleCampWantProfession(camp, row.id)
+            SmoreSkills_ShareOwnedCampFromClick()
+        end)
+        table.insert(self.profChips, chip)
+    end
+
+    local objTitle = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    objTitle:SetText("Camping objects")
+    objTitle:SetTextColor(1, 1, 1)
+    self.objTitle = objTitle
+
+    local objDrop = CreateFrame("Button", nil, frame)
+    objDrop:SetHeight(22)
+    local dropBg = objDrop:CreateTexture(nil, "BACKGROUND")
+    dropBg:SetAllPoints()
+    dropBg:SetColorTexture(0.10, 0.08, 0.06, 0.95)
+    objDrop.bg = dropBg
+    local dropLabel = objDrop:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    dropLabel:SetPoint("LEFT", 8, 0)
+    dropLabel:SetPoint("RIGHT", -8, 0)
+    dropLabel:SetJustifyH("LEFT")
+    dropLabel:SetText("Any camping object")
+    objDrop.label = dropLabel
+    objDrop:SetScript("OnClick", function()
+        HostPanel:ShowObjectMenu()
+    end)
+    self.objDrop = objDrop
+
+    local hint = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    hint:SetJustifyH("LEFT")
+    hint:SetJustifyV("TOP")
+    if hint.SetWordWrap then
+        hint:SetWordWrap(true)
+    end
+    if hint.SetNonSpaceWrap then
+        hint:SetNonSpaceWrap(true)
+    end
+    hint:SetTextColor(TITLE_YELLOW[1], TITLE_YELLOW[2], TITLE_YELLOW[3])
+    self.hint = hint
+
+    local pack = CreateFrame("Button", nil, frame)
+    pack:SetSize(96, 22)
+    local packBg = pack:CreateTexture(nil, "BACKGROUND")
+    packBg:SetAllPoints()
+    packBg:SetColorTexture(0.38, 0.16, 0.10, 0.95)
+    pack.label = pack:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    pack.label:SetPoint("CENTER")
+    pack.label:SetText("Pack up")
+    pack.label:SetTextColor(1, 0.82, 0.15)
+    pack:SetScript("OnClick", function()
+        local camp = ActiveCamp()
+        if not camp then
+            return
+        end
+        if SmoreSkills.Map and SmoreSkills.Map.ConfirmPackUp then
+            SmoreSkills.Map:ConfirmPackUp(camp)
+        elseif SmoreSkills.Sync and SmoreSkills.Sync.PackUpCamp then
+            SmoreSkills.Sync:PackUpCamp(camp)
+        end
+    end)
+    self.packBtn = pack
+
+    self.frame = frame
+    return frame
+end
+
+function HostPanel:MakeChip(parent, text)
+    local btn = CreateFrame("Button", nil, parent)
+    btn:SetHeight(CHIP_H)
+    local bg = btn:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0.10, 0.08, 0.06, 0.90)
+    btn.bg = bg
+    local label = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    label:SetPoint("LEFT", 8, 0)
+    label:SetPoint("RIGHT", -8, 0)
+    label:SetText(text)
+    btn.label = label
+    btn:SetWidth(math.max(52, (label:GetStringWidth() or 40) + 16))
+    return btn
+end
+
+function HostPanel:Refresh()
+    if not self.frame or not self.frame:IsShown() then
+        return
+    end
+    local camp = ActiveCamp()
+    if not camp then
+        self:Hide()
+        return
+    end
+    self.where:SetText(string.format(
+        "%s  %s  ·  %d/%d objects",
+        camp.zone or "Camp",
+        SmoreSkills_FormatCoords and SmoreSkills_FormatCoords(camp) or "",
+        SmoreSkills_CountFilledSlots(camp),
+        SmoreSkills.MAX_SLOTS
+    ))
+    SmoreSkills_EnsureSlots(camp)
+    for i = 1, SmoreSkills.MAX_SLOTS do
+        StyleSocket(self.sockets[i], camp.slots[i], i == 1)
+    end
+    local want = SmoreSkills_SplitWantWire(camp.want or "any")
+    local anyone = not want or want == "" or want == "any"
+    StyleChip(self.anyoneChip, anyone)
+
+    local wrapW = (self.frame:GetWidth() or PANEL_W) - 28
+    local chips = { self.anyoneChip }
+    self.anyoneChip:Show()
+    for _, chip in ipairs(self.profChips) do
+        chip:Show()
+        StyleChip(chip, (not anyone) and SmoreSkills_CampWantHasProfession(camp, chip.profId))
+        table.insert(chips, chip)
+    end
+    local last = LayoutChipRow(chips, wrapW, self.lookHint, "BOTTOMLEFT")
+
+    local showObjects = not anyone and want ~= "none"
+    self.objTitle:ClearAllPoints()
+    self.objDrop:ClearAllPoints()
+    self.objTitle:SetShown(showObjects)
+    self.objDrop:SetShown(showObjects)
+    if showObjects then
+        self.objTitle:SetPoint("TOPLEFT", last, "BOTTOMLEFT", 0, -12)
+        self.objDrop:SetPoint("TOPLEFT", self.objTitle, "BOTTOMLEFT", 0, -6)
+        self.objDrop:SetPoint("RIGHT", self.frame, "RIGHT", -14, 0)
+        self.objDrop.label:SetText(self:ObjectDropLabel(camp))
+        last = self.objDrop
+        if self.menu and self.menu:IsShown() and self.menuKind == "objects" then
+            self:ShowObjectMenu(true)
+        end
+    elseif self.menuKind == "objects" then
+        self:HideMenu()
+    end
+
+    self.hint:ClearAllPoints()
+    self.hint:SetPoint("TOPLEFT", last, "BOTTOMLEFT", 0, -10)
+    self.hint:SetPoint("RIGHT", self.frame, "RIGHT", -14, 0)
+    if SmoreSkills.Sync and SmoreSkills.Sync.needsHardwareShare then
+        self.hint:SetText("Click Find or /smores host once so other campers can see this fire.")
+    else
+        self.hint:SetText("The pin tooltip uses these requests. Clicking a chip or object shares them.")
+    end
+    self.hint:Show()
+
+    self.packBtn:ClearAllPoints()
+    self.packBtn:SetPoint("TOPLEFT", self.hint, "BOTTOMLEFT", 0, -10)
+    self.packBtn:Show()
+
+    local top = self.frame:GetTop()
+    local bot = self.packBtn:GetBottom()
+    local h = 280
+    if top and bot then
+        h = math.max(240, top - bot + 18)
+    end
+    self.frame:SetHeight(h)
+end
+
+function HostPanel:ShowFor(camp)
+    camp = camp or ActiveCamp()
+    if not camp then
+        return
+    end
+    self.dismissed = nil
+    self:Build()
+    self.frame:Show()
+    self:HideMenu()
+    self:Refresh()
+end
+
+function HostPanel:Toggle()
+    local camp = ActiveCamp()
+    if not camp then
+        SmoreSkills_Reply("Host a camp first (place a Basic Campfire Kit or /smores host).")
+        return
+    end
+    if self.frame and self.frame:IsShown() then
+        self:Dismiss()
+        return
+    end
+    self:ShowFor(camp)
+end

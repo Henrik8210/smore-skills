@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.5.64
+
+- Host camp panel after you place a fire: sockets, profession request chips, camping-objects dropdown, Pack up. Chips start from Host settings (defaults); this fire can differ. Pin tooltip follows the camp.
+- Leatherworking Tier 1 is **Camp Tent** (Light Leather ×5, +5% of a level Rest XP). Trainer recipes are **Name (Tier I)**.
+- Object icons copy the open trainer row and `C_Spell`. Sharpening Wheel is the gold bar; Faction Banner is **your** faction; Enchanted Lute is not the flute. Camp Tent sack stand-in is still wrong.
+- Forever-first: Anniversary is two-client share only. CurseForge **beta** `v0.5.64-beta`.
+
+## v0.5.63
+
+- Host camp panel after you place a fire: three sockets (click yours for profession or a camping object), profession request chips, and a **camping objects** dropdown grouped by trade. Pack up from the panel. Chips start from Host settings (now labeled as defaults); changing them is this camp only. Pin tooltip follows. Filters say **camping objects**.
+- Sockets and object lists use **Forever trainer/spell art** (`C_Spell` / trainer scan). Sharpening Wheel is the gold-bar icon; Faction Banner is **your** faction (Horde vs Alliance); Enchanted Lute uses the live lute texture. Leatherworking Tier 1 is **Camp Tent** (+5% rest XP, Light Leather ×5).
+
 ## v0.5.62
 
 - Forever first-night notes (Zephras, kit vs craft, 100-yard rule, Campfire Nearby, camping-item table, Mainline taint). CurseForge release for **WoW Forever 1.60.1**.

@@ -22,18 +22,19 @@ SmoreSkills.PROFESSIONS = {
 -- Later: dungeon-boss blueprints. Unknown names stay "Tier 2" / "Tier 3".
 -- Skinning **Tanning** is the place-skill, not an object. The object is Camp Chair.
 -- A Basic Campfire has three object slots. Cooking upgrades may allow 5 or 10 — wire still encodes three.
+-- icon: stand-in only. Forever uses the trainer/spell texture (C_Spell / GetTrainerServiceIcon).
 SmoreSkills.PROFESSION_ITEMS = {
-    { id = "bs1", profession = "blacksmithing", label = "Sharpening Wheel", unlock = "Blacksmithing 20", note = "+6 Strength", skill = "Blacksmithing (20)", reagents = "Rough Stone, Copper Bar", use = "Constructs a sharpening wheel that grants you and others sitting nearby 6 increased Strength, exclusive with Strength of Earth Totem.", exclusive = "Strength of Earth Totem" },
-    { id = "bs2", profession = "blacksmithing", label = "Anvil", unlock = "Blacksmithing 140", note = "Replaces wheel", skill = "Blacksmithing (140)", use = "Places an anvil with all Sharpening Wheel benefits. May replace a wheel." },
-    { id = "bs3", profession = "blacksmithing", label = "Master Forge", unlock = "Blacksmithing 300", note = "Crafting + wheel", skill = "Blacksmithing (300)", use = "Usable for recipes that require it, plus all wheel benefits. May replace a wheel." },
-    { id = "tail1", profession = "tailoring", label = "Faction Banner", unlock = "Tailoring 20", note = "+14 Spirit", skill = "Tailoring (20)", reagents = "Bolt of Linen Cloth, Coarse Thread", use = "Unrolls a banner that allows you and other members of your faction sitting nearby to gain 14 increased Spirit, exclusive with Divine Spirit.", exclusive = "Divine Spirit" },
+    { id = "bs1", profession = "blacksmithing", label = "Sharpening Wheel", icon = "Interface\\Icons\\INV_Ingot_03", unlock = "Blacksmithing 20", note = "+6 Strength", skill = "Blacksmithing (20)", reagents = "Rough Stone, Copper Bar", use = "Constructs a sharpening wheel that grants you and others sitting nearby 6 increased Strength, exclusive with Strength of Earth Totem.", exclusive = "Strength of Earth Totem" },
+    { id = "bs2", profession = "blacksmithing", label = "Anvil", icon = "Interface\\Icons\\INV_Hammer_20", unlock = "Blacksmithing 140", note = "Replaces wheel", skill = "Blacksmithing (140)", use = "Places an anvil with all Sharpening Wheel benefits. May replace a wheel." },
+    { id = "bs3", profession = "blacksmithing", label = "Master Forge", icon = "Interface\\Icons\\Spell_Fire_Fireball", unlock = "Blacksmithing 300", note = "Crafting + wheel", skill = "Blacksmithing (300)", use = "Usable for recipes that require it, plus all wheel benefits. May replace a wheel." },
+    { id = "tail1", profession = "tailoring", label = "Faction Banner", unlock = "Tailoring 20", note = "+14 Spirit", skill = "Tailoring (20)", reagents = "Bolt of Linen Cloth, Coarse Thread", use = "Unrolls a banner that allows you and other members of your faction sitting nearby to gain 14 increased Spirit, exclusive with Divine Spirit.", exclusive = "Divine Spirit", factionIcons = { Alliance = "Interface\\Icons\\INV_Banner_02", Horde = "Interface\\Icons\\INV_Banner_03" } },
     { id = "tail2", profession = "tailoring", label = "Tailoring Tier 2", unlock = "Dungeon blueprint" },
     { id = "tail3", profession = "tailoring", label = "Tailoring Tier 3", unlock = "Dungeon blueprint" },
-    { id = "herb1", profession = "herbalism", label = "Incense Candle", unlock = "Herbalism 20", note = "+2 Intellect", skill = "Herbalism (20)", reagents = "Peacebloom, Silverleaf", use = "Ignites an incense candle that allows you and others sitting nearby to gain 2 increased Intellect, exclusive with Arcane Intellect.", exclusive = "Arcane Intellect" },
+    { id = "herb1", profession = "herbalism", label = "Incense Candle", icon = "Interface\\Icons\\INV_Misc_Candle_02", unlock = "Herbalism 20", note = "+2 Intellect", skill = "Herbalism (20)", reagents = "Peacebloom, Silverleaf", use = "Ignites an incense candle that allows you and others sitting nearby to gain 2 increased Intellect, exclusive with Arcane Intellect.", exclusive = "Arcane Intellect" },
     { id = "herb2", profession = "herbalism", label = "Herbalism Tier 2", unlock = "Dungeon blueprint" },
     { id = "herb3", profession = "herbalism", label = "Herbalism Tier 3", unlock = "Dungeon blueprint" },
-    { id = "alch1", profession = "alchemy", label = "Mana Well", unlock = "Alchemy 20", note = "+10 mana / 5s", skill = "Alchemy (20)", reagents = "Peacebloom, Empty Vial", use = "Constructs a mana well that allows you and others sitting nearby to regenerate 10 Mana every 5 seconds, exclusive with Blessing of Wisdom.", exclusive = "Blessing of Wisdom" },
-    { id = "alch2", profession = "alchemy", label = "Alchemy Lab", unlock = "Dungeon blueprint", note = "Workspace" },
+    { id = "alch1", profession = "alchemy", label = "Mana Well", icon = "Interface\\Icons\\INV_Potion_76", unlock = "Alchemy 20", note = "+10 mana / 5s", skill = "Alchemy (20)", reagents = "Peacebloom, Empty Vial", use = "Constructs a mana well that allows you and others sitting nearby to regenerate 10 Mana every 5 seconds, exclusive with Blessing of Wisdom.", exclusive = "Blessing of Wisdom" },
+    { id = "alch2", profession = "alchemy", label = "Alchemy Lab", icon = "Interface\\Icons\\INV_Misc_Cauldron_Arcane", unlock = "Dungeon blueprint", note = "Workspace" },
     { id = "alch3", profession = "alchemy", label = "Alchemy Tier 3", unlock = "Dungeon blueprint" },
     { id = "enc1", profession = "enchanting", label = "Enchanted Lute", unlock = "Enchanting 20", note = "+28 Armor", skill = "Enchanting (20)", reagents = "Simple Wood, Strange Dust", use = "Summons an enchanted lute that allows you and others sitting nearby to gain 28 Increase to Armor, exclusive with Mark of the Wild.", exclusive = "Mark of the Wild" },
     { id = "enc2", profession = "enchanting", label = "Enchanting Tier 2", unlock = "Dungeon blueprint" },
@@ -41,24 +42,22 @@ SmoreSkills.PROFESSION_ITEMS = {
     { id = "eng1", profession = "engineering", label = "Engineering Tier 1", unlock = "Engineering 20" },
     { id = "eng2", profession = "engineering", label = "Engineering Tier 2", unlock = "Dungeon blueprint" },
     { id = "eng3", profession = "engineering", label = "Engineering Tier 3", unlock = "Dungeon blueprint" },
-    { id = "lw1", profession = "leatherworking", label = "Leatherworking Tier 1", unlock = "Leatherworking 20" },
-    { id = "lw2", profession = "leatherworking", label = "Tanning Rack", unlock = "Dungeon blueprint", note = "Advanced LW recipes" },
+    { id = "lw1", profession = "leatherworking", label = "Camp Tent", icon = "Interface\\Icons\\INV_Misc_Bag_10", unlock = "Leatherworking 20", note = "+5% rest XP", skill = "Leatherworking (20)", reagents = "Light Leather (5)", use = "Builds a tent that allows you and others sitting nearby to increase Rested experience to 5% of a level. No effect if Rested experience already exceeds that value." },
+    { id = "lw2", profession = "leatherworking", label = "Tanning Rack", icon = "Interface\\Icons\\INV_Misc_ArmorKit_17", unlock = "Dungeon blueprint", note = "Advanced LW recipes" },
     { id = "lw3", profession = "leatherworking", label = "Leatherworking Tier 3", unlock = "Dungeon blueprint" },
-    { id = "mine1", profession = "mining", label = "Lodestone", unlock = "Mining 20", note = "+12 melee AP", skill = "Mining (20)", reagents = "Rough Stone, Copper Bar", use = "Erects a lodestone that allows you and others sitting nearby to gain 12 increased melee Attack Power, exclusive with Blessing of Might.", exclusive = "Blessing of Might" },
+    { id = "mine1", profession = "mining", label = "Lodestone", icon = "Interface\\Icons\\INV_Misc_Gem_Pearl_03", unlock = "Mining 20", note = "+12 melee AP", skill = "Mining (20)", reagents = "Rough Stone, Copper Bar", use = "Erects a lodestone that allows you and others sitting nearby to gain 12 increased melee Attack Power, exclusive with Blessing of Might.", exclusive = "Blessing of Might" },
     { id = "mine2", profession = "mining", label = "Mining Tier 2", unlock = "Dungeon blueprint" },
     { id = "mine3", profession = "mining", label = "Mining Tier 3", unlock = "Dungeon blueprint" },
-    { id = "skin1", profession = "skinning", label = "Camp Chair", unlock = "Skinning 20", note = "+2% crit", skill = "Skinning (20)", reagents = "Light Leather (3), Simple Wood (2)", use = "Assembles a camp chair that allows you and others sitting nearby to gain 2% increased critical strike chance with all spells and attacks, exclusive with Moonkin Aura.", exclusive = "Moonkin Aura" },
+    { id = "skin1", profession = "skinning", label = "Camp Chair", icon = "Interface\\Icons\\INV_Misc_Pelt_Bear_03", unlock = "Skinning 20", note = "+2% crit", skill = "Skinning (20)", reagents = "Light Leather (3), Simple Wood (2)", use = "Assembles a camp chair that allows you and others sitting nearby to gain 2% increased critical strike chance with all spells and attacks, exclusive with Moonkin Aura.", exclusive = "Moonkin Aura" },
     { id = "skin2", profession = "skinning", label = "Skinning Tier 2", unlock = "Dungeon blueprint" },
     { id = "skin3", profession = "skinning", label = "Skinning Tier 3", unlock = "Dungeon blueprint" },
     { id = "cook1", profession = "cooking", label = "Cooking Tier 1", unlock = "Cooking 20" },
-    { id = "cook2", profession = "cooking", label = "Campfire (5 slots)", unlock = "Dungeon blueprint", note = "Not Basic 3" },
-    { id = "cook3", profession = "cooking", label = "Campfire (10 slots)", unlock = "Dungeon blueprint", note = "Not Basic 3" },
-    { id = "fa1", profession = "firstaid", label = "First Aid Kit", unlock = "First Aid 20", note = "+3 Stamina", skill = "First Aid (20)", reagents = "Linen Bandage (3), Refreshing Spring Water", use = "Unpacks a first aid kit that allows you and others sitting nearby to gain 3 increased Stamina, exclusive with Power Word: Fortitude.", exclusive = "Power Word: Fortitude" },
+    { id = "cook2", profession = "cooking", label = "Campfire (5 slots)", icon = "Interface\\Icons\\Spell_Fire_Fire", unlock = "Dungeon blueprint", note = "Not Basic 3" },
+    { id = "cook3", profession = "cooking", label = "Campfire (10 slots)", icon = "Interface\\Icons\\Spell_Fire_Fire", unlock = "Dungeon blueprint", note = "Not Basic 3" },
+    { id = "fa1", profession = "firstaid", label = "First Aid Kit", icon = "Interface\\Icons\\INV_Box_01", unlock = "First Aid 20", note = "+3 Stamina", skill = "First Aid (20)", reagents = "Linen Bandage (3), Refreshing Spring Water", use = "Unpacks a first aid kit that allows you and others sitting nearby to gain 3 increased Stamina, exclusive with Power Word: Fortitude.", exclusive = "Power Word: Fortitude" },
     { id = "fa2", profession = "firstaid", label = "First Aid Tier 2", unlock = "Dungeon blueprint" },
     { id = "fa3", profession = "firstaid", label = "First Aid Tier 3", unlock = "Dungeon blueprint" },
 }
-SmoreSkills.MAX_WANT_ITEMS = 3
-
 local ITEM_BY_ID = {}
 local ITEMS_BY_PROF = {}
 for _, item in ipairs(SmoreSkills.PROFESSION_ITEMS) do
@@ -174,6 +173,336 @@ end
 function SmoreSkills_ProfessionIcon(idOrCode)
     local row = SmoreSkills_ProfessionFromId(idOrCode) or SmoreSkills_ProfessionFromCode(idOrCode)
     return row and row.icon or "Interface\\Icons\\INV_Misc_QuestionMark"
+end
+
+local liveObjectIconCache = {}
+
+local function usableTex(tex)
+    if tex and tex ~= "" and tex ~= 0 then
+        return tex
+    end
+    return nil
+end
+
+local function NormalizeObjectName(name)
+    if not name or name == "" then
+        return nil
+    end
+    name = strtrim(tostring(name))
+    name = name:gsub("%s*%(Tier%s*[IVX]+%)%s*$", "")
+    if name == "" or string.find(name, "Tier %d") then
+        return nil
+    end
+    return name
+end
+
+local function CacheLiveObjectIcon(name, tex)
+    name = NormalizeObjectName(name)
+    tex = usableTex(tex)
+    if not name or not tex then
+        return
+    end
+    liveObjectIconCache[strlower(name)] = tex
+end
+
+local function SpellTexture(name)
+    if not name then
+        return nil
+    end
+    if C_Spell then
+        if C_Spell.GetSpellTexture then
+            local ok, tex = pcall(C_Spell.GetSpellTexture, name)
+            if ok then
+                tex = usableTex(tex)
+                if tex then
+                    return tex
+                end
+            end
+        end
+        if C_Spell.GetSpellInfo then
+            local ok, info = pcall(C_Spell.GetSpellInfo, name)
+            if ok and type(info) == "table" then
+                local tex = usableTex(info.iconID or info.originalIconID or info.icon)
+                if tex then
+                    return tex
+                end
+            end
+        end
+    end
+    if GetSpellInfo then
+        local ok, _, _, icon = pcall(GetSpellInfo, name)
+        if ok then
+            local tex = usableTex(icon)
+            if tex then
+                return tex
+            end
+        end
+    end
+    return nil
+end
+
+local function ItemTexture(name, itemId)
+    if itemId then
+        if C_Item and C_Item.GetItemIconByID then
+            local tex = usableTex(C_Item.GetItemIconByID(itemId))
+            if tex then
+                return tex
+            end
+        end
+        if GetItemInfoInstant then
+            local _, _, _, _, icon = GetItemInfoInstant(itemId)
+            local tex = usableTex(icon)
+            if tex then
+                return tex
+            end
+        end
+        if GetItemInfo then
+            local _, _, _, _, _, _, _, _, _, texture = GetItemInfo(itemId)
+            local tex = usableTex(texture)
+            if tex then
+                return tex
+            end
+        end
+    end
+    if not name then
+        return nil
+    end
+    if GetItemInfo then
+        local _, _, _, _, _, _, _, _, _, texture = GetItemInfo(name)
+        local tex = usableTex(texture)
+        if tex then
+            return tex
+        end
+    end
+    if C_Item and C_Item.GetItemInfoInstant then
+        local _, _, _, _, icon = C_Item.GetItemInfoInstant(name)
+        local tex = usableTex(icon)
+        if tex then
+            return tex
+        end
+    end
+    if GetItemInfoInstant then
+        local _, _, _, _, icon = GetItemInfoInstant(name)
+        return usableTex(icon)
+    end
+    return nil
+end
+
+local function LiveObjectTexture(item)
+    local name = NormalizeObjectName(item and item.label)
+    if not name then
+        return nil
+    end
+    local cached = liveObjectIconCache[strlower(name)]
+    if cached then
+        return cached
+    end
+    -- Faction Banner: Spell.db2 may be Alliance-default. Trainer cache + factionIcons only.
+    if item.factionIcons then
+        return nil
+    end
+    local tex = SpellTexture(name)
+    if not tex and item.profession then
+        local prof = SmoreSkills_ProfessionLabel(item.profession)
+        if prof and prof ~= "" then
+            tex = SpellTexture(prof .. ": " .. name)
+        end
+    end
+    if not tex then
+        tex = ItemTexture(name, item.itemId)
+    end
+    if tex then
+        CacheLiveObjectIcon(name, tex)
+    end
+    return tex
+end
+
+local function ScanTrainerObjectIcons()
+    local n
+    if GetNumTrainerServices then
+        local ok, count = pcall(GetNumTrainerServices)
+        if ok then
+            n = count
+        end
+    end
+    if n and n > 0 then
+        for i = 1, n do
+            local ok, name, _, serviceType = pcall(GetTrainerServiceInfo, i)
+            if ok and type(name) == "string" and serviceType ~= "header" then
+                local icon
+                if GetTrainerServiceIcon then
+                    local okIcon, tex = pcall(GetTrainerServiceIcon, i)
+                    if okIcon then
+                        icon = tex
+                    end
+                end
+                CacheLiveObjectIcon(name, icon)
+            end
+        end
+    end
+    local function texFrom(icon)
+        if not icon or not icon.GetTexture then
+            return nil
+        end
+        local ok, tex = pcall(icon.GetTexture, icon)
+        if ok then
+            return tex
+        end
+        return nil
+    end
+    local function textFrom(fs)
+        if not fs or not fs.GetText then
+            return nil
+        end
+        local ok, text = pcall(fs.GetText, fs)
+        if ok then
+            return text
+        end
+        return nil
+    end
+    local function takeButton(btn)
+        if not btn then
+            return
+        end
+        if btn.IsShown and not btn:IsShown() then
+            return
+        end
+        local name = textFrom(btn.Name) or textFrom(btn.name) or textFrom(btn.Text)
+        if (not name or name == "") and btn.GetText then
+            local ok, text = pcall(btn.GetText, btn)
+            if ok then
+                name = text
+            end
+        end
+        local tex = texFrom(btn.Icon) or texFrom(btn.icon) or texFrom(btn.IconTexture)
+        if btn.GetName then
+            local glob = btn:GetName()
+            if glob then
+                tex = tex or texFrom(_G[glob .. "Icon"]) or texFrom(_G[glob .. "IconTexture"])
+                name = name or textFrom(_G[glob .. "Name"]) or textFrom(_G[glob .. "Text"])
+            end
+        end
+        if type(name) == "string" and name ~= "" then
+            CacheLiveObjectIcon(name, tex)
+        end
+    end
+    for i = 1, 32 do
+        takeButton(_G["ClassTrainerSkill" .. i])
+        takeButton(_G["ClassTrainerScrollFrameButton" .. i])
+    end
+    local box = ClassTrainerFrame and ClassTrainerFrame.ScrollBox
+    if box and box.ForEachFrame then
+        pcall(function()
+            box:ForEachFrame(takeButton)
+        end)
+    end
+end
+
+local function ScanTradeSkillObjectIcons()
+    if not C_TradeSkillUI then
+        return
+    end
+    local ids
+    if C_TradeSkillUI.GetAllRecipeIDs then
+        local ok, result = pcall(C_TradeSkillUI.GetAllRecipeIDs)
+        if ok then
+            ids = result
+        end
+    end
+    if type(ids) ~= "table" or not C_TradeSkillUI.GetRecipeInfo then
+        return
+    end
+    for i = 1, #ids do
+        local ok, info = pcall(C_TradeSkillUI.GetRecipeInfo, ids[i])
+        if ok and type(info) == "table" and info.name then
+            CacheLiveObjectIcon(info.name, info.icon)
+        end
+    end
+end
+
+local function ScanLiveObjectIcons()
+    ScanTrainerObjectIcons()
+    ScanTradeSkillObjectIcons()
+end
+
+local lastLiveIconScan = 0
+local function MaybeScanLiveObjectIcons()
+    local now = GetTime and GetTime() or 0
+    if now > 0 and (now - lastLiveIconScan) < 0.25 then
+        return
+    end
+    lastLiveIconScan = now
+    ScanLiveObjectIcons()
+end
+
+local iconScanFrame = CreateFrame("Frame")
+pcall(iconScanFrame.RegisterEvent, iconScanFrame, "TRAINER_SHOW")
+pcall(iconScanFrame.RegisterEvent, iconScanFrame, "TRAINER_UPDATE")
+pcall(iconScanFrame.RegisterEvent, iconScanFrame, "TRADE_SKILL_SHOW")
+pcall(iconScanFrame.RegisterEvent, iconScanFrame, "TRADE_SKILL_DATA_SOURCE_CHANGED")
+pcall(iconScanFrame.RegisterEvent, iconScanFrame, "PLAYER_ENTERING_WORLD")
+iconScanFrame:SetScript("OnEvent", function()
+    ScanLiveObjectIcons()
+    if not (SmoreSkills.HostPanel and SmoreSkills.HostPanel.Refresh) then
+        return
+    end
+    if iconScanFrame._refreshQueued then
+        return
+    end
+    iconScanFrame._refreshQueued = true
+    local function flush()
+        iconScanFrame._refreshQueued = nil
+        SmoreSkills.HostPanel:Refresh()
+    end
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0.05, flush)
+    else
+        flush()
+    end
+end)
+ScanLiveObjectIcons()
+
+function SmoreSkills_CampingObjectIcon(itemOrIdOrLabel)
+    MaybeScanLiveObjectIcons()
+    local item = itemOrIdOrLabel
+    if type(item) == "string" then
+        local id = SmoreSkills_NormalizeItem and SmoreSkills_NormalizeItem(item)
+        item = (id and SmoreSkills_ItemFromId and SmoreSkills_ItemFromId(id)) or { label = item }
+    end
+    if type(item) ~= "table" then
+        return nil
+    end
+    local live = LiveObjectTexture(item)
+    if live then
+        return live
+    end
+    if item.factionIcons then
+        local faction = UnitFactionGroup("player")
+        local facIcon = faction and item.factionIcons[faction]
+        if facIcon then
+            return facIcon
+        end
+    end
+    if item.icon and item.icon ~= "" then
+        return item.icon
+    end
+    if item.profession then
+        return SmoreSkills_ProfessionIcon(item.profession)
+    end
+    return nil
+end
+
+function SmoreSkills_SlotIcon(slot)
+    if slot and slot.object and slot.object ~= "" then
+        local icon = SmoreSkills_CampingObjectIcon(slot.object)
+        if icon then
+            return icon
+        end
+    end
+    if slot and slot.profession then
+        return SmoreSkills_ProfessionIcon(slot.profession)
+    end
+    return SmoreSkills.ICON or "Interface\\Icons\\INV_Misc_QuestionMark"
 end
 
 function SmoreSkills_NormalizeProfession(idOrCode)
@@ -412,8 +741,11 @@ function SmoreSkills_SetHostProfession(idOrCode)
     return true
 end
 
-function SmoreSkills_ApplyHostProfession(camp)
+function SmoreSkills_ApplyHostProfession(camp, force)
     if not camp then
+        return camp
+    end
+    if camp.slot1Override and not force then
         return camp
     end
     local prof = SmoreSkills_GetHostProfession()
@@ -422,6 +754,10 @@ function SmoreSkills_ApplyHostProfession(camp)
     end
     SmoreSkills_EnsureSlots(camp)
     local object = camp.slots[1] and camp.slots[1].object
+    if force then
+        object = nil
+        camp.slot1Override = nil
+    end
     SmoreSkills_SetSlot(camp, 1, camp.owner or SmoreSkills_PlayerName(), prof, object)
     return camp
 end
@@ -481,22 +817,199 @@ function SmoreSkills_GetEffectiveSeekerWantItems()
     return SmoreSkills_GetSeekerWantItems()
 end
 
-function SmoreSkills_ApplyHostWantToCamp(camp)
+function SmoreSkills_ApplyHostWantToCamp(camp, force)
     if not camp then
+        return camp
+    end
+    if camp.wantOverride and not force then
         return camp
     end
     camp.want = SmoreSkills_GetEffectiveHostWant()
     camp.wantItems = SmoreSkills_GetEffectiveHostWantItems()
+    camp.wantOverride = nil
     return camp
+end
+
+function SmoreSkills_NotifyHostCampUi()
+    if SmoreSkills.HostPanel and SmoreSkills.HostPanel.Refresh then
+        SmoreSkills.HostPanel:Refresh()
+    end
+    if SmoreSkills.Map and SmoreSkills.Map.RefreshPins then
+        SmoreSkills.Map:RefreshPins()
+    end
+end
+
+function SmoreSkills_ShareOwnedCampFromClick()
+    if SmoreSkills.Sync and SmoreSkills.Sync.ShareOwnedCampFromClick then
+        SmoreSkills.Sync:ShareOwnedCampFromClick()
+        return
+    end
+    SmoreSkills_NotifyHostCampUi()
 end
 
 function SmoreSkills_RefreshOwnedCampWant()
     local me = SmoreSkills_PlayerName()
+    local touched = false
     for _, camp in pairs(SmoreSkillsDB.camps or {}) do
         if SmoreSkills_PlayerNamesMatch(camp.owner, me) then
-            SmoreSkills_ApplyHostWantToCamp(camp)
+            SmoreSkills_ApplyHostWantToCamp(camp, true)
+            touched = true
         end
     end
+    if touched then
+        SmoreSkills_NotifyHostCampUi()
+        if SmoreSkills.Sync and SmoreSkills.Sync.IsHosting and SmoreSkills.Sync:IsHosting() then
+            SmoreSkills_ShareOwnedCampFromClick()
+        end
+    end
+end
+
+function SmoreSkills_CampWantHasProfession(camp, profId)
+    if not camp then
+        return false
+    end
+    local want = SmoreSkills_SplitWantWire(camp.want or "any")
+    if not want or want == "" or want == "any" or want == "none" then
+        return false
+    end
+    return SmoreSkills_WantAccepts(want, profId)
+end
+
+function SmoreSkills_CampWantHasObject(camp, itemId)
+    if not camp then
+        return false
+    end
+    itemId = SmoreSkills_NormalizeItem(itemId)
+    if not itemId then
+        return false
+    end
+    for _, id in ipairs(SmoreSkills_ParseItemList(camp.wantItems)) do
+        if id == itemId then
+            return true
+        end
+    end
+    return false
+end
+
+function SmoreSkills_SetCampWantAnyone(camp)
+    if not camp then
+        return camp
+    end
+    camp.want = "any"
+    camp.wantItems = ""
+    camp.wantOverride = true
+    return camp
+end
+
+function SmoreSkills_ToggleCampWantProfession(camp, profId)
+    if not camp then
+        return false
+    end
+    local row = SmoreSkills_ProfessionFromId(SmoreSkills_NormalizeProfession(profId))
+    if not row then
+        return false
+    end
+    local want = SmoreSkills_SplitWantWire(camp.want or "any")
+    local codes = {}
+    local found = false
+    if want and want ~= "" and want ~= "any" and want ~= "none" then
+        for token in string.gmatch(want, "[^,]+") do
+            local id = SmoreSkills_NormalizeProfession(strtrim(token))
+            if id == row.id then
+                found = true
+            else
+                local other = SmoreSkills_ProfessionFromId(id)
+                if other then
+                    table.insert(codes, other.code)
+                end
+            end
+        end
+    end
+    if not found then
+        table.insert(codes, row.code)
+    else
+        camp.wantItems = DropItemsForProfession(camp.wantItems, row.id)
+    end
+    if #codes == 0 then
+        camp.want = "none"
+        camp.wantItems = ""
+    else
+        camp.want = table.concat(codes, ",")
+    end
+    camp.wantOverride = true
+    return true
+end
+
+function SmoreSkills_ToggleCampWantObject(camp, itemId)
+    if not camp then
+        return false
+    end
+    local item = SmoreSkills_ItemFromId(SmoreSkills_NormalizeItem(itemId))
+    if not item then
+        return false
+    end
+    if not SmoreSkills_CampWantHasProfession(camp, item.profession) then
+        return false
+    end
+    local list = SmoreSkills_ParseItemList(camp.wantItems)
+    local found = false
+    local nextList = {}
+    for _, id in ipairs(list) do
+        if id == item.id then
+            found = true
+        else
+            table.insert(nextList, id)
+        end
+    end
+    if not found then
+        table.insert(nextList, item.id)
+    end
+    camp.wantItems = table.concat(nextList, ",")
+    camp.wantOverride = true
+    return true
+end
+
+function SmoreSkills_SetCampHostContribution(camp, profession, object)
+    return SmoreSkills_SetCampSlotDeclaration(camp, 1, profession, object)
+end
+
+function SmoreSkills_SetCampSlotDeclaration(camp, index, profession, object)
+    if not camp then
+        return false
+    end
+    index = tonumber(index) or 1
+    local profId = SmoreSkills_NormalizeProfession(profession)
+    if not profId then
+        return false
+    end
+    if object and object ~= "" then
+        local item = SmoreSkills_ItemFromId(SmoreSkills_NormalizeItem(object))
+        if item then
+            profId = item.profession
+            object = item.label
+        end
+    else
+        object = nil
+    end
+    if index == 1 then
+        camp.slot1Override = true
+    end
+    local player = index == 1 and (camp.owner or SmoreSkills_PlayerName()) or nil
+    return SmoreSkills_SetSlot(camp, index, player, profId, object)
+end
+
+function SmoreSkills_ClearCampSlotDeclaration(camp, index)
+    if not camp then
+        return false
+    end
+    index = tonumber(index)
+    if not index or index < 2 or index > SmoreSkills.MAX_SLOTS then
+        return false
+    end
+    SmoreSkills_EnsureSlots(camp)
+    camp.slots[index] = { index = index }
+    camp.updatedAt = SmoreSkills_Now()
+    return true
 end
 
 function SmoreSkills_GetEffectiveSeekerWant()
@@ -639,7 +1152,7 @@ function SmoreSkills_ShowCampingItemTooltip(owner, item)
     if not owner or not item or not GameTooltip then
         return
     end
-    GameTooltip:SetOwner(owner, "ANCHOR_CURSOR")
+    GameTooltip:SetOwner(owner, "ANCHOR_NONE")
     GameTooltip:ClearLines()
     GameTooltip:AddLine(item.label, 1, 0.82, 0)
     if item.skill then
@@ -659,6 +1172,13 @@ function SmoreSkills_ShowCampingItemTooltip(owner, item)
         GameTooltip:AddLine("Name not confirmed on beta yet.", 0.65, 0.65, 0.65)
     end
     GameTooltip:Show()
+    local x, y = GetCursorPosition()
+    local scale = UIParent:GetEffectiveScale() or 1
+    if scale == 0 then
+        scale = 1
+    end
+    GameTooltip:ClearAllPoints()
+    GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
 end
 
 function SmoreSkills_NormalizeItem(id)
@@ -666,6 +1186,9 @@ function SmoreSkills_NormalizeItem(id)
         return nil
     end
     local lower = strlower(strtrim(id))
+    if lower == "leatherworking tier 1" then
+        return "lw1"
+    end
     local item = ITEM_BY_ID[lower] or ITEM_BY_ID[id]
     if item then
         return item.id
@@ -757,10 +1280,6 @@ function SmoreSkills_ToggleWantItem(wantKey, itemId)
         end
     end
     if not found then
-        if #nextList >= (SmoreSkills.MAX_WANT_ITEMS or 3) then
-            SmoreSkills_Reply("You can pick at most " .. tostring(SmoreSkills.MAX_WANT_ITEMS) .. " camping items.")
-            return false
-        end
         table.insert(nextList, item.id)
     end
     local joined = table.concat(nextList, ",")
@@ -858,7 +1377,7 @@ function SmoreSkills_AppendHostWantTooltipLines(lines, want, items)
     end
     local itemText = SmoreSkills_FormatItems(items)
     if itemText then
-        table.insert(lines, SmoreSkills_TooltipLabeledLine("Host wants (camping items):", itemText))
+        table.insert(lines, SmoreSkills_TooltipLabeledLine("Host wants (camping objects):", itemText))
     end
     return lines
 end

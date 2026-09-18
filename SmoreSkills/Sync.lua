@@ -109,6 +109,9 @@ local function RefreshUI()
             SmoreSkills.Map:RefreshPins()
         end
     end
+    if SmoreSkills.HostPanel and SmoreSkills.HostPanel.Refresh then
+        SmoreSkills.HostPanel:Refresh()
+    end
 end
 
 function Sync:IsSeeking()
@@ -1151,6 +1154,26 @@ function Sync:ApplyCamp(camp)
     SmoreSkills_UpsertCamp(camp)
 end
 
+function Sync:ShareOwnedCampFromClick()
+    local camp = GetActiveHostCamp()
+    if not camp then
+        SmoreSkills_NotifyHostCampUi()
+        return false
+    end
+    self:JoinCommunity(true)
+    local sent = self:ShareHost(camp, { chat = true })
+    if sent then
+        lastOutboundAt = SmoreSkills_Now()
+        self.pendingHostShare = nil
+        self.needsHardwareShare = nil
+    else
+        self.pendingHostShare = camp
+        self.needsHardwareShare = true
+    end
+    RefreshUI()
+    return sent
+end
+
 function Sync:ShareHost(camp, opts)
     opts = opts or {}
     SmoreSkills_ApplyHostWantToCamp(camp)
@@ -1281,6 +1304,9 @@ function Sync:StopHosting()
     self.pendingHostShare = nil
     self.hostShrinkNoted = nil
     self.hostEncodeFailedNoted = nil
+    if SmoreSkills.HostPanel and SmoreSkills.HostPanel.Hide then
+        SmoreSkills.HostPanel:Hide()
+    end
     local handle = self.hostTickHandle
     self.hostTickHandle = nil
     if not handle then
@@ -1302,7 +1328,6 @@ function Sync:ReplyToSeeker(camp, seekerName)
     if not camp or not self:IsHosting() then
         return
     end
-    camp.want = SmoreSkills_GetEffectiveHostWant()
     if SmoreSkills_ApplyHostProfession then
         SmoreSkills_ApplyHostProfession(camp)
     end
@@ -1330,8 +1355,7 @@ function Sync:HostHeartbeat()
         self:StopHosting()
         return
     end
-    camp.want = SmoreSkills_GetEffectiveHostWant()
-    camp.wantItems = SmoreSkills_GetEffectiveHostWantItems()
+    SmoreSkills_ApplyHostWantToCamp(camp)
     SmoreSkills_ApplyHostProfession(camp)
     self.hostTickHandle = C_Timer and C_Timer.After(HOST_COOLDOWN, function()
         self:HostHeartbeat()
@@ -1371,12 +1395,7 @@ function Sync:HostHere(fromHardware, newFire)
     local wasPacked = camp.packed
     camp.packed = nil
     camp.packedAt = nil
-    if SmoreSkills_CountEmptySlots(camp) < 1 then
-        SmoreSkills_Print("All three slots are full on this camp.")
-        self:StopHosting()
-        RefreshUI()
-        return
-    end
+    -- 3/3 still hosts; seekers who need an empty slot simply will not match.
     SmoreSkills_ApplyHostWantToCamp(camp)
     camp.layer = (SmoreSkills_GetPlayerLayerId and SmoreSkills_GetPlayerLayerId()) or camp.layer
     local now = SmoreSkills_Now()
@@ -1459,6 +1478,9 @@ function Sync:HostHere(fromHardware, newFire)
         SmoreSkills_Print("Click Find or /smores host once so other campers can see this fire.")
     end
     RefreshUI()
+    if SmoreSkills.HostPanel and SmoreSkills.HostPanel.ShowFor then
+        SmoreSkills.HostPanel:ShowFor(camp)
+    end
 end
 
 function Sync:OnMessage(text, sender)

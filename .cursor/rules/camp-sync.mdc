@@ -7,7 +7,7 @@ alwaysApply: true
 
 This is a **community** addon. Guild is only a small marker (“a guildie is at this fire”), not how camps travel.
 
-Design: [CAMPING.md](../../CAMPING.md). TBC Anniversary is the test client until Forever beta. Forever uses the **retail/Mainline addon API and restrictions** (not Classic) — see [FOREVER.md](../../FOREVER.md).
+Design: **Forever first.** [CAMPING.md](../../CAMPING.md). TBC Anniversary is only the two-client testbed while Forever servers are down — do not ship Anniversary-shaped UX (profession-icon sockets, Classic-only APIs). Forever uses the **retail/Mainline addon API and restrictions** (not Classic) — see [FOREVER.md](../../FOREVER.md).
 
 ## Never
 
@@ -43,4 +43,4 @@ Design: [CAMPING.md](../../CAMPING.md). TBC Anniversary is the test client until
 - Keep broadcasting the **fire coords** if the host walks away (do not key hosting to current feet)
 - Nested city maps (Elwynn/Stormwind, Dun Morogh/IF, Durotar/Org): still draw **zone** pins if `GetMapID()` is the city. Sibling zones (Elwynn vs Duskwood) must not share 39,70-style pins. Forever new zones (Zephras Isle, Hyjal, Shen'dralas, Riverglades) use the same C_Map rules — do not hardcode an Elwynn-only list.
 - Guild mark is optional UI, not a requirement to see or share a camp
-- TBC Anniversary (`20505`/`20506`) for testing; Forever `## Interface:` when beta FrameXML is known. Forever is Mainline API (secrets, chat lockdown), not Classic.
+- TBC Anniversary (`20505`/`20506`) for two-client testing while Forever servers are down. Forever `## Interface:` when beta FrameXML is known. Forever is Mainline API (secrets, chat lockdown), not Classic. Sockets show the **camping object** (live item texture, then stored stand-in); profession icon only if the slot names a trade and no object.

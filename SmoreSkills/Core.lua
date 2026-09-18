@@ -7,7 +7,7 @@ if not strtrim then
 end
 
 SmoreSkills = SmoreSkills or {}
-SmoreSkills.VERSION = "0.5.62"
+SmoreSkills.VERSION = "0.5.64"
 SmoreSkills.AUTHOR = "Weber8210"
 SmoreSkills.TESTER = "Stik"
 SmoreSkills.LOGO = "Interface\\AddOns\\SmoreSkills\\Art\\SmoreSkillsLogo"

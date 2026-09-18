@@ -280,7 +280,7 @@ local function StyleTooltipSocket(holder, slot)
     holder.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     holder.icon:Show()
     if slot and slot.profession then
-        holder.icon:SetTexture(SmoreSkills_ProfessionIcon(slot.profession))
+        holder.icon:SetTexture(SmoreSkills_SlotIcon(slot))
         SafeDesaturate(holder.icon, false)
         holder.icon:SetVertexColor(1, 1, 1)
         holder.icon:SetAlpha(1)
@@ -413,15 +413,9 @@ local function ShowPinTooltipFallback(pin, camp)
     for i = 1, SmoreSkills.MAX_SLOTS do
         GameTooltip:AddLine(SmoreSkills_FormatSlotTooltipLine(camp, i), 0.92, 0.92, 0.92)
     end
-    if camp.want and camp.want ~= "any" then
-        local want = camp.want
-        local wantItems = camp.wantItems
-        if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
-            want = SmoreSkills_GetEffectiveHostWant()
-            wantItems = SmoreSkills_GetEffectiveHostWantItems()
-        end
+        if camp.want and camp.want ~= "any" then
         local wantLines = {}
-        SmoreSkills_AppendHostWantTooltipLines(wantLines, want, wantItems)
+        SmoreSkills_AppendHostWantTooltipLines(wantLines, camp.want, camp.wantItems)
         for _, line in ipairs(wantLines) do
             GameTooltip:AddLine(line, 0.92, 0.92, 0.92)
         end
@@ -471,15 +465,7 @@ local function ShowPinTooltip(pin)
             table.insert(footerLines, SmoreSkills_FormatSlotTooltipLine(camp, i))
         end
         if camp.want and camp.want ~= "any" then
-            local want = camp.want
-            local wantItems = camp.wantItems
-            if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
-                want = SmoreSkills_GetEffectiveHostWant()
-                wantItems = SmoreSkills_GetEffectiveHostWantItems()
-            end
-            if want and want ~= "any" then
-                SmoreSkills_AppendHostWantTooltipLines(footerLines, want, wantItems)
-            end
+            SmoreSkills_AppendHostWantTooltipLines(footerLines, camp.want, camp.wantItems)
         end
         if SmoreSkills_IsTestCamp and SmoreSkills_IsTestCamp(camp) then
             table.insert(footerLines, "|cff888888Test camp (local preview)|r")
@@ -731,6 +717,12 @@ function Map:CreatePinFrame()
     pin:SetScript("OnClick", function(self, mouseButton)
         if mouseButton == "RightButton" then
             OnOwnPinRightClick(self)
+            return
+        end
+        if self.camp and SmoreSkills_PlayerNamesMatch(self.camp.owner, SmoreSkills_PlayerName()) then
+            if SmoreSkills.HostPanel and SmoreSkills.HostPanel.ShowFor then
+                SmoreSkills.HostPanel:ShowFor(self.camp)
+            end
             return
         end
         Map:WhisperHost(self.camp)
