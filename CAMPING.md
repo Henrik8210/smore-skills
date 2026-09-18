@@ -142,7 +142,7 @@ When their signals **match**, the night elf sees a **map pin**: a bonfire icon w
 
 **One camp at a time.** Lighting a **new** campfire (Auto host) packs up the previous pin (`X:`) and hosts the new site — Elwynn then Stormwind does not leave both pins. Walking away, or `/smores host` without a new fire, keeps the **original fire coords**. Pack-up (right-click own pin or `/smores pack`) also ends the camp. There is no `/smores here` snapshot command; sharing a fire is host only.
 
-The **host's pin is local.** Lighting a fire writes a per-character snapshot and draws it on *your* map. `/reload` (or logging out and back in within the pin TTL) restores it until pack-up, 3/3, or 20 min — hosting is not RAM-only. Slot 1 and the Host tooltip line use the Host-tab profession. A seeker only draws that pin after **their** client receives your host ping (`H:`). Standing next to each other is not enough.
+The **host's pin is local.** Lighting a fire writes a **flat account snapshot** (plus a per-character copy) and draws it on *your* map. `/reload` restores it until pack-up, 3/3, or 20 min — see [HOST-PERSIST.md](HOST-PERSIST.md). Do not rely on nested `SmoreSkillsDB.camps` after reload. Slot 1 and the Host tooltip line use the Host-tab profession. A seeker only draws that pin after **their** client receives your host ping (`H:`). Standing next to each other is not enough.
 
 ## Two roles
 

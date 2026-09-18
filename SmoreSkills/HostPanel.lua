@@ -325,7 +325,9 @@ function HostPanel:BuildMenu()
         self.menu = nil
     end
     local menu = CreateFrame("Frame", "SmoreSkillsHostSocketMenu", self.frame, BackdropTemplateMixin and "BackdropTemplate" or nil)
-    menu:SetFrameStrata("HIGH")
+    if not pcall(menu.SetFrameStrata, menu, "FULLSCREEN_DIALOG") then
+        menu:SetFrameStrata("TOOLTIP")
+    end
     menu:SetFrameLevel((self.frame:GetFrameLevel() or 1) + 8)
     menu:SetWidth(260)
     menu:SetClampedToScreen(true)
@@ -437,15 +439,14 @@ function HostPanel:AnchorMenu(anchor)
         return
     end
     menu:SetParent(self.frame)
-    menu:SetFrameStrata("HIGH")
+    if not pcall(menu.SetFrameStrata, menu, "FULLSCREEN_DIALOG") then
+        menu:SetFrameStrata("TOOLTIP")
+    end
     menu:SetFrameLevel((self.frame:GetFrameLevel() or 1) + 20)
     menu:ClearAllPoints()
     menu:SetWidth(260)
     menu:SetClampedToScreen(true)
     menu:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -2)
-    if anchor.GetWidth and (anchor:GetWidth() or 0) >= 200 then
-        menu:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, -2)
-    end
 end
 
 function HostPanel:ResetMenuButtons()
@@ -721,7 +722,14 @@ function HostPanel:Build()
     local frame = CreateFrame("Frame", "SmoreSkillsHostPanel", UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
     frame:SetSize(PANEL_W, 280)
     frame:SetPoint("CENTER", UIParent, "CENTER", 0, -90)
-    frame:SetFrameStrata("HIGH")
+    -- Map & Quest Log is DIALOG/FULLSCREEN; HIGH would hide the panel behind it.
+    if not pcall(frame.SetFrameStrata, frame, "FULLSCREEN_DIALOG") then
+        frame:SetFrameStrata("TOOLTIP")
+    end
+    if frame.SetToplevel then
+        frame:SetToplevel(true)
+    end
+    frame:SetFrameLevel(200)
     frame:SetClampedToScreen(true)
     frame:SetMovable(true)
     frame:EnableMouse(true)
@@ -990,7 +998,7 @@ function HostPanel:Refresh()
     if showObjects then
         self.objTitle:SetPoint("TOPLEFT", last, "BOTTOMLEFT", 0, -12)
         self.objDrop:SetPoint("TOPLEFT", self.objTitle, "BOTTOMLEFT", 0, -6)
-        self.objDrop:SetPoint("RIGHT", self.frame, "RIGHT", -14, 0)
+        self.objDrop:SetWidth(200)
         self.objDrop.label:SetText(self:ObjectDropLabel(camp))
         StyleDrop(self.objDrop, self.objDrop.hovered)
         last = self.objDrop
@@ -1031,7 +1039,18 @@ function HostPanel:ShowFor(camp)
     end
     self.dismissed = nil
     self:Build()
+    if self.frame.SetFrameStrata then
+        if not pcall(self.frame.SetFrameStrata, self.frame, "FULLSCREEN_DIALOG") then
+            pcall(self.frame.SetFrameStrata, self.frame, "TOOLTIP")
+        end
+    end
+    if self.frame.SetToplevel then
+        self.frame:SetToplevel(true)
+    end
     self.frame:Show()
+    if self.frame.Raise then
+        self.frame:Raise()
+    end
     self:HideMenu()
     self:Refresh()
 end

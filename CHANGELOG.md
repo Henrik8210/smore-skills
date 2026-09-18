@@ -1,5 +1,44 @@
 # Changelog
 
+## v0.5.77
+
+- After `/reload`, Forever often does not reload nested `camps` or the per-character host file into memory, even though they sit on disk. Restore now uses **flat account fields** (`hostCampId` + `hostSnapRemaining`, and `hostSnap_*` coords) so the pin comes back without reading `litAt` from the nested table.
+- Kit **Use** hosts; Cooking **Create** does not. Pin TTL for your fire is seconds remaining + session `GetTime()`, not Denmark `time()` vs the US realm clock.
+- How `/reload` keeps the pin: [HOST-PERSIST.md](HOST-PERSIST.md).
+- CurseForge **beta** `v0.5.77-beta`.
+
+## v0.5.76
+
+- Campfire TTL no longer mixes your PC clock with the US realm clock. Denmark vs US (`time()` vs `GetServerTime()`) is a 9 hour jump — enough to make a 20 minute fire look burned out after `/reload`.
+- Your hosted pin now counts down from **seconds remaining** + `GetTime()` (session timer), which does not care about time zones.
+
+## v0.5.75
+
+- Do not rebuild the hosted camp until the game clock is a real unix time. A `0` clock after `/reload` was writing a negative `litAt`, so the pin looked expired for the rest of the session.
+- Restore retries over the first few seconds, and chat only says the fire is still yours after hosting is actually restored.
+
+## v0.5.74
+
+- `/reload` keeps the hosted camp when Forever's clock changes unit. The snapshot now stores **seconds remaining**; restore rewrites `litAt` onto this session's clock instead of treating the fire as already burned out.
+- Restore runs again on entering the world, and a clock jump no longer expires a fire that was still lit a moment ago.
+
+## v0.5.73
+
+- Login says what happened to your fire: **"Your campfire in <zone> is still yours (X min left)"**, or **"Saved campfire dropped: <reason>"** when the snapshot is turned down.
+- A failing UI or Settings init can no longer skip the host restore — each login step runs on its own and reports its error instead of stopping the rest.
+- Only the 20 min clock or a pack-up may delete the saved snapshot. Stale-camp cleanup and a failed restore leave it alone so the next try can still find it.
+
+## v0.5.72
+
+- Lighting a campfire hosts again. A kit **Use** whose spell id we never learned is now caught by the cast name, and the craft check reads the profession window live instead of a `TRADE_SKILL_CLOSE` flag that could stay stuck on.
+- `/smores castdebug` prints what each campfire cast looks like (spell id, name, profession window state, decision) and lists the place-fire spell ids it knows.
+
+## v0.5.71
+
+- Back to the v0.5.69 `/reload` persistence that worked: the per-character `SmoreSkillsHostDB` snapshot is restored on load with no extra guards in the way.
+- Crafting a **Basic Campfire Kit** no longer hosts a camp. Create and Use share one cast, so the profession window decides: window open on cast start means craft, closed means you lit a fire.
+- Tooltip shows a met skill requirement in green instead of red.
+
 ## v0.5.70
 
 - Map Find button sits left of the **Map & Quest Log** hide tab so that toggle stays clickable.

@@ -136,12 +136,58 @@ function SmoreSkills_GetPlayerProfessions()
             end
         end
     end
-    if #list == 0 and GetNumSkillLines then
+    -- First Aid is still a real Forever trade; GetProfessions often omits it.
+    if GetNumSkillLines then
         for i = 1, GetNumSkillLines() do
             addByName(GetSkillLineInfo(i))
         end
     end
     return list
+end
+
+function SmoreSkills_GetProfessionSkill(profId)
+    if not profId or profId == "" then
+        return 0
+    end
+    if not ID_TO_PROF[profId] then
+        profId = SmoreSkills_ProfessionIdFromSkillName(profId)
+    end
+    if not profId or not ID_TO_PROF[profId] then
+        return 0
+    end
+    local best = 0
+    local function consider(name, rank)
+        if SmoreSkills_ProfessionIdFromSkillName(name) == profId then
+            rank = tonumber(rank) or 0
+            if rank > best then
+                best = rank
+            end
+        end
+    end
+    if GetProfessions and GetProfessionInfo then
+        local profs = { GetProfessions() }
+        for i = 1, #profs do
+            if profs[i] then
+                local name, _, rank = GetProfessionInfo(profs[i])
+                consider(name, rank)
+            end
+        end
+    end
+    if GetNumSkillLines then
+        for i = 1, GetNumSkillLines() do
+            local name, isHeader, _, rank = GetSkillLineInfo(i)
+            if not isHeader then
+                consider(name, rank)
+            end
+        end
+    end
+    if C_TradeSkillUI and C_TradeSkillUI.GetBaseProfessionInfo then
+        local ok, info = pcall(C_TradeSkillUI.GetBaseProfessionInfo)
+        if ok and type(info) == "table" then
+            consider(info.parentProfessionName or info.professionName or info.profession, info.skillLevel)
+        end
+    end
+    return best
 end
 
 SmoreSkills.SIGNAL_TTL = 3 * 60
@@ -542,6 +588,15 @@ local function OpenTradeSkillProfessionId()
     if GetTradeSkillLine then
         local ok, name = pcall(GetTradeSkillLine)
         if ok then
+            local id = SmoreSkills_ProfessionIdFromSkillName(name)
+            if id then
+                return id
+            end
+        end
+    end
+    if GetCraftDisplaySkillLine then
+        local ok, name = pcall(GetCraftDisplaySkillLine)
+        if ok then
             return SmoreSkills_ProfessionIdFromSkillName(name)
         end
     end
@@ -605,6 +660,43 @@ local function ScanSpellKnownCampingObjects()
     end
 end
 
+local function SkillRequiredForItem(item)
+    if not item then
+        return nil
+    end
+    local text = item.skill or item.unlock or ""
+    return tonumber(text:match("%((%d+)%)")) or tonumber(text:match("(%d+)"))
+end
+
+function SmoreSkills_CampingItemSkillRequired(item)
+    return SkillRequiredForItem(item)
+end
+
+function SmoreSkills_PlayerMeetsCampingItemSkill(item)
+    if not item then
+        return false
+    end
+    local need = SkillRequiredForItem(item)
+    if not need then
+        return true
+    end
+    return SmoreSkills_GetProfessionSkill(item.profession) >= need
+end
+
+-- Forever First Aid (and other trades) can sit at 46 without GetProfessions listing them.
+-- Skill 46 unlocks the 20-skill camping object even if we have not scanned the recipe window.
+local function InferLearnedFromProfessionSkill()
+    for _, item in ipairs(SmoreSkills.PROFESSION_ITEMS) do
+        local need = SkillRequiredForItem(item)
+        if need then
+            local rank = SmoreSkills_GetProfessionSkill and SmoreSkills_GetProfessionSkill(item.profession) or 0
+            if rank >= need then
+                MarkLearnedObject(item.id)
+            end
+        end
+    end
+end
+
 local function ScanTradeSkillLearnedCampingObjects()
     local found = {}
     local foundByProf = {}
@@ -642,6 +734,17 @@ local function ScanTradeSkillLearnedCampingObjects()
             end
         end
     end
+    if GetNumCrafts then
+        local ok, n = pcall(GetNumCrafts)
+        if ok and n and n > 0 then
+            for i = 1, n do
+                local okInfo, name, craftType = pcall(GetCraftInfo, i)
+                if okInfo and type(name) == "string" and craftType ~= "header" then
+                    takeName(name, true)
+                end
+            end
+        end
+    end
     local openProf = OpenTradeSkillProfessionId()
     if openProf then
         local ids = {}
@@ -659,8 +762,10 @@ end
 
 function SmoreSkills_PlayerKnowsCampingObject(itemOrId)
     local id = itemOrId
+    local item = nil
     if type(itemOrId) == "table" then
         id = itemOrId.id
+        item = itemOrId
     elseif type(itemOrId) == "string" then
         id = SmoreSkills_NormalizeItem(itemOrId) or itemOrId
     end
@@ -668,12 +773,20 @@ function SmoreSkills_PlayerKnowsCampingObject(itemOrId)
         return false
     end
     local store = LearnedStore()
-    return store and store.objects[id] == true
+    if store and store.objects[id] == true then
+        return true
+    end
+    item = item or ITEM_BY_ID[id]
+    if item and SmoreSkills_PlayerMeetsCampingItemSkill(item) then
+        return true
+    end
+    return false
 end
 
 function SmoreSkills_LearnedCampingItems()
     ScanSpellKnownCampingObjects()
     ScanTradeSkillLearnedCampingObjects()
+    InferLearnedFromProfessionSkill()
     local list = {}
     local seen = {}
     local profs = SmoreSkills_GetPlayerProfessions()
@@ -718,6 +831,7 @@ local function ScanLiveObjectIcons()
     ScanTradeSkillObjectIcons()
     ScanSpellKnownCampingObjects()
     ScanTradeSkillLearnedCampingObjects()
+    InferLearnedFromProfessionSkill()
 end
 
 local lastLiveIconScan = 0
@@ -735,7 +849,11 @@ pcall(iconScanFrame.RegisterEvent, iconScanFrame, "TRAINER_SHOW")
 pcall(iconScanFrame.RegisterEvent, iconScanFrame, "TRAINER_UPDATE")
 pcall(iconScanFrame.RegisterEvent, iconScanFrame, "TRADE_SKILL_SHOW")
 pcall(iconScanFrame.RegisterEvent, iconScanFrame, "TRADE_SKILL_DATA_SOURCE_CHANGED")
+pcall(iconScanFrame.RegisterEvent, iconScanFrame, "TRADE_SKILL_LIST_UPDATE")
+pcall(iconScanFrame.RegisterEvent, iconScanFrame, "CRAFT_SHOW")
+pcall(iconScanFrame.RegisterEvent, iconScanFrame, "CRAFT_UPDATE")
 pcall(iconScanFrame.RegisterEvent, iconScanFrame, "PLAYER_ENTERING_WORLD")
+pcall(iconScanFrame.RegisterEvent, iconScanFrame, "SKILL_LINES_CHANGED")
 iconScanFrame:SetScript("OnEvent", function()
     ScanLiveObjectIcons()
     if not (SmoreSkills.HostPanel and SmoreSkills.HostPanel.Refresh) then
@@ -759,7 +877,12 @@ iconScanFrame:SetScript("OnEvent", function()
         flush()
     end
 end)
-ScanLiveObjectIcons()
+-- Defer: this file is still loading; NormalizeProfession and EnsureSettings come later.
+if C_Timer and C_Timer.After then
+    C_Timer.After(0, ScanLiveObjectIcons)
+else
+    ScanLiveObjectIcons()
+end
 
 function SmoreSkills_CampingObjectIcon(itemOrIdOrLabel)
     MaybeScanLiveObjectIcons()
@@ -1476,7 +1599,13 @@ function SmoreSkills_ShowCampingItemTooltip(owner, item, anchor)
     GameTooltip:ClearLines()
     GameTooltip:AddLine(item.label, 1, 0.82, 0)
     if item.skill then
-        GameTooltip:AddLine("Requires " .. item.skill, 1, 0.13, 0.13)
+        local meets = SmoreSkills_PlayerMeetsCampingItemSkill(item)
+            or (SmoreSkills_PlayerKnowsCampingObject and SmoreSkills_PlayerKnowsCampingObject(item))
+        if meets then
+            GameTooltip:AddLine("Requires " .. item.skill, 0.1, 1, 0.1)
+        else
+            GameTooltip:AddLine("Requires " .. item.skill, 1, 0.13, 0.13)
+        end
     elseif item.unlock then
         GameTooltip:AddLine(item.unlock, 0.7, 0.7, 0.7)
     end
@@ -2226,11 +2355,52 @@ function SmoreSkills_CampPinActive(camp)
     if camp.packed then
         return false
     end
+    local remain = SmoreSkills_OwnedHostRemaining(camp)
+    if remain ~= nil then
+        return remain > 0
+    end
     local lit = SmoreSkills_CampLitTime(camp)
     if lit <= 0 then
         return false
     end
     return (SmoreSkills_Now() - lit) < (SmoreSkills.CAMPFIRE_DURATION or 1200)
+end
+
+-- Seconds left on YOUR fire. Uses remaining + GetTime so US realm vs Denmark PC never expires it.
+function SmoreSkills_OwnedHostRemaining(camp)
+    if not camp or camp.packed then
+        return nil
+    end
+    local me = SmoreSkills_PlayerName and SmoreSkills_PlayerName()
+    local mine = SmoreSkills_PlayerNamesMatch(camp.owner, me)
+        or (SmoreSkillsDB and SmoreSkillsDB.hostCampId and camp.id == SmoreSkillsDB.hostCampId)
+    if not mine then
+        return nil
+    end
+    local duration = SmoreSkills.CAMPFIRE_DURATION or 1200
+    local sync = SmoreSkills.Sync
+    if sync and tonumber(sync.hostRemainAt) then
+        local elapsed = ((GetTime and GetTime()) or 0) - (tonumber(sync.hostRemainStarted) or 0)
+        return (tonumber(sync.hostRemainAt) or 0) - elapsed
+    end
+    local db = SmoreSkillsHostDB
+    local remaining = type(db) == "table" and tonumber(db.remaining)
+    if not remaining and SmoreSkillsDB then
+        remaining = tonumber(SmoreSkillsDB.hostSnapRemaining)
+    end
+    if remaining then
+        return remaining
+    end
+    local lit = SmoreSkills_CampLitTime(camp)
+    local now = SmoreSkills_Now()
+    if lit > 0 and now > 0 then
+        local age = now - lit
+        if age > duration + 300 or age < -60 then
+            return duration
+        end
+        return duration - age
+    end
+    return duration
 end
 
 function SmoreSkills_CampHiddenReason(camp, mapId, seekerProfession)
@@ -2695,7 +2865,77 @@ function SmoreSkills_ClearOwnedHostSnapshot()
     db.v = 1
     if SmoreSkillsDB then
         SmoreSkillsDB.hostCampId = nil
+        SmoreSkillsDB.hostSnapRemaining = nil
+        for k in pairs(SmoreSkillsDB) do
+            if type(k) == "string" and k:sub(1, 9) == "hostSnap_" then
+                SmoreSkillsDB[k] = nil
+            end
+        end
     end
+end
+
+local HOST_SNAP_KEYS = {
+    "id", "mapId", "x", "y", "zone", "faction", "owner", "want", "wantItems",
+    "litAt", "updatedAt", "remaining", "clock", "layer", "layerOrdinal",
+    "wantOverride", "slot1Override",
+    "p1", "o1", "n1", "p2", "o2", "n2", "p3", "o3", "n3",
+}
+
+local function WriteAccountHostSnap(db)
+    if type(SmoreSkillsDB) ~= "table" or type(db) ~= "table" then
+        return
+    end
+    for i = 1, #HOST_SNAP_KEYS do
+        local k = HOST_SNAP_KEYS[i]
+        SmoreSkillsDB["hostSnap_" .. k] = db[k]
+    end
+    SmoreSkillsDB.hostSnapRemaining = db.remaining
+    SmoreSkillsDB.hostCampId = db.id
+end
+
+local function ParseHostCampId(id)
+    if type(id) ~= "string" or id == "" then
+        return nil
+    end
+    local mapId, x, y = id:match("^(%d+):([%d%.eE+-]+):([%d%.eE+-]+)$")
+    mapId, x, y = tonumber(mapId), tonumber(x), tonumber(y)
+    if mapId and mapId > 0 and x and y then
+        return mapId, x, y
+    end
+    return nil
+end
+
+local function ReadAccountHostSnap()
+    if type(SmoreSkillsDB) ~= "table" then
+        return nil
+    end
+    local db = {}
+    for i = 1, #HOST_SNAP_KEYS do
+        local k = HOST_SNAP_KEYS[i]
+        db[k] = SmoreSkillsDB["hostSnap_" .. k]
+    end
+    if db.remaining == nil then
+        db.remaining = SmoreSkillsDB.hostSnapRemaining
+    end
+    if (not tonumber(db.mapId) or not tonumber(db.x) or not tonumber(db.y)) and SmoreSkillsDB.hostCampId then
+        local mapId, x, y = ParseHostCampId(SmoreSkillsDB.hostCampId)
+        if mapId then
+            db.mapId = db.mapId or mapId
+            db.x = db.x or x
+            db.y = db.y or y
+            db.id = db.id or SmoreSkillsDB.hostCampId
+        end
+    end
+    if tonumber(db.mapId) and tonumber(db.mapId) > 0 and tonumber(db.x) and tonumber(db.y) then
+        return db
+    end
+    return nil
+end
+
+local function HostSnapHasCoords(db)
+    return type(db) == "table"
+        and tonumber(db.mapId) and tonumber(db.mapId) > 0
+        and tonumber(db.x) and tonumber(db.y)
 end
 
 -- Flat primitives only. Nested camp tables in SmoreSkillsDB.camps did not survive /reload.
@@ -2721,6 +2961,22 @@ function SmoreSkills_SnapshotOwnedHost()
     db.wantItems = camp.wantItems or ""
     db.litAt = litAt
     db.updatedAt = updatedAt
+    local duration = SmoreSkills.CAMPFIRE_DURATION or 1200
+    local now = SmoreSkills_Now()
+    local remaining = SmoreSkills_OwnedHostRemaining(camp)
+    if not remaining then
+        remaining = duration - (now - litAt)
+    end
+    if now <= 0 or (now > 0 and (now - litAt > duration + 300 or now - litAt < -60)) then
+        remaining = remaining or duration
+    end
+    if remaining < 0 then
+        remaining = 0
+    elseif remaining > duration then
+        remaining = duration
+    end
+    db.remaining = remaining
+    db.clock = now
     db.layer = tonumber(camp.layer) or 0
     db.layerOrdinal = tonumber(camp.layerOrdinal) or 0
     db.wantOverride = camp.wantOverride and 1 or 0
@@ -2733,19 +2989,20 @@ function SmoreSkills_SnapshotOwnedHost()
     end
     if SmoreSkillsDB then
         SmoreSkillsDB.hostCampId = id
+        SmoreSkillsDB.hostSnapRemaining = remaining
+        WriteAccountHostSnap(db)
     end
 end
 
+-- Returns camp, or nil plus why it was turned down, so login can say so out loud.
 function SmoreSkills_RestoreOwnedHost()
-    local db = SmoreSkillsHostDB
-    if type(db) ~= "table" then
-        return nil
+    local db = HostSnapHasCoords(SmoreSkillsHostDB) and SmoreSkillsHostDB or nil
+    db = db or ReadAccountHostSnap()
+    if not HostSnapHasCoords(db) then
+        return nil, "no saved campfire"
     end
     local mapId = tonumber(db.mapId)
     local x, y = tonumber(db.x), tonumber(db.y)
-    if not mapId or mapId <= 0 or not x or not y then
-        return nil
-    end
     local camp = {
         id = db.id or SmoreSkills_CampId(mapId, x, y),
         mapId = mapId,
@@ -2786,8 +3043,31 @@ function SmoreSkills_RestoreOwnedHost()
             player = (type(n) == "string" and n ~= "" and n) or nil,
         }
     end
-    if not SmoreSkills_CampPinActive(camp) then
-        return nil
+    local duration = SmoreSkills.CAMPFIRE_DURATION or 1200
+    local remaining = tonumber(db.remaining)
+    if not remaining and SmoreSkillsDB then
+        remaining = tonumber(SmoreSkillsDB.hostSnapRemaining)
+    end
+    if remaining == nil then
+        local now = SmoreSkills_Now()
+        local lit = tonumber(camp.litAt) or 0
+        if now > 0 and lit > 0 and math.abs(now - lit) <= duration + 300 then
+            remaining = duration - (now - lit)
+        else
+            remaining = duration
+        end
+    end
+    if remaining <= 0 then
+        return nil, "the fire burned out"
+    end
+    if remaining > duration then
+        remaining = duration
+    end
+    camp.ttlLeft = remaining
+    local now = SmoreSkills_Now()
+    if now > 0 then
+        camp.litAt = now - (duration - remaining)
+        camp.updatedAt = now
     end
     SmoreSkillsDB = SmoreSkillsDB or { camps = {}, settings = { dataVersion = 1 } }
     SmoreSkillsDB.camps = SmoreSkillsDB.camps or {}
@@ -3069,7 +3349,12 @@ function SmoreSkills_ForgetStaleCamps(maxAge)
             if SmoreSkills.Sync and SmoreSkills.Sync.seekDiscoveredIds then
                 SmoreSkills.Sync.seekDiscoveredIds[id] = nil
             end
-            if SmoreSkillsHostDB and SmoreSkillsHostDB.id == id and SmoreSkills_ClearOwnedHostSnapshot then
+            -- Only the clock or a pack-up may destroy the snapshot. Everything else can be retried.
+            local lit = SmoreSkills_CampLitTime(camp)
+            local burnedOut = lit <= 0 or (now - lit) >= (SmoreSkills.CAMPFIRE_DURATION or 1200)
+            if (camp.packed or burnedOut)
+                and SmoreSkillsHostDB and SmoreSkillsHostDB.id == id
+                and SmoreSkills_ClearOwnedHostSnapshot then
                 SmoreSkills_ClearOwnedHostSnapshot()
             end
         elseif (now - (camp.updatedAt or camp.litAt or 0)) > maxAge then

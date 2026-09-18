@@ -50,6 +50,15 @@ local function HandleSlash(msg)
         end
         return
     end
+    if lower == "castdebug" then
+        local sync = SmoreSkills.Sync
+        sync.castDebug = not sync.castDebug
+        SmoreSkills_Reply("Cast debug: " .. (sync.castDebug and "on" or "off"))
+        if sync.castDebug then
+            SmoreSkills_Reply("Known place-fire spells: " .. (sync:DescribeKitSpells() or "none"))
+        end
+        return
+    end
     if lower == "status" then
         local sync = SmoreSkills.Sync
         local chOk, chId = sync:GetChannelStatus()
@@ -63,6 +72,19 @@ local function HandleSlash(msg)
             SmoreSkills_Reply(string.format("Hosting: yes (%ds left). Want: %s", left, SmoreSkills_FormatWant(SmoreSkills_GetEffectiveHostWant(), SmoreSkills_GetEffectiveHostWantItems())))
         else
             SmoreSkills_Reply("Hosting: no")
+        end
+        local snap = SmoreSkillsHostDB
+        if type(snap) == "table" and tonumber(snap.mapId) and tonumber(snap.mapId) > 0 then
+            local age = math.max(0, SmoreSkills_Now() - (tonumber(snap.litAt) or 0))
+            SmoreSkills_Reply(string.format(
+                "Host snapshot: %s at %.0f,%.0f (%ds old)",
+                snap.zone ~= "" and snap.zone or tostring(snap.mapId),
+                (tonumber(snap.x) or 0) * 100,
+                (tonumber(snap.y) or 0) * 100,
+                age
+            ))
+        else
+            SmoreSkills_Reply("Host snapshot: none")
         end
         if sync:IsSeeking() then
             SmoreSkills_Reply(string.format("Seeking: yes (%ds left)", sync:GetSeekingRemaining()))

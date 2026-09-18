@@ -2,7 +2,7 @@
 
 **Product is Forever.** TBC Anniversary is only the two-client share testbed. Do not design for Anniversary and back-port.
 
-**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). Servers dropped overnight; they were **up again 18 Sep**. Last CurseForge full file before this pass was **v0.5.62**. This pass is CurseForge **beta** `v0.5.70-beta` (Find button left of the quest-log hide tab).
+**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). Servers dropped overnight; they were **up again 18 Sep**. Last CurseForge full file before this pass was **v0.5.62**. Host persist + kit Use vs Create: CurseForge **beta** `v0.5.77-beta`. How `/reload` keeps the pin: [HOST-PERSIST.md](HOST-PERSIST.md).
 
 ---
 
@@ -272,7 +272,7 @@ Use **two same-faction characters** in the **same zone**.
 
 - [ ] Open **zone** map (not only World/continent)
 - [ ] Host: **Use** a **Basic Campfire Kit** (Auto host on) or `/smores host` at a fire. Create at the trainer must not pin. Walk **100 yards** from another fire first.
-- [ ] Host `/reload` while the fire is still up — pin and `/smores status` Hosting stay until pack / 3/3 / 20 min
+- [ ] Host `/reload` while the fire is still up — pin and `/smores status` Hosting stay until pack / 3/3 / 20 min. Chat **Your campfire is still yours**. Not “Host a camp first”. See [HOST-PERSIST.md](HOST-PERSIST.md).
 - [ ] Seeker: map **Find** button (or `/smores find`); minimap S'more icon opens map only
 - [ ] Bonfire pin appears at host coords on **zone** map
 - [ ] Seeker does **not** get a pin of their own — only hosted camps appear

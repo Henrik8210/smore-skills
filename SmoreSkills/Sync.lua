@@ -42,15 +42,20 @@ local sendPump
 -- spell whose name contains campfire. Cooking Create of the kit is not a
 -- place — even if the profession window closes before the craft lands.
 -- Sitting at a fire is not a host.
-local CAMPFIRE_SPELL_IDS = {
+-- Only these spell ids place a fire. Kit **Use** ids come from RefreshKitSpells; never learn from craft casts.
+local PLACE_FIRE_SPELL_IDS = {
     [818] = true,
+    -- Forever: Basic Campfire Kit **Use** and Cooking **Create** share this cast (name "Basic Campfire").
+    [1229737] = true,
 }
 local craftCastGuids = {}
-local professionCastFallbackUntil = 0
+local placeCastGuids = {}
+local KIT_ITEM_SEARCH = "Basic Campfire Kit"
 
 Sync.seekingActive = false
 Sync.seekListenUntil = 0
 Sync.hostingUntil = 0
+Sync.castDebug = false
 Sync.hostTickHandle = nil
 Sync.seekDiscoveredIds = Sync.seekDiscoveredIds or {}
 Sync.mapPinsDismissed = false
@@ -377,20 +382,24 @@ function Sync:GetSeekListenRemaining()
 end
 
 function Sync:IsHosting()
-    if SmoreSkills_Now() < (self.hostingUntil or 0) then
-        return true
+    local remain = tonumber(self.hostRemainAt)
+    if remain then
+        local left = remain - (((GetTime and GetTime()) or 0) - (self.hostRemainStarted or 0))
+        if left > 0 then
+            return true
+        end
+        return false
     end
     local camp = SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp()
     if not camp then
         return false
     end
-    local untilAt = (SmoreSkills_CampLitTime(camp) or 0) + (SmoreSkills.CAMPFIRE_DURATION or 1200)
-    if SmoreSkills_Now() >= untilAt then
-        return false
+    local left = SmoreSkills_OwnedHostRemaining and SmoreSkills_OwnedHostRemaining(camp)
+    if left and left > 0 then
+        self.hostCampId = camp.id
+        return true
     end
-    self.hostCampId = camp.id
-    self.hostingUntil = untilAt
-    return true
+    return false
 end
 
 function Sync:GetSeekCooldownRemaining()
@@ -668,8 +677,52 @@ local function IsProfessionUiOpen()
                 return true
             end
         end
+        local okReady, ready = pcall(C_TradeSkillUI.IsTradeSkillReady)
+        if okReady and ready and FrameIsShown(professions) then
+            return true
+        end
     end
     return false
+end
+
+-- Create and Use share the cast name on Forever. The profession window is the only honest tell,
+-- so the name only decides *whether we care*, never craft vs place.
+local function NameLooksLikeCampfire(spellName)
+    if type(spellName) ~= "string" or spellName == "" then
+        return false
+    end
+    local key = strlower(spellName)
+    if key:find("nearby", 1, true) then
+        return false
+    end
+    return key:find("campfire", 1, true) ~= nil or key:find("campsite", 1, true) ~= nil
+end
+
+local function CastLooksLikeFire(spellId, spellName)
+    spellId = tonumber(spellId)
+    if spellId and PLACE_FIRE_SPELL_IDS[spellId] then
+        return true, spellName
+    end
+    if not spellName or spellName == "" then
+        local ok, resolved = pcall(SpellDisplayName, spellId)
+        spellName = ok and resolved or nil
+    end
+    return NameLooksLikeCampfire(spellName), spellName
+end
+
+local function CastDebug(stage, spellId, spellName, castGUID, note)
+    if not Sync.castDebug then
+        return
+    end
+    SmoreSkills_Print(string.format(
+        "cast %s: id=%s name=%s guid=%s profUi=%s -> %s",
+        stage,
+        tostring(spellId),
+        tostring(spellName),
+        castGUID and "yes" or "no",
+        IsProfessionUiOpen() and "open" or "closed",
+        note
+    ))
 end
 
 local function ParseCastArgs(a, b)
@@ -694,74 +747,28 @@ local function ParseCastArgs(a, b)
     return spellId, spellName, castGUID
 end
 
-local function RememberProfessionCast(castGUID)
-    if not IsProfessionUiOpen() then
-        return
-    end
-    if castGUID and castGUID ~= "" then
-        craftCastGuids[castGUID] = true
-        return
-    end
-    professionCastFallbackUntil = (GetTime and GetTime() or 0) + 3
-end
-
-local function WasProfessionCast(castGUID)
-    if castGUID and craftCastGuids[castGUID] then
-        craftCastGuids[castGUID] = nil
-        return true
-    end
-    if castGUID and castGUID ~= "" then
+local function ItemLooksLikeCampfireKit(itemName)
+    if not itemName or itemName == "" then
         return false
     end
-    local now = GetTime and GetTime() or 0
-    return now < professionCastFallbackUntil
+    return strlower(itemName):find("campfire kit", 1, true) ~= nil
+end
+
+local function ClearProfessionCastMemory()
+    if wipe then
+        wipe(craftCastGuids)
+    else
+        for k in pairs(craftCastGuids) do
+            craftCastGuids[k] = nil
+        end
+    end
 end
 
 local function ForgetProfessionCast(castGUID)
     if castGUID then
         craftCastGuids[castGUID] = nil
+        placeCastGuids[castGUID] = nil
     end
-end
-
-local function NameLooksLikePlacedFire(spellName)
-    if not spellName or spellName == "" then
-        return false
-    end
-    local key = strlower(spellName)
-    if key:find("nearby", 1, true) then
-        return false
-    end
-    if key:find("campfire", 1, true) then
-        return true
-    end
-    if key:find("campsite", 1, true) then
-        return true
-    end
-    if key:find("camp", 1, true) and key:find("kit", 1, true) then
-        return true
-    end
-    return false
-end
-
-local function IsBasicCampfire(spellId, spellName)
-    spellId = tonumber(spellId)
-    if spellId and CAMPFIRE_SPELL_IDS[spellId] then
-        return true
-    end
-    if (not spellName or spellName == "") and spellId then
-        spellName = SpellDisplayName(spellId)
-    end
-    if NameLooksLikePlacedFire(spellName) then
-        if spellId then
-            CAMPFIRE_SPELL_IDS[spellId] = true
-        end
-        return true
-    end
-    local localized = SpellDisplayName(818)
-    if localized and spellName and strlower(localized) == strlower(spellName) then
-        return true
-    end
-    return false
 end
 
 function Sync:Init()
@@ -869,6 +876,16 @@ local function ItemUseSpell(link)
 end
 
 function Sync:RefreshKitSpells()
+    local kitLink
+    if GetItemInfo then
+        kitLink = select(2, GetItemInfo(KIT_ITEM_SEARCH))
+    end
+    if kitLink then
+        local _, spellId = ItemUseSpell(kitLink)
+        if spellId then
+            PLACE_FIRE_SPELL_IDS[spellId] = true
+        end
+    end
     local lastBag = NUM_BAG_SLOTS or 4
     for bag = 0, lastBag do
         local slots
@@ -881,18 +898,26 @@ function Sync:RefreshKitSpells()
             for slot = 1, slots do
                 local link = SlotItemLink(bag, slot)
                 local name = SlotItemName(bag, slot, link)
-                if NameLooksLikePlacedFire(name) then
-                    local spellName, spellId = ItemUseSpell(link)
+                if ItemLooksLikeCampfireKit(name) then
+                    local _, spellId = ItemUseSpell(link)
                     if spellId then
-                        CAMPFIRE_SPELL_IDS[spellId] = true
-                    end
-                    if NameLooksLikePlacedFire(spellName) and spellId then
-                        CAMPFIRE_SPELL_IDS[spellId] = true
+                        PLACE_FIRE_SPELL_IDS[spellId] = true
                     end
                 end
             end
         end
     end
+end
+
+function Sync:DescribeKitSpells()
+    self:RefreshKitSpells()
+    local parts = {}
+    for spellId in pairs(PLACE_FIRE_SPELL_IDS) do
+        local name = SpellDisplayName(spellId)
+        parts[#parts + 1] = string.format("%d (%s)", spellId, name or "?")
+    end
+    table.sort(parts)
+    return #parts > 0 and table.concat(parts, ", ") or nil
 end
 
 function Sync:NoteLastCast(spellId, spellName)
@@ -965,8 +990,23 @@ function Sync:OnUnitSpellcastStart(unit, a, b)
     if unit ~= "player" then
         return
     end
-    local _, _, castGUID = ParseCastArgs(a, b)
-    RememberProfessionCast(castGUID)
+    -- Spell handlers stay minimal — no bag scan or hosting here (Forever taints those).
+    local spellId, spellName, castGUID = ParseCastArgs(a, b)
+    local looksLikeFire, resolvedName = CastLooksLikeFire(spellId, spellName)
+    if not looksLikeFire then
+        return
+    end
+    if not castGUID or castGUID == "" then
+        CastDebug("start", spellId, resolvedName, castGUID, "no guid, decide on success")
+        return
+    end
+    if IsProfessionUiOpen() then
+        craftCastGuids[castGUID] = true
+        CastDebug("start", spellId, resolvedName, castGUID, "tagged craft")
+    else
+        placeCastGuids[castGUID] = true
+        CastDebug("start", spellId, resolvedName, castGUID, "tagged place")
+    end
 end
 
 function Sync:OnUnitSpellcastSucceeded(unit, a, b)
@@ -974,13 +1014,25 @@ function Sync:OnUnitSpellcastSucceeded(unit, a, b)
         return
     end
     local spellId, spellName, castGUID = ParseCastArgs(a, b)
-    self:NoteLastCast(spellId, spellName)
-    if WasProfessionCast(castGUID) or IsProfessionUiOpen() then
+    local looksLikeFire, resolvedName = CastLooksLikeFire(spellId, spellName)
+    if not looksLikeFire then
         return
     end
-    if IsBasicCampfire(spellId, spellName) then
-        self:OnBasicCampfirePlaced()
+    Sync.pendingLastCastId = tonumber(spellId)
+    if castGUID and craftCastGuids[castGUID] then
+        craftCastGuids[castGUID] = nil
+        CastDebug("success", spellId, resolvedName, castGUID, "craft, ignored")
+        return
     end
+    if castGUID and placeCastGuids[castGUID] then
+        placeCastGuids[castGUID] = nil
+    elseif IsProfessionUiOpen() then
+        CastDebug("success", spellId, resolvedName, castGUID, "profession window open, ignored")
+        return
+    end
+    CastDebug("success", spellId, resolvedName, castGUID, "hosting")
+    ClearProfessionCastMemory()
+    self:OnBasicCampfirePlaced()
 end
 
 function Sync:OnBasicCampfirePlaced()
@@ -996,28 +1048,36 @@ function Sync:OnBasicCampfirePlaced()
         return
     end
     lastCampfireHostAt = now
-    -- Fire landed. Host locally after a short delay (interrupted casts never get here).
-    -- Do not SendChatMessage from this timer — it taints ("Interface action failed").
-    if C_Timer and C_Timer.After then
-        C_Timer.After(0.25, function()
-            self:HostHere(false, true)
-        end)
-    else
-        pendingCampfireAt = (GetTime and GetTime() or 0) + 0.25
-    end
+    -- Queue on the outbound pump — never C_Timer from a spell event (inherits taint on Forever).
+    pendingCampfireAt = nowTime + 0.25
 end
 
 function Sync:OnLogin()
     joinAttempts = 0
-    self:JoinCommunity(false)
+    pcall(function()
+        self:JoinCommunity(false)
+    end)
     self:RestoreHostSession()
+    if self._hostRestoreRetry or not C_Timer or not C_Timer.After then
+        return
+    end
+    self._hostRestoreRetry = true
+    local delays = { 0.25, 1, 3, 6 }
+    for i = 1, #delays do
+        C_Timer.After(delays[i], function()
+            local ok = self:RestoreHostSession()
+            if ok and SmoreSkills.Map and SmoreSkills.Map.RefreshPins then
+                SmoreSkills.Map:RefreshPins()
+            end
+        end)
+    end
 end
 
 -- Per-character HostDB keeps the fire. /reload must not drop the pin or /smores camp.
 function Sync:RestoreHostSession()
-    local camp
+    local camp, reason
     if SmoreSkills_RestoreOwnedHost then
-        camp = SmoreSkills_RestoreOwnedHost()
+        camp, reason = SmoreSkills_RestoreOwnedHost()
     end
     if (not camp or not SmoreSkills_CampPinActive(camp)) and SmoreSkillsDB and SmoreSkillsDB.hostCampId and SmoreSkillsDB.camps then
         camp = SmoreSkillsDB.camps[SmoreSkillsDB.hostCampId]
@@ -1029,17 +1089,27 @@ function Sync:RestoreHostSession()
         camp = SmoreSkills_GetOwnedActiveCamp()
     end
     if not camp or not SmoreSkills_CampPinActive(camp) then
-        if SmoreSkills_ClearOwnedHostSnapshot then
-            SmoreSkills_ClearOwnedHostSnapshot()
-        elseif SmoreSkillsDB then
-            SmoreSkillsDB.hostCampId = nil
+        -- Keep the snapshot unless the fire is really gone; a bad moment at login is not a pack-up.
+        if reason and reason ~= "no saved campfire" and reason ~= "waiting for clock" then
+            if SmoreSkills_ClearOwnedHostSnapshot then
+                SmoreSkills_ClearOwnedHostSnapshot()
+            elseif SmoreSkillsDB then
+                SmoreSkillsDB.hostCampId = nil
+            end
         end
         return false
     end
     camp.source = "host"
     self.hostCampId = camp.id
-    self.hostingUntil = (SmoreSkills_CampLitTime(camp) or SmoreSkills_Now()) + (SmoreSkills.CAMPFIRE_DURATION or 1200)
+    local remain = tonumber(camp.ttlLeft) or SmoreSkills_OwnedHostRemaining(camp) or (SmoreSkills.CAMPFIRE_DURATION or 1200)
+    self.hostRemainAt = remain
+    self.hostRemainStarted = (GetTime and GetTime()) or 0
+    self.hostingUntil = (SmoreSkills_Now() > 0 and (SmoreSkills_Now() + remain))
+        or ((SmoreSkills_CampLitTime(camp) or 0) + (SmoreSkills.CAMPFIRE_DURATION or 1200))
     SmoreSkillsDB.hostCampId = camp.id
+    if SmoreSkills_SnapshotOwnedHost then
+        SmoreSkills_SnapshotOwnedHost()
+    end
     if self.hostTickHandle and type(self.hostTickHandle) == "table" and self.hostTickHandle.Cancel then
         pcall(function()
             self.hostTickHandle:Cancel()
@@ -1055,6 +1125,16 @@ function Sync:RestoreHostSession()
     end
     if SmoreSkills.Map and SmoreSkills.Map.RefreshPins then
         SmoreSkills.Map:RefreshPins()
+    end
+    pcall(RefreshUI)
+    if not self._hostRestoreAnnounced then
+        self._hostRestoreAnnounced = true
+        local left = math.max(0, math.ceil((self.hostRemainAt or 0) / 60))
+        SmoreSkills_Print(string.format(
+            "Your campfire in %s is still yours (%d min left).",
+            camp.zone or "this zone",
+            left
+        ))
     end
     return true
 end
@@ -1143,7 +1223,14 @@ function Sync:StartOutboundPump()
         local now = (GetTime and GetTime()) or 0
         if pendingCampfireAt > 0 and now >= pendingCampfireAt then
             pendingCampfireAt = 0
+            if Sync.pendingLastCastId then
+                Sync:NoteLastCast(Sync.pendingLastCastId, nil)
+                Sync.pendingLastCastId = nil
+            end
             Sync:HostHere(false, true)
+            if SmoreSkills.Map and SmoreSkills.Map.RefreshPins then
+                SmoreSkills.Map:RefreshPins()
+            end
         end
         local i = 1
         while i <= #pendingWhispers do
@@ -1610,6 +1697,8 @@ end
 function Sync:StopHosting()
     self.hostingUntil = 0
     self.hostCampId = nil
+    self.hostRemainAt = nil
+    self.hostRemainStarted = nil
     self.pendingHostShare = nil
     self.hostShrinkNoted = nil
     self.hostEncodeFailedNoted = nil
@@ -1760,7 +1849,16 @@ function Sync:HostHere(fromHardware, newFire)
     end
     self.hostTickHandle = nil
     self.hostCampId = camp.id
-    self.hostingUntil = camp.litAt + SmoreSkills.CAMPFIRE_DURATION
+    local remain = SmoreSkills.CAMPFIRE_DURATION or 1200
+    if camp.litAt and SmoreSkills_Now() > 0 then
+        local age = SmoreSkills_Now() - camp.litAt
+        if age >= -60 and age <= remain then
+            remain = remain - age
+        end
+    end
+    self.hostRemainAt = remain
+    self.hostRemainStarted = (GetTime and GetTime()) or 0
+    self.hostingUntil = (SmoreSkills_Now() > 0) and (SmoreSkills_Now() + remain) or 0
     if SmoreSkillsDB then
         SmoreSkillsDB.hostCampId = camp.id
     end
@@ -1792,10 +1890,12 @@ function Sync:HostHere(fromHardware, newFire)
     if self.needsHardwareShare then
         SmoreSkills_Print("Click Find or /smores host once so other campers can see this fire.")
     end
-    RefreshUI()
     if SmoreSkills.HostPanel and SmoreSkills.HostPanel.ShowFor then
-        SmoreSkills.HostPanel:ShowFor(camp)
+        pcall(function()
+            SmoreSkills.HostPanel:ShowFor(camp)
+        end)
     end
+    pcall(RefreshUI)
 end
 
 function Sync:OnMessage(text, sender)

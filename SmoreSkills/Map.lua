@@ -606,6 +606,11 @@ function Map:GetVisibleCamps(mapId)
             end
         end
     end
+    local owned = SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp()
+    if owned and owned.id and not seen[owned.id] then
+        table.insert(camps, owned)
+        seen[owned.id] = true
+    end
     if not (sync and sync.mapPinsDismissed) then
         return camps
     end

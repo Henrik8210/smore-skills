@@ -155,10 +155,30 @@ local function OpenWorldMap()
 end
 
 local function GetMinimapAngle()
-    return SmoreSkills_EnsureSettings().minimapAngle or 220
+    local angle = SmoreSkills_EnsureSettings().minimapAngle
+    if type(angle) ~= "number" then
+        angle = 220
+    end
+    while angle < 0 do
+        angle = angle + 360
+    end
+    while angle >= 360 do
+        angle = angle - 360
+    end
+    return angle
 end
 
 local function SetMinimapAngle(angle)
+    angle = tonumber(angle)
+    if not angle then
+        return
+    end
+    while angle < 0 do
+        angle = angle + 360
+    end
+    while angle >= 360 do
+        angle = angle - 360
+    end
     SmoreSkills_EnsureSettings().minimapAngle = angle
 end
 
@@ -1252,6 +1272,7 @@ function Settings:CreateMinimapButton()
     btn:SetScript("OnDragStop", function(selfBtn)
         selfBtn:UnlockHighlight()
         selfBtn:SetScript("OnUpdate", nil)
+        Settings:UpdateMinimapButton()
     end)
 
     btn:SetScript("OnEnter", function(selfBtn)
@@ -1278,6 +1299,13 @@ function Settings:CreateMinimapButton()
     self.minimapGlow = glow
     self:UpdateMinimapButton()
     self:ApplyMinimapButtonVisibility()
+    if Minimap and Minimap.HookScript then
+        pcall(function()
+            Minimap:HookScript("OnSizeChanged", function()
+                Settings:UpdateMinimapButton()
+            end)
+        end)
+    end
     if SmoreSkills.Map and SmoreSkills.Map.RefreshState then
         SmoreSkills.Map:RefreshState()
     end
@@ -1298,9 +1326,10 @@ function Settings:EnsureMinimapButton()
     end
     local f = CreateFrame("Frame")
     f:RegisterEvent("PLAYER_ENTERING_WORLD")
-    f:SetScript("OnEvent", function(self)
-        if Settings:EnsureMinimapButton() then
-            self:UnregisterAllEvents()
+    f:SetScript("OnEvent", function()
+        Settings:EnsureMinimapButton()
+        if Settings.UpdateMinimapButton then
+            Settings:UpdateMinimapButton()
         end
     end)
     self.minimapWaitFrame = f

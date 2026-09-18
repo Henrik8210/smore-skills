@@ -1,11 +1,11 @@
 # S'more Skills — dev guidelines
 
-Forever camping finder. Protocol and UX are documented in [CAMPING.md](CAMPING.md).
+Forever camping finder. Protocol and UX are documented in [CAMPING.md](CAMPING.md). Host pin across `/reload`: [HOST-PERSIST.md](HOST-PERSIST.md).
 
 - **Remote:** https://github.com/Henrik8210/smore-skills
 - **Addon folder:** `SmoreSkills/` (no apostrophe — WoW toc/folder rule)
 - **Title:** S'more Skills
-- **Version:** 0.5.70 (CurseForge beta `v0.5.70-beta`; last full tag `v0.5.62` for **WoW Forever 1.60.1**)
+- **Version:** 0.5.77 (CurseForge beta `v0.5.77-beta`; last full tag `v0.5.62` for **WoW Forever 1.60.1**)
 
 ## WoW install paths
 
@@ -98,4 +98,4 @@ Pushing `main` is not a release. Do not delete/re-push tags — bump the patch.
 
 ## Sync
 
-See [CAMPING.md](CAMPING.md) and `.cursor/rules/camp-sync.mdc`. Hidden community channel (`SmoreSkills`). Same faction. Three slots. Share is opt-in. Do not dump on login. Guild mark is optional.
+See [CAMPING.md](CAMPING.md), [HOST-PERSIST.md](HOST-PERSIST.md), and `.cursor/rules/camp-sync.mdc`. Hidden community channel (`SmoreSkills`). Same faction. Three slots. Share is opt-in. Do not dump on login. Guild mark is optional.
