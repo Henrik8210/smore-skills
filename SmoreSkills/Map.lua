@@ -6,7 +6,8 @@ local ICON = SmoreSkills.ICON or "Interface\\Icons\\Spell_Fire_Fire"
 local CAMP_PIN_ICON = "Interface\\Icons\\Spell_Fire_Fire"
 -- QuestieWorldMapButtonTemplate layout (Questie/Modules/WorldMapButton).
 local BUTTON_SIZE = 32
-local MAP_OFFSET_X = 4
+-- Inset from the map's bottom-right so we don't cover the Map & Quest Log hide tab.
+local MAP_OFFSET_X = 38
 local MAP_OFFSET_Y = 4
 local FADE_PERIOD = 2.8
 local FADE_MIN = 0.35

@@ -4,7 +4,7 @@ Find **WoW Forever** campsites while you level: see fires near you, which of the
 
 **Testing now:** Forever is the product. `_classic_beta_` (1.60.1) when servers are up; TBC Anniversary (`_anniversary_`) only for two-client share while they are down. See [CAMPING.md](CAMPING.md) and [FOREVER.md](FOREVER.md).
 
-**CurseForge:** beta `v0.5.69-beta` for **WoW Forever 1.60.1**. `CF_API_KEY` secret + version tag via GitHub Actions (webhook stays off). See [GUIDELINES.md](GUIDELINES.md). Last full file was **v0.5.62**.
+**CurseForge:** beta `v0.5.70-beta` for **WoW Forever 1.60.1**. `CF_API_KEY` secret + version tag via GitHub Actions (webhook stays off). See [GUIDELINES.md](GUIDELINES.md). Last full file was **v0.5.62**.
 
 ## The idea
 
@@ -14,7 +14,7 @@ Meanwhile a blacksmith sits alone at a fire across the zone and sends a **host s
 
 All opt-in. No login dump. Community channel, not guild chat.
 
-## Status (v0.5.69)
+## Status (v0.5.70)
 
 | | |
 | --- | --- |
@@ -33,7 +33,7 @@ All opt-in. No login dump. Community channel, not guild chat.
 | Control | Action |
 | --- | --- |
 | **Minimap (S'more icon)** | Left-click: open world map. Right-click: settings. Drag: reposition (unless locked). Hide from General if you want. |
-| **Map Find button** | Left-click: seek in zone (switches to your zone map). Right-click: clear **other** pins; your hosted pin stays. |
+| **Map Find button** | Bottom-right of the map, left of the quest-log hide tab. Left-click: seek in zone (switches to your zone map). Right-click: clear **other** pins; your hosted pin stays. |
 | **Own camp pin** | Left-click: host camp panel. Right-click: pack up (confirm). Hover: **Layer N — Your camp**. |
 | **Other camp pin** | Left-click: whisper the host. Hover: **Layer N — same as you** or **Layer N — you are on Layer M**. |
 | **Host camp panel** | Opens when you host. Socket 1 = your profession or a **learned** camping object. Empty sockets pulse the faded S'more. Request chips and the objects dropdown are this fire only (settings stay the defaults). |

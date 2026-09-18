@@ -157,7 +157,7 @@ When a host answers a seek, we do **not** `SendChatMessage` or `SendAddonMessage
 
 ## Map UX (Forever target)
 
-- Small **bonfire button** on the map (corner). Tooltip: *Find campsites in this zone*.
+- Small **bonfire button** on the map (bottom-right, left of the quest-log hide tab). Tooltip: *Find campsites in this zone*.
 - **Seeker click** → one seek ping; listen for matching **host** pings; show those pins only. Seekers never get a pin of their own. Switches the map to the **player's zone** (not a nested city map).
 - **Host click** (while at/near a fire) → host ping with coords + slot state + who you want. Walking away does **not** move or drop the pin; we keep broadcasting the **fire's original coords**. Lighting a **new** campfire does move it: the old pin is packed (`X:`) and the new fire is the only campsite.
 - **Find right-click** → clear *other* people's markers. Your own hosted pin stays until the fire ends, the camp is full, or you pack up.
@@ -318,7 +318,7 @@ Earlier that evening: lighting printed *Interface action failed*, then *Wait a m
 
 `/smores status` — channel joined, hosting/seeking, trades, zone, map view, seeker filter.
 
-### Shipped (v0.5.69) vs Forever live (17–18 Sep)
+### Shipped (v0.5.70) vs Forever live (17–18 Sep)
 
 | Feature | TBC Anniversary | Forever live (Zephras) |
 | --- | --- | --- |

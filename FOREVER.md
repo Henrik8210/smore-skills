@@ -2,7 +2,7 @@
 
 **Product is Forever.** TBC Anniversary is only the two-client share testbed. Do not design for Anniversary and back-port.
 
-**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). Servers dropped overnight; they were **up again 18 Sep**. Last CurseForge full file before this pass was **v0.5.62**. This pass is CurseForge **beta** `v0.5.69-beta` (hosted camp survives `/reload` until pack / 3/3 / 20 min).
+**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). Servers dropped overnight; they were **up again 18 Sep**. Last CurseForge full file before this pass was **v0.5.62**. This pass is CurseForge **beta** `v0.5.70-beta` (Find button left of the quest-log hide tab).
 
 ---
 
@@ -211,7 +211,7 @@ Player: 42.6, 23.6 (Zephras Isle)
 | Topic | Current behaviour | Beta check |
 | --- | --- | --- |
 | **Pin visibility** | Zone pins only; hide at World / Continent / Outland zoom. If `GetMapID()` is a nested city (Stormwind while standing in Elwynn), still draw **zone** coords. | Confirm nested-city breadcrumb vs TBC. |
-| **Find button** | Anchored to map canvas (`ScrollContainer` / `GetCanvas()`). | Confirm button still visible at zone + continent + world. |
+| **Find button** | Anchored to map canvas (`ScrollContainer` / `GetCanvas()`), inset from the bottom-right so it does not cover the quest-log hide tab. | Confirm button still visible at zone + continent + world; hide-log tab still clickable. |
 | **Map hooks** | `OnShow`, `OnMapChanged`, canvas `OnSizeChanged`. | Log `GetMapID()` at each breadcrumb level; note ids for test zones. |
 | **Camp tooltip** | Custom frame (not GameTooltip): opaque dialog background, three circular gold-ring profession sockets. | Verify TBC-safe color APIs still work; no silent fallback to text-only tooltip. |
 | **Seek pulse** | World map Find button fades while seeking. | Confirm animation on Forever map frame. |

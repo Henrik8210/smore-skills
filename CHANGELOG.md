@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.70
+
+- Map Find button sits left of the **Map & Quest Log** hide tab so that toggle stays clickable.
+- CurseForge **beta** `v0.5.70-beta`.
+
 ## v0.5.69
 
 - Hosted camp persists across `/reload` in a per-character snapshot (`SmoreSkillsHostDB`). The pin and `/smores camp` stay until the **20 min** clock, pack-up, or 3/3.
