@@ -53,10 +53,30 @@ Map.mmPins = Map.mmPins or {}
 Map.mmPinPool = Map.mmPinPool or {}
 
 local function GetButtonHost()
+    return WorldMapFrame
+end
+
+local function GetButtonAnchor()
     if WorldMapFrame and WorldMapFrame.ScrollContainer then
         return WorldMapFrame.ScrollContainer
     end
     return WorldMapFrame
+end
+
+local function ApplyFindButtonStrata(frame)
+    if not frame then
+        return
+    end
+    -- Same overlay as camp pins — ScrollContainer children sit under parchment.
+    if not pcall(frame.SetFrameStrata, frame, "FULLSCREEN_DIALOG") then
+        frame:SetFrameStrata("TOOLTIP")
+    end
+    if frame.SetFrameLevel then
+        frame:SetFrameLevel(500)
+    end
+    if frame.SetToplevel then
+        frame:SetToplevel(true)
+    end
 end
 
 local function ApplyPinStrata(pin)
@@ -718,17 +738,18 @@ function Map:AnchorButton()
         return
     end
     local btn = self.button
-    local host = GetButtonHost()
-    if not host then
+    local parent = GetButtonHost()
+    local anchor = GetButtonAnchor()
+    if not parent or not anchor then
         return
     end
-    -- Host is the visible window (ScrollContainer), not the zoomable canvas.
-    -- Anchoring to the canvas puts the button off-screen when ElvUI/Leatrix
-    -- shrinks or zooms the map.
-    btn:SetParent(host)
-    ApplyOverlayStrata(btn, 80)
+    -- Parent to the map window, not the zoomable canvas — canvas children
+    -- clip and sit under tiles. Anchor to ScrollContainer so we track the
+    -- visible map corner (ElvUI / Leatrix shrink).
+    btn:SetParent(parent)
+    ApplyFindButtonStrata(btn)
     btn:ClearAllPoints()
-    btn:SetPoint("BOTTOMRIGHT", host, "BOTTOMRIGHT", -MAP_OFFSET_X, MAP_OFFSET_Y)
+    btn:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", -MAP_OFFSET_X, MAP_OFFSET_Y)
     if WorldMapFrame.IsShown and WorldMapFrame:IsShown() then
         btn:Show()
     else
@@ -1327,9 +1348,9 @@ function Map:HookMapChanges()
         end)
     end
 
-    local host = GetButtonHost()
-    if host and host ~= WorldMapFrame then
-        SafeHookScript(host, "OnSizeChanged", function()
+    local anchor = GetButtonAnchor()
+    if anchor and anchor ~= WorldMapFrame then
+        SafeHookScript(anchor, "OnSizeChanged", function()
             Map:Relayout()
         end)
     end
@@ -1445,7 +1466,7 @@ function Map:CreateButton()
     local parent = GetButtonHost()
     local btn = CreateFrame("Button", "SmoreSkillsMapFindButton", parent)
     btn:SetSize(BUTTON_SIZE, BUTTON_SIZE)
-    ApplyOverlayStrata(btn, 80)
+    ApplyFindButtonStrata(btn)
     btn:EnableMouse(true)
 
     local background = btn:CreateTexture(nil, "BACKGROUND")
@@ -1541,8 +1562,14 @@ function Map:StartPinWatch()
 end
 
 function Map:Init()
-    self:EnsureMinimap()
-    if self.button or not WorldMapFrame then
+    pcall(function()
+        self:EnsureMinimap()
+    end)
+    if self.button then
+        self:AnchorButton()
+        return
+    end
+    if not WorldMapFrame then
         return
     end
     self:CreateButton()
@@ -1553,7 +1580,9 @@ function Map:Init()
 end
 
 function Map:TryInit()
-    self:EnsureMinimap()
+    pcall(function()
+        self:EnsureMinimap()
+    end)
     if self.button then
         Map:AnchorButton()
         return true

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.6.8
+
+- World-map **Find campsites** is visible again: it parents to the map window at pin overlay strata, not as a `ScrollContainer` child under the parchment. Minimap pin setup can no longer abort map init.
+
 ## v0.6.7
 
 Beta since **v0.5.78**. Forever 1.60.1 (`_classic_beta_`).

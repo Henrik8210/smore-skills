@@ -6,32 +6,32 @@ Disclaimer: Under development — might change a lot over the coming months.
 
 **S'more Skills** is a campsite finder for **World of Warcraft: Forever**.
 
-Blizzard will tell you a fire is near — the **Campfire Nearby** buff — but it does not put a pin on the map. This addon does. Same-faction players share a wilderness camp so you can sit down, cook, and place up to **three camping objects** (one per player).
+Blizzard will tell you a fire is near — the **Campfire Nearby** buff — but it does not put a pin on the map. This addon does. Same-faction players share a wilderness camp so you can sit down, cook, and place camping objects (one per player). A Basic fire has **three** sockets; Journeyman and Expert kits have five or ten.
 
 You choose when to share. Nothing is dumped on login. Guild chat is not used — a small **G** on a pin only means a guildie is at that camp.
 
 ## How Forever camping works
 
-1. Cook a **Basic Campfire Kit** (Cooking, Flint and Tinder, Simple Wood). Finishing the craft only puts a kit in your bags.
-2. **Use** the kit in the wilderness. That is the fire. Camps cannot be placed within 100 yards of another fire.
+1. Cook a **Campfire Kit** (Basic, Journeyman, or Expert). Finishing the craft only puts a kit in your bags.
+2. **Use** the kit in the wilderness. That is the fire. Camps cannot be placed within 100 yards of another fire. A live fire lasts about **15 minutes**.
 3. Sit or craft nearby for about a minute to get the feature benefits. Sit / `/sit` at someone else's fire does not make you the host.
-4. Each profession has camping recipes (skill 20, then 140, then 300). Those **objects** are the three slots — a Sharpening Wheel, Mana Well, Camp Chair, Camp Tent, and so on — not the fire itself. **Tanning** is Skinning's place-skill, not an object. Cooking's kit is the fire; Cooking's slot objects start at skill 140 (**Cookie's Feast**).
+4. Each profession has camping recipes (skill 20, then 140, then 300). Those **objects** are the sockets — a Sharpening Wheel, Mana Well, Camp Chair, Camp Tent, and so on — not the fire itself. **Tanning** is Skinning's place-skill, not an object. Cooking's kit is the fire; Cooking's slot objects start at skill 140 (**Cookie's Feast**).
 
 The game does not list other people's camps. If you want company, share the pin.
 
 ## How the addon works
 
-**Seek** — click the S'more on the world map (or `/smores find`). That looks for open camps in your zone.
+**Seek** — click **Find campsites in this zone** on the world map (or `/smores find`). That looks for open camps in your zone.
 
-**Host** — Use a Basic Campfire Kit with Auto host on (that drops your pin). Then click **Find** or `/smores host` once so other addon users can see it. You host one camp at a time. A new fire packs the old pin. Walk away and the pin stays on that fire until it expires, fills, you pack up, or you light another.
+**Host** — Use a Campfire Kit with Auto host on. That drops **your** pin and opens the camp panel. Other addon users only see it after **they** click Find (or you click Find / `/smores host` once). You host one camp at a time. A new fire packs the old pin. Walk away and the pin stays on that fire until the 15 minutes run out, it fills, you pack up, or you light another. `/reload` keeps your pin and your settings.
 
 After you host, the **Your camp** panel opens (also `/smores camp` or left-click your pin):
 
-- Three sockets. Yours is the object **you have learned** (open your profession window once so we can see Camp Chair vs Field Guide). Guest sockets you mark by hand — the game does not tell addons what is on the ground yet.
-- Empty sockets pulse the faded S'more so you know they still need a mark.
-- **Looking for** chips and the camping-objects dropdown are **this fire only**. Default Host settings stay put until you edit them.
-- **Pack up** (bottom left), or right-click your pin.
-- **Announce camp in General** (bottom right) posts one public `/1` line when you click it — fire type, your object, coords, layer, who you want, time left. Hover the button to read that line first. Nothing else sends `/1`.
+* Three sockets on a Basic fire (five / ten on Journeyman / Expert). Yours is the object **you have learned** (open your profession window once so we can see Camp Chair vs Field Guide). Guest sockets you mark by hand — the game does not tell addons what is on the ground yet.
+* Empty sockets pulse the faded S'more so you know they still need a mark.
+* **Looking for** chips and the camping-objects dropdown are **this fire only**. Default Host settings stay put until you edit them.
+* **Pack up** (bottom left), or right-click your pin.
+* **Announce camp in General** (bottom right) posts one public `/1` line when you click it — fire type, your object (or profession), coords, layer, who you want, time left. Hover the button to read that exact line first. Nothing else sends `/1` (not placing the kit, not the fire landing, not Find).
 
 The addon reads this character's professions. If you have Leatherworking, hosts who asked for leatherworkers can find you — you do not have to tick it yourself.
 
@@ -39,12 +39,12 @@ A host can optionally limit who sees the camp (specific professions, and optiona
 
 ## What you see
 
-- A bonfire pin on the **zone** map — **hosts only**. Seekers do not get a pin of their own.
-- How full the fire is (`1/3`, `2/3`, `3/3`)
-- Three sockets: camping **object** when named (your faction’s banner, not a generic Alliance flag), or a faded S'more if empty
-- Host name, coords, and a guild mark if a guildie is there
+* A bonfire pin on the **zone** map — **hosts only**. Seekers do not get a pin of their own. Nearby hosted fires also show on the **minimap**.
+* How full the fire is (`1/3`, `2/3`, `3/3` — or 5 / 10 on larger kits)
+* Sockets: camping **object** when named (your faction’s banner, not a generic Alliance flag), or a faded S'more if empty
+* Host name, coords, layer, and a guild mark if a guildie is there
 
-Hover a pin for the full tooltip (coords, layer, slots, objects the host wants). Left-click **your** pin (or `/smores camp`) for the host camp panel. Left-click another player's pin to whisper them. Right-click **your** pin to pack up (you will be asked to confirm). Right-click Find to clear other people’s markers; your hosted pin stays.
+Hover a pin for the full tooltip (coords, layer, slots, objects the host wants). Left-click **your** pin (or `/smores camp`) for the host camp panel. Left-click another player's pin to whisper them. Right-click **your** pin to pack up (you will be asked to confirm). Right-click Find to clear other people's markers; your hosted pin stays.
 
 ## Camping objects
 
@@ -69,15 +69,15 @@ Sit nearby for the buff. Skill-20 objects are exclusive with a class buff (Bless
 
 ## Settings
 
-`/smores` (also `/sms` or `/smoreskills`) opens settings.
+`/smores` (also `/sms` or `/smoreskills`) opens settings. These survive `/reload`.
 
-- **General** — auto-host when you place a Campfire Kit, pin size, minimap button, chat messages, guild mark, other-layer camps. These survive `/reload`.
-- **Host** — defaults when you host (profession, learned camping object, who may see you, optional objects). The camp panel can override this fire only.
-- **Seeker** — which camps you want to find (professions and optional objects)
+* **General** — auto-host when you place a Campfire Kit, pin size, minimap button, chat messages, guild mark, camps on other layers
+* **Host** — defaults when you host (profession, learned camping object, who may see you, optional objects). The camp panel can override this fire only.
+* **Seeker** — which camps you want to find (professions and optional objects)
 
 Public `/1` is not a setting. Use **Announce camp in General** on the camp panel.
 
-The minimap S'more opens the world map (left-click) and settings (right-click). Nearby hosted campfires also show a fire pin on the minimap.
+The minimap S'more opens the world map (left-click) and settings (right-click). Drag to move it (or lock it in General).
 
 ## Commands
 
@@ -87,7 +87,7 @@ The minimap S'more opens the world map (left-click) and settings (right-click). 
 | `/smores find` | Look for camps in this zone |
 | `/smores host` | Share your campfire with seekers |
 | `/smores host basic` / `journeyman` / `expert` | Test 3 / 5 / 10 sockets (`jm` / `exp`) |
-| `/smores camp` | Open the host camp panel (sockets + this-camp requests) |
+| `/smores camp` | Open the host camp panel |
 | `/smores stop` | Stop hosting |
 | `/smores pack` | Pack up your camp (same confirm as the map pin) |
 | `/smores status` | Channel, hosting, and seeking status |
@@ -95,11 +95,13 @@ The minimap S'more opens the world map (left-click) and settings (right-click). 
 
 ## Notes
 
-- Same faction only
-- Map pins are hosted camps only
-- After you place a kit, click **Find** (or `/smores host`) once so the pin is actually shared
-- One camp at a time — a new fire replaces the old pin
-- All opt-in. No login dump of stored camps
+* Same faction only
+* Map pins are hosted camps only
+* After you place a kit, other players need to click **Find** (or you click Find / `/smores host` once) so they can see the pin
+* One camp at a time — a new fire replaces the old pin
+* A live fire is **15 minutes**. `/reload` does not drop your pin or reset your settings
+* **Announce camp in General** is the only `/1` send
+* All opt-in. No login dump of stored camps
 
 ## The S'more Skills Team
 
