@@ -49,6 +49,8 @@ end
 
 Map.pins = Map.pins or {}
 Map.pinPool = Map.pinPool or {}
+Map.mmPins = Map.mmPins or {}
+Map.mmPinPool = Map.mmPinPool or {}
 
 local function GetButtonHost()
     if WorldMapFrame and WorldMapFrame.ScrollContainer then
@@ -266,10 +268,75 @@ local function CreateCircularTooltipSocket(parent, size)
     icon:SetSize(iconSize, iconSize)
     icon:SetPoint("CENTER")
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    AddCircleMask(holder, icon, iconSize)
+    holder.iconMask = AddCircleMask(holder, icon, iconSize)
     holder.icon = icon
+    holder.size = size
 
     return holder
+end
+
+local function ResizeTooltipSocket(holder, size, ring)
+    if not holder or not size then
+        return
+    end
+    ring = ring or (size < 50 and 2 or SOCKET_RING)
+    if holder.size == size and holder.ring == ring then
+        return
+    end
+    holder.size = size
+    holder.ring = ring
+    holder:SetSize(size, size)
+    if holder.goldCircle then
+        holder.goldCircle:SetSize(size, size)
+    end
+    local innerSize = size - ring * 2
+    if holder.fill then
+        holder.fill:SetSize(innerSize, innerSize)
+    end
+    local iconSize = innerSize * 0.80
+    if holder.icon then
+        holder.icon:SetSize(iconSize, iconSize)
+    end
+    if holder.iconMask then
+        holder.iconMask:SetSize(iconSize, iconSize)
+    end
+end
+
+local function LayoutTooltipSockets(sockets, slotCount, fullSize, gap)
+    slotCount = tonumber(slotCount) or 3
+    local size = slotCount <= 3 and fullSize or (fullSize * 0.5)
+    local ring = slotCount <= 3 and SOCKET_RING or 2
+    local rows = SmoreSkills_FireSocketRows and SmoreSkills_FireSocketRows(slotCount) or { { 1, 2, 3 } }
+    local maxRowW = 0
+    for r = 1, #rows do
+        maxRowW = math.max(maxRowW, #rows[r] * size + (#rows[r] - 1) * gap)
+    end
+    local height = #rows * size + math.max(0, #rows - 1) * gap
+    for i = 1, #sockets do
+        local holder = sockets[i]
+        if holder then
+            if i <= slotCount then
+                ResizeTooltipSocket(holder, size, ring)
+                holder:Show()
+            else
+                holder:Hide()
+            end
+        end
+    end
+    for r = 1, #rows do
+        local row = rows[r]
+        local rowW = #row * size + (#row - 1) * gap
+        local x0 = (maxRowW - rowW) / 2
+        local y = -((r - 1) * (size + gap))
+        for c = 1, #row do
+            local holder = sockets[row[c]]
+            if holder then
+                holder:ClearAllPoints()
+                holder:SetPoint("TOPLEFT", holder:GetParent(), "TOPLEFT", x0 + (c - 1) * (size + gap), y)
+            end
+        end
+    end
+    return maxRowW, height
 end
 
 local EMPTY_SOCKET_ICON = SmoreSkills.ICON or ICON
@@ -311,7 +378,7 @@ local function ApplyTooltipChrome(frame)
 end
 
 local function EnsureCampTooltip()
-    if Map.campTooltip and Map.campTooltip.tooltipVersion == 8 then
+    if Map.campTooltip and Map.campTooltip.tooltipVersion == 9 then
         return Map.campTooltip
     end
     if Map.campTooltip then
@@ -368,7 +435,7 @@ local function EnsureCampTooltip()
         holder:SetPoint("LEFT", socketRow, "LEFT", (i - 1) * (socketSize + socketGap), 0)
         tip.sockets[i] = holder
     end
-    socketRow:SetSize(SmoreSkills.MAX_SLOTS * socketSize + (SmoreSkills.MAX_SLOTS - 1) * socketGap, socketSize)
+    socketRow:SetSize(3 * socketSize + 2 * socketGap, socketSize)
 
     tip.footer = MakeTipText(tip, "GameFontHighlightSmall")
     tip.footer:SetPoint("TOPLEFT", socketRow, "BOTTOMLEFT", 4, -8)
@@ -378,7 +445,7 @@ local function EnsureCampTooltip()
     tip.hint:SetPoint("TOPLEFT", tip.footer, "BOTTOMLEFT", 0, -6)
     tip.hint:SetTextColor(TITLE_YELLOW[1], TITLE_YELLOW[2], TITLE_YELLOW[3])
 
-    tip.tooltipVersion = 8
+    tip.tooltipVersion = 9
     Map.campTooltip = tip
     return tip
 end
@@ -400,7 +467,7 @@ local function ShowPinTooltipFallback(pin, camp)
     if GameTooltip.ClearLines then
         GameTooltip:ClearLines()
     end
-    local filled = SmoreSkills_CountFilledSlots(camp)
+    local slotN = SmoreSkills_CampSlotCount and SmoreSkills_CampSlotCount(camp) or 3
     GameTooltip:SetText(camp.zone or "Camp", 1, 0.82, 0.45)
     if SmoreSkills_ShowCampGuildMark and SmoreSkills_ShowCampGuildMark(camp) then
         GameTooltip:AddLine("Guildie at this camp", 0, 1, 0)
@@ -410,9 +477,11 @@ local function ShowPinTooltipFallback(pin, camp)
     if layerText then
         GameTooltip:AddLine(layerText, 1, 0.82, 0)
     end
-    GameTooltip:AddLine(string.format("%d/%d slots filled", filled, SmoreSkills.MAX_SLOTS), 0.75, 0.75, 0.75)
-    for i = 1, SmoreSkills.MAX_SLOTS do
-        GameTooltip:AddLine(SmoreSkills_FormatSlotTooltipLine(camp, i), 0.92, 0.92, 0.92)
+    GameTooltip:AddLine(SmoreSkills_FormatSlotsFilled and SmoreSkills_FormatSlotsFilled(camp) or string.format("%d/%d slots filled", SmoreSkills_CountFilledSlots(camp), slotN), 0.75, 0.75, 0.75)
+    for i = 1, slotN do
+        if slotN <= 3 or i == 1 or (camp.slots and camp.slots[i] and camp.slots[i].profession) then
+            GameTooltip:AddLine(SmoreSkills_FormatSlotTooltipLine(camp, i), 0.92, 0.92, 0.92)
+        end
     end
         if camp.want and camp.want ~= "any" then
         local wantLines = {}
@@ -443,7 +512,7 @@ local function ShowPinTooltip(pin)
 
     local ok, err = pcall(function()
         local tip = EnsureCampTooltip()
-        local filled = SmoreSkills_CountFilledSlots(camp)
+        local slotN = SmoreSkills_CampSlotCount and SmoreSkills_CampSlotCount(camp) or 3
         local zoneTitle = camp.zone or "Camp"
         if SmoreSkills_ShowCampGuildMark and SmoreSkills_ShowCampGuildMark(camp) then
             zoneTitle = zoneTitle .. "  |cff00ff00G|r"
@@ -455,15 +524,22 @@ local function ShowPinTooltip(pin)
         if layerText then
             tip.coords:SetText(SmoreSkills_FormatCoords(camp) .. "  ·  " .. layerText)
         end
-        tip.slotsLabel:SetText(string.format("%d/%d slots filled", filled, SmoreSkills.MAX_SLOTS))
+        tip.slotsLabel:SetText(SmoreSkills_FormatSlotsFilled and SmoreSkills_FormatSlotsFilled(camp) or string.format("%d/%d slots filled", SmoreSkills_CountFilledSlots(camp), slotN))
 
-        for i = 1, SmoreSkills.MAX_SLOTS do
+        local fullSize = QUESTIE.btn * SOCKET_TOOLTIP_SCALE
+        local gridW, gridH = LayoutTooltipSockets(tip.sockets, slotN, fullSize, 6)
+        if tip.socketRow then
+            tip.socketRow:SetSize(math.max(gridW or 80, 80), math.max(gridH or 20, 20))
+        end
+        for i = 1, slotN do
             StyleTooltipSocket(tip.sockets[i], camp.slots[i])
         end
 
         local footerLines = {}
-        for i = 1, SmoreSkills.MAX_SLOTS do
-            table.insert(footerLines, SmoreSkills_FormatSlotTooltipLine(camp, i))
+        for i = 1, slotN do
+            if slotN <= 3 or i == 1 or (camp.slots and camp.slots[i] and camp.slots[i].profession) then
+                table.insert(footerLines, SmoreSkills_FormatSlotTooltipLine(camp, i))
+            end
         end
         if camp.want and camp.want ~= "any" then
             SmoreSkills_AppendHostWantTooltipLines(footerLines, camp.want, camp.wantItems)
@@ -479,13 +555,18 @@ local function ShowPinTooltip(pin)
         end
         tip.hint:Show()
 
-        local parent = WorldMapFrame or UIParent
+        local parent = UIParent
+        local tipLevel = 10000
+        if not pin.mmPin and WorldMapFrame and WorldMapFrame.IsShown and WorldMapFrame:IsShown() then
+            parent = WorldMapFrame
+            if WorldMapFrame.GetFrameLevel then
+                tipLevel = WorldMapFrame:GetFrameLevel() + 200
+            end
+        elseif Minimap and pin.mmPin and Minimap.GetFrameLevel then
+            tipLevel = (Minimap:GetFrameLevel() or 1) + 50
+        end
         tip:SetParent(parent)
         tip:SetFrameStrata("TOOLTIP")
-        local tipLevel = 10000
-        if WorldMapFrame and WorldMapFrame.GetFrameLevel then
-            tipLevel = WorldMapFrame:GetFrameLevel() + 200
-        end
         tip:SetFrameLevel(tipLevel)
 
         tip:ClearAllPoints()
@@ -617,7 +698,8 @@ function Map:GetVisibleCamps(mapId)
     local mine = {}
     local me = SmoreSkills_PlayerName()
     for _, camp in ipairs(camps) do
-        if SmoreSkills_PlayerNamesMatch(camp.owner, me) then
+        if (SmoreSkills_IsOwnHostCamp and SmoreSkills_IsOwnHostCamp(camp))
+            or SmoreSkills_PlayerNamesMatch(camp.owner, me) then
             table.insert(mine, camp)
         end
     end
@@ -674,11 +756,15 @@ function Map:PositionPin(pin, x, y)
     pin:SetPoint("CENTER", canvas, "TOPLEFT", (tonumber(x) or 0) * w, -(tonumber(y) or 0) * h)
 end
 
-function Map:CreatePinFrame()
-    local canvas = GetMapCanvas()
+function Map:CreatePinFrame(parent, opts)
+    opts = opts or {}
+    local canvas = parent or GetMapCanvas()
     local pin = CreateFrame("Button", nil, canvas)
+    pin.mmPin = opts.minimap and true or nil
     pin:SetSize(GetPinHitSize(), GetPinHitSize())
-    ApplyPinStrata(pin)
+    if not pin.mmPin then
+        ApplyPinStrata(pin)
+    end
 
     -- Anchor marks the exact campsite coordinate on the map.
     local anchor = CreateFrame("Frame", nil, pin)
@@ -687,6 +773,9 @@ function Map:CreatePinFrame()
     pin.anchor = anchor
 
     local fireScale = GetFireScale()
+    if pin.mmPin then
+        fireScale = fireScale * 0.5
+    end
     local fireFrame = CreateFrame("Frame", nil, pin)
     fireFrame:SetSize(QUESTIE.btn * fireScale, QUESTIE.btn * fireScale)
     fireFrame:SetPoint("CENTER", anchor, "CENTER")
@@ -824,8 +913,21 @@ function Map:ApplyPinScale(pin)
         return
     end
     local scale = GetFireScale()
-    pin:SetSize(GetPinHitSize(), GetPinHitSize())
-    ApplyPinStrata(pin)
+    if pin.mmPin then
+        scale = scale * 0.5
+        pin:SetSize(math.max(18, math.ceil(QUESTIE.btn * scale + 6)), math.max(18, math.ceil(QUESTIE.btn * scale + 6)))
+        if Minimap then
+            if pin.SetFrameStrata then
+                pcall(pin.SetFrameStrata, pin, Minimap:GetFrameStrata() or "MEDIUM")
+            end
+            if pin.SetFrameLevel then
+                pin:SetFrameLevel((Minimap:GetFrameLevel() or 1) + 8)
+            end
+        end
+    else
+        pin:SetSize(GetPinHitSize(), GetPinHitSize())
+        ApplyPinStrata(pin)
+    end
     ResizeQuestieCluster(pin, scale)
 end
 
@@ -855,6 +957,202 @@ function Map:ReleasePins()
         table.insert(self.pinPool, pin)
         self.pins[id] = nil
     end
+end
+
+function Map:AcquireMinimapPin()
+    local pin = table.remove(self.mmPinPool)
+    if not pin then
+        pin = self:CreatePinFrame(Minimap, { minimap = true })
+    end
+    self:ApplyPinScale(pin)
+    pin:Show()
+    return pin
+end
+
+function Map:ReleaseMinimapPins()
+    for id, pin in pairs(self.mmPins) do
+        pin:Hide()
+        pin.camp = nil
+        pin.campId = nil
+        table.insert(self.mmPinPool, pin)
+        self.mmPins[id] = nil
+    end
+end
+
+local function GetMinimapRadiusYards()
+    if C_Minimap and C_Minimap.GetViewRadius then
+        local ok, radius = pcall(C_Minimap.GetViewRadius)
+        if ok and tonumber(radius) and radius > 0 then
+            return radius
+        end
+    end
+    local zoom = 0
+    if Minimap and Minimap.GetZoom then
+        zoom = Minimap:GetZoom() or 0
+    end
+    local radii = { 300, 240, 180, 120, 80, 50 }
+    return radii[(tonumber(zoom) or 0) + 1] or 150
+end
+
+local function PlayerWorldPos()
+    if not SmoreSkills_WorldPosFromMap or not SmoreSkills_GetPlayerMapPos then
+        return nil
+    end
+    local mapId, x, y = SmoreSkills_GetPlayerMapPos()
+    if not mapId or not x or not y then
+        return nil
+    end
+    return SmoreSkills_WorldPosFromMap(mapId, x, y)
+end
+
+function Map:PositionMinimapPin(pin, camp)
+    if not pin or not camp or not Minimap then
+        return false
+    end
+    if not SmoreSkills_GetPlayerMapPos then
+        return false
+    end
+    local playerMapId, px, py = SmoreSkills_GetPlayerMapPos()
+    if not playerMapId or not px or not py then
+        return false
+    end
+    local cx, cy
+    if SmoreSkills_CampPinPosOnMap then
+        cx, cy = SmoreSkills_CampPinPosOnMap(camp, playerMapId)
+    elseif tonumber(camp.mapId) == tonumber(playerMapId) then
+        cx, cy = tonumber(camp.x), tonumber(camp.y)
+    end
+    if not cx or not cy then
+        return false
+    end
+    -- Zone map is +x east, +y south. Minimap (north-up) is +x right, +y up.
+    -- Instance world X/Y are not east/north — using those made the pin slide
+    -- the wrong way when you walked.
+    local east = cx - px
+    local south = cy - py
+    local mx, my = east, -south
+    local rotate = GetCVar and GetCVar("rotateMinimap")
+    if rotate == "1" or rotate == 1 then
+        local facing = (GetPlayerFacing and GetPlayerFacing()) or 0
+        local c, s = math.cos(facing), math.sin(facing)
+        local rx = mx * c + my * s
+        local ry = -mx * s + my * c
+        mx, my = rx, ry
+    end
+    local dist
+    local pwx, pwy, pcont = PlayerWorldPos()
+    local cwx, cwy, ccont
+    if SmoreSkills_WorldPosFromMap then
+        cwx, cwy, ccont = SmoreSkills_WorldPosFromMap(camp.mapId, camp.x, camp.y)
+    end
+    if pwx and pwy and cwx and cwy and (not pcont or not ccont or pcont == ccont) then
+        dist = math.sqrt((cwx - pwx) * (cwx - pwx) + (cwy - pwy) * (cwy - pwy))
+    else
+        local mapDist = math.sqrt(east * east + south * south)
+        if mapDist > 0.08 then
+            return false
+        end
+        dist = mapDist * 400
+    end
+    local view = GetMinimapRadiusYards()
+    if not view or view <= 0 or dist > view * 0.92 then
+        return false
+    end
+    local half = (Minimap:GetWidth() or 140) * 0.5 - 8
+    if half < 20 then
+        half = 20
+    end
+    local pixels = (dist / view) * half
+    local dir = math.sqrt(mx * mx + my * my)
+    pin:ClearAllPoints()
+    if dir < 1e-12 or dist < 2 then
+        pin:SetPoint("CENTER", Minimap, "CENTER", 0, 0)
+    else
+        local scale = pixels / dir
+        pin:SetPoint("CENTER", Minimap, "CENTER", mx * scale, my * scale)
+    end
+    return true
+end
+
+function Map:RefreshMinimapPins()
+    if not Minimap then
+        return
+    end
+    local playerMapId = select(1, SmoreSkills_GetPlayerMapPos())
+    if not playerMapId or not SmoreSkills_ListVisibleCamps then
+        self:ReleaseMinimapPins()
+        return
+    end
+    local camps = self:GetVisibleCamps(playerMapId)
+    local wanted = {}
+    for _, camp in ipairs(camps) do
+        if camp.id and camp.x and camp.y then
+            wanted[camp.id] = camp
+        end
+    end
+    for id, pin in pairs(self.mmPins) do
+        if not wanted[id] then
+            pin:Hide()
+            pin.camp = nil
+            pin.campId = nil
+            table.insert(self.mmPinPool, pin)
+            self.mmPins[id] = nil
+        end
+    end
+    for id, camp in pairs(wanted) do
+        local pin = self.mmPins[id]
+        if not pin then
+            pin = self:AcquireMinimapPin()
+            pin.campId = id
+            self.mmPins[id] = pin
+        end
+        pin.camp = camp
+        self:ApplyPinScale(pin)
+        self:UpdatePinGuildMark(pin)
+        if pin.fireIcon then
+            pin.fireIcon:SetTexture(CAMP_PIN_ICON)
+        end
+        if self:PositionMinimapPin(pin, camp) then
+            pin:Show()
+        else
+            pin:Hide()
+        end
+    end
+end
+
+function Map:StartMinimapWatch()
+    if self.mmWatch then
+        return
+    end
+    if C_Timer and C_Timer.NewTicker then
+        self.mmWatch = C_Timer.NewTicker(0.2, function()
+            pcall(function()
+                Map:RefreshMinimapPins()
+            end)
+        end)
+        return
+    end
+    local f = CreateFrame("Frame")
+    local elapsed = 0
+    f:SetScript("OnUpdate", function(_, dt)
+        elapsed = elapsed + (dt or 0.02)
+        if elapsed < 0.2 then
+            return
+        end
+        elapsed = 0
+        pcall(function()
+            Map:RefreshMinimapPins()
+        end)
+    end)
+    self.mmWatch = f
+end
+
+function Map:EnsureMinimap()
+    if not Minimap then
+        return
+    end
+    self:StartMinimapWatch()
+    self:RefreshMinimapPins()
 end
 
 function Map:ShowPlayerZone(mapId)
@@ -902,6 +1200,9 @@ local function MaybeHintWrongMapZone(self, playerMapId, viewId)
 end
 
 function Map:RefreshPins()
+    pcall(function()
+        self:RefreshMinimapPins()
+    end)
     if not WorldMapFrame or not WorldMapFrame.IsShown or not WorldMapFrame:IsShown() then
         return
     end
@@ -1231,6 +1532,7 @@ function Map:StartPinWatch()
         return
     end
     self.pinWatch = C_Timer.NewTicker(5, function()
+        Map:RefreshMinimapPins()
         if WorldMapFrame and WorldMapFrame.IsShown and WorldMapFrame:IsShown() then
             Map:AnchorButton()
             Map:RefreshPins()
@@ -1239,6 +1541,7 @@ function Map:StartPinWatch()
 end
 
 function Map:Init()
+    self:EnsureMinimap()
     if self.button or not WorldMapFrame then
         return
     end
@@ -1250,6 +1553,7 @@ function Map:Init()
 end
 
 function Map:TryInit()
+    self:EnsureMinimap()
     if self.button then
         Map:AnchorButton()
         return true

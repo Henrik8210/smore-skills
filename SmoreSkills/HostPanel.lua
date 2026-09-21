@@ -22,6 +22,8 @@ local IDLE_TEXT = { 0.72, 0.72, 0.72 }
 local HOVER_TEXT = { 0.90, 0.78, 0.38 }
 local PACK_IDLE = { 0.38, 0.16, 0.10, 0.95 }
 local PACK_HOVER = { 0.48, 0.26, 0.10, 0.95 }
+local ANNOUNCE_IDLE = { 0.18, 0.28, 0.14, 0.95 }
+local ANNOUNCE_HOVER = { 0.26, 0.38, 0.18, 0.95 }
 local SOCKET_GLOW_MIN = 0.16
 local SOCKET_GLOW_MAX = 0.34
 local SOCKET_PULSE_SPEED = 1.8
@@ -105,8 +107,9 @@ local function CreateSocket(parent, size)
     icon:SetSize(inner * 0.80, inner * 0.80)
     icon:SetPoint("CENTER")
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    AddCircleMask(btn, icon, inner * 0.80)
+    btn.iconMask = AddCircleMask(btn, icon, inner * 0.80)
     btn.icon = icon
+    btn.size = size
     local caption = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     caption:SetPoint("TOP", btn, "BOTTOM", 0, -3)
     caption:SetWidth(size + 8)
@@ -188,6 +191,77 @@ local function StyleSocket(btn, slot, isYours)
         btn.caption:SetTextColor(0.65, 0.65, 0.65)
     end
     ApplySocketHover(btn)
+end
+
+local function ResizeSocket(btn, size)
+    if not btn or not size then
+        return
+    end
+    if btn.size == size then
+        return
+    end
+    btn.size = size
+    btn:SetSize(size, size)
+    if btn.gold then
+        btn.gold:SetSize(size, size)
+    end
+    local ring = size < 50 and 4 or 6
+    local inner = size - ring
+    if btn.fill then
+        btn.fill:SetSize(inner, inner)
+    end
+    local iconSz = inner * 0.80
+    if btn.icon then
+        btn.icon:SetSize(iconSz, iconSz)
+    end
+    if btn.iconMask then
+        btn.iconMask:SetSize(iconSz, iconSz)
+    end
+    if btn.hover then
+        btn.hover:SetSize(size, size)
+    end
+    if btn.caption then
+        btn.caption:SetWidth(size + 8)
+    end
+end
+
+local function LayoutHostSockets(sockets, slotCount, fullSize, gap)
+    slotCount = tonumber(slotCount) or 3
+    local size = slotCount <= 3 and fullSize or (fullSize * 0.5)
+    local rows = SmoreSkills_FireSocketRows and SmoreSkills_FireSocketRows(slotCount) or { { 1, 2, 3 } }
+    local captionH = 20
+    local rowGap = 10
+    local maxRowW = 0
+    for r = 1, #rows do
+        local cols = #rows[r]
+        maxRowW = math.max(maxRowW, cols * size + (cols - 1) * gap)
+    end
+    local height = #rows * (size + captionH) + math.max(0, #rows - 1) * rowGap
+    for i = 1, #sockets do
+        local btn = sockets[i]
+        if btn then
+            if i <= slotCount then
+                ResizeSocket(btn, size)
+                btn:Show()
+            else
+                btn:Hide()
+            end
+        end
+    end
+    for r = 1, #rows do
+        local row = rows[r]
+        local rowW = #row * size + (#row - 1) * gap
+        local x0 = (maxRowW - rowW) / 2
+        local y = -((r - 1) * (size + captionH + rowGap))
+        for c = 1, #row do
+            local btn = sockets[row[c]]
+            if btn then
+                btn:ClearAllPoints()
+                btn:SetPoint("TOPLEFT", btn:GetParent(), "TOPLEFT", x0 + (c - 1) * (size + gap), y)
+            end
+        end
+    end
+    return maxRowW, height
 end
 
 local function StyleChip(chip, selected)
@@ -763,8 +837,8 @@ function HostPanel:Build()
     self.where = where
 
     local socketRow = CreateFrame("Frame", nil, frame)
-    socketRow:SetPoint("TOPLEFT", where, "BOTTOMLEFT", 8, -16)
-    socketRow:SetSize(SmoreSkills.MAX_SLOTS * SOCKET_SIZE + (SmoreSkills.MAX_SLOTS - 1) * SOCKET_GAP, SOCKET_SIZE + 28)
+    socketRow:SetPoint("TOP", where, "BOTTOM", 0, -16)
+    socketRow:SetSize(SmoreSkills.MAX_SLOTS * (SOCKET_SIZE * 0.5) + (SmoreSkills.MAX_SLOTS - 1) * SOCKET_GAP, SOCKET_SIZE + 28)
     self.socketRow = socketRow
     self.sockets = {}
     for i = 1, SmoreSkills.MAX_SLOTS do
@@ -816,7 +890,7 @@ function HostPanel:Build()
     end)
 
     local look = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    look:SetPoint("TOPLEFT", socketRow, "BOTTOMLEFT", -8, -8)
+    look:SetPoint("TOPLEFT", where, "BOTTOMLEFT", 0, -(16 + SOCKET_SIZE + 36))
     look:SetText("Looking for")
     look:SetTextColor(1, 1, 1)
     self.lookLabel = look
@@ -925,6 +999,58 @@ function HostPanel:Build()
     end)
     self.packBtn = pack
 
+    local announce = CreateFrame("Button", nil, frame)
+    announce:SetHeight(22)
+    local announceBg = announce:CreateTexture(nil, "BACKGROUND")
+    announceBg:SetAllPoints()
+    announceBg:SetColorTexture(ANNOUNCE_IDLE[1], ANNOUNCE_IDLE[2], ANNOUNCE_IDLE[3], ANNOUNCE_IDLE[4])
+    announce.bg = announceBg
+    announce.label = announce:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    announce.label:SetPoint("CENTER")
+    announce.label:SetText("Announce camp in General")
+    announce.label:SetTextColor(1, 0.82, 0.15)
+    announce:SetWidth(math.max(168, (announce.label:GetStringWidth() or 160) + 16))
+    announce:SetScript("OnClick", function()
+        local camp = ActiveCamp()
+        if not camp or not SmoreSkills.Sync or not SmoreSkills.Sync.AnnounceHostInGeneral then
+            return
+        end
+        if SmoreSkills.Sync:AnnounceHostInGeneral(camp) then
+            SmoreSkills_Print("Announced your camp in General.")
+        else
+            SmoreSkills_Print("Could not announce this camp in General.")
+        end
+    end)
+    announce:SetScript("OnEnter", function(selfBtn)
+        SetColor(announce.bg, ANNOUNCE_HOVER)
+        if not GameTooltip then
+            return
+        end
+        local camp = ActiveCamp()
+        local msg
+        if camp and SmoreSkills.Sync and SmoreSkills.Sync.BuildHostGeneralAnnounce then
+            if SmoreSkills.Sync.CampForGeneralAnnounce then
+                camp = SmoreSkills.Sync:CampForGeneralAnnounce(camp)
+            end
+            msg = SmoreSkills.Sync:BuildHostGeneralAnnounce(camp)
+        end
+        GameTooltip:SetOwner(selfBtn, "ANCHOR_TOPRIGHT")
+        GameTooltip:ClearLines()
+        if msg and msg ~= "" then
+            GameTooltip:AddLine(msg, 1, 1, 1, true)
+        else
+            GameTooltip:AddLine("Could not build the General announce.", 1, 0.3, 0.3, true)
+        end
+        GameTooltip:Show()
+    end)
+    announce:SetScript("OnLeave", function()
+        SetColor(announce.bg, ANNOUNCE_IDLE)
+        if GameTooltip then
+            GameTooltip:Hide()
+        end
+    end)
+    self.announceBtn = announce
+
     self.frame = frame
     return frame
 end
@@ -962,19 +1088,39 @@ function HostPanel:Refresh()
         self:Hide()
         return
     end
+    local slotN = SmoreSkills_CampSlotCount and SmoreSkills_CampSlotCount(camp) or 3
+    local fireBit = ""
+    if SmoreSkills_CampFireType and SmoreSkills_CampFireType(camp) ~= "basic" then
+        fireBit = (SmoreSkills_FireTypeLabel and SmoreSkills_FireTypeLabel(camp.fireType) or "") .. "  ·  "
+    end
     self.where:SetText(string.format(
-        "%s  %s  ·  %d/%d objects",
+        "%s  %s  ·  %s%d/%d objects",
         camp.zone or "Camp",
         SmoreSkills_FormatCoords and SmoreSkills_FormatCoords(camp) or "",
+        fireBit,
         SmoreSkills_CountFilledSlots(camp),
-        SmoreSkills.MAX_SLOTS
+        slotN
     ))
     SmoreSkills_EnsureSlots(camp)
     if SmoreSkills_ClampHostSlotToLearned then
         SmoreSkills_ClampHostSlotToLearned(camp)
     end
-    for i = 1, SmoreSkills.MAX_SLOTS do
-        StyleSocket(self.sockets[i], camp.slots[i], i == 1)
+    local gridW, gridH = LayoutHostSockets(self.sockets, slotN, SOCKET_SIZE, SOCKET_GAP)
+    gridW = math.max(gridW or 80, 80)
+    gridH = math.max(gridH or 40, 40)
+    if self.socketRow then
+        self.socketRow:SetSize(gridW, gridH)
+        self.socketRow:ClearAllPoints()
+        self.socketRow:SetPoint("TOP", self.where, "BOTTOM", 0, -16)
+    end
+    if self.lookLabel then
+        self.lookLabel:ClearAllPoints()
+        self.lookLabel:SetPoint("TOPLEFT", self.where, "BOTTOMLEFT", 0, -(16 + gridH + 8))
+    end
+    for i = 1, #self.sockets do
+        if i <= slotN then
+            StyleSocket(self.sockets[i], camp.slots[i], i == 1)
+        end
     end
     local want = SmoreSkills_SplitWantWire(camp.want or "any")
     local anyone = not want or want == "" or want == "any"
@@ -1013,15 +1159,20 @@ function HostPanel:Refresh()
     self.hint:SetPoint("TOPLEFT", last, "BOTTOMLEFT", 0, -10)
     self.hint:SetPoint("RIGHT", self.frame, "RIGHT", -14, 0)
     if SmoreSkills.Sync and SmoreSkills.Sync.needsHardwareShare then
-        self.hint:SetText("Click Find or /smores host once so other campers can see this fire.")
+        self.hint:SetText("When someone clicks Find in this zone, your camp is shared. Find is a backup if that reply is blocked.")
     else
-        self.hint:SetText("The pin tooltip uses these requests. Clicking a chip or object shares them.")
+        self.hint:SetText("When someone clicks Find in this zone, they get this camp. Clicking a chip or object also shares.")
     end
     self.hint:Show()
 
     self.packBtn:ClearAllPoints()
     self.packBtn:SetPoint("TOPLEFT", self.hint, "BOTTOMLEFT", 0, -10)
     self.packBtn:Show()
+    if self.announceBtn then
+        self.announceBtn:ClearAllPoints()
+        self.announceBtn:SetPoint("TOPRIGHT", self.hint, "BOTTOMRIGHT", 0, -10)
+        self.announceBtn:Show()
+    end
 
     local top = self.frame:GetTop()
     local bot = self.packBtn:GetBottom()
@@ -1058,7 +1209,7 @@ end
 function HostPanel:Toggle()
     local camp = ActiveCamp()
     if not camp then
-        SmoreSkills_Reply("Host a camp first (place a Basic Campfire Kit or /smores host).")
+        SmoreSkills_Reply("Host a camp first (place a Campfire Kit or /smores host).")
         return
     end
     if self.frame and self.frame:IsShown() then

@@ -5,7 +5,7 @@ Forever camping finder. Protocol and UX are documented in [CAMPING.md](CAMPING.m
 - **Remote:** https://github.com/Henrik8210/smore-skills
 - **Addon folder:** `SmoreSkills/` (no apostrophe — WoW toc/folder rule)
 - **Title:** S'more Skills
-- **Version:** 0.5.78 (CurseForge beta `v0.5.78-beta`; last full tag `v0.5.62` for **WoW Forever 1.60.1**)
+- **Version:** 0.6.7 (CurseForge beta `v0.6.7-beta`; last full tag `v0.5.62` for **WoW Forever 1.60.1**)
 
 ## WoW install paths
 
@@ -48,6 +48,7 @@ Logo paths: `SmoreSkills.LOGO` (full art), `SmoreSkills.ICON` (cropped, minimap/
 | `/smores list` | Print visible hosted camps in this zone (max 12, same as map pins) |
 | `/smores find` | Seek camps in zone |
 | `/smores host` | Re-share the current fire (walk-away keeps those coords) |
+| `/smores host basic` / `journeyman` / `expert` | Test 3 / 5 / 10 sockets (`jm` / `exp`) |
 | `/smores camp` | Host camp panel (sockets + this-camp requests) |
 | `/smores stop` | Stop hosting rebroadcasts |
 | `/smores pack` | Pack up your camp (same Yes/No confirm as the map pin) |

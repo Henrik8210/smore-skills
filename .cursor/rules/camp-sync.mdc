@@ -16,11 +16,12 @@ Design: **Forever first.** [CAMPING.md](../../CAMPING.md). TBC Anniversary is on
 - Auto-broadcast stored camps when someone joins
 - Reuse another addon's message prefix
 - Apply a camp from the other faction
-- Let more than three object slots exist on a camp
+- Let more object slots exist on a camp than the fire allows (Basic 3 / Journeyman 5 / Expert 10; `MAX_SLOTS` is 10)
 - Scan the whole continent for fires — addons only see what is in range or what others share
 - Block the UI thread on addon messages — cap pins, drop stale signals
 - Mix `time()` (PC local) with `GetServerTime()` (realm) for owned-pin TTL
 - Trust nested `SmoreSkillsDB.camps` after `/reload` as the source of the hosted fire
+- Trust nested `SmoreSkillsDB.settings` after `/reload` — persist settings via CVar `SmoreSkillsSS`/`SmoreSkillsST` + flats (`SmoreSkills_SaveSettings` on every setter)
 
 ## Required
 
@@ -28,20 +29,22 @@ Design: **Forever first.** [CAMPING.md](../../CAMPING.md). TBC Anniversary is on
 - Payload under 250 bytes per message. If `H:` is over, shrink (drop want-items, then object names, then shorten `own`) — do not fail silent
 - Message types:
   - `S:` seeker — `S:map:fac:prof:t[:codes]:layer` (looking in zone; last field is zoneUID or `0`)
-  - `H:` host — `H:map:x:y:fac:own:want:p1:o1:p2:o2:p3:o3:t:layer` (`layer` is `zoneUID` or `zoneUID/N`; optional; we detect it ourselves)
+  - `H:` host — `H:map:x:y:fac:own:want:p1:o1:p2:o2:p3:o3[:p4:o4…]:t:layer` (`layer` is `zoneUID` or `zoneUID/N`; optional; we detect it ourselves). Slot-pair count is the fire type (3 / 5 / 10).
   - `X:` packed up — `X:map:x:y:own:t` (host right-clicks own pin; seekers drop it now)
   - `C:` legacy camp snapshot — still accepted if received; we no longer send it
 - Share is **opt-in**: seek / host only when the player acts
 - Same-faction only
-- Three slots. Each player places at most one object (the game enforces that; we display it)
+- Slots follow the fire (3 / 5 / 10). Each player places at most one object (the game enforces that; we display it)
 - Cooldowns: seek 45 s, host rebroadcast 90 s, outbound 8 s per player (`X:` skips the 8 s cooldown)
-- Signal TTL ~3 min; campfire pin ~20 min from when the fire was lit (same remaining time for every seeker; heartbeats do not extend it) or until full/packed/replaced; forget camps older than 30 minutes
+- Signal TTL ~3 min; campfire pin **15 min** from when the fire was lit (same remaining time for every seeker; heartbeats do not extend it) or until full/packed/replaced; forget camps older than 30 minutes
 - Max 12 pins per zone
 - Host pin is **local**; other host pins only after **Find** (and an `H:`). Do not show C: snapshots as pins
-- Answering a seek does **not** `SendChatMessage` or `SendAddonMessage` from `CHAT_MSG_*` or a timer (taints). Channel-chat `H:` is sent on the next Find or `/smores host` click. Addon whisper only if the channel is not joined, and only from that click.
-- One player, one hosted camp. A **new** campfire packs the previous pin (`X:`) and hosts the new site. Walking away or `/smores host` without a new fire keeps the original fire coords. `/reload` restores from **flat account** `hostSnap_*` / `hostCampId` / remaining + `GetTime()` — not nested `SmoreSkillsDB.camps`. See [HOST-PERSIST.md](../../HOST-PERSIST.md).
+- Answering a seek **does** send addon-whisper `H:` to that seeker (TBC two-client path: light fire, they Find, they see the pin). Do **not** `SendChatMessage` from `CHAT_MSG_*`, kit Use, or a campfire timer. Channel-chat `H:` on Find / `/smores host` is the backup. Join the hidden channel from Find / `/smores host` (hardware) or TBC login so the host can hear `S:`. Forever kit Use must not `JoinChannelByName` (that toasts *Interface action failed*).
+- Public `/1` is **only** the camp-panel **Announce camp in General** button. Not a setting. Not kit Use. Not fire-land. Hover shows the exact line.
+- One player, one hosted camp. A **new** campfire packs the previous pin (`X:`) and hosts the new site. Walking away or `/smores host` without a new fire keeps the original fire coords. `/reload` restores from **flat account** `hostSnap_*` / `hostCampId` / remaining + `GetTime()` — not nested `SmoreSkillsDB.camps`. Own pin is `hostCampId`, not a UnitName match (`Unknown` / `No Bunda` vs `No-Bunda`). Do not create an empty `SmoreSkillsDB` before SavedVariables apply. See [HOST-PERSIST.md](../../HOST-PERSIST.md).
 - World map pins are **hosts only** — seekers do not get a pin; do not show C: snapshots as pins
-- Do not call `ChatFrame_RemoveChannel` (taints chat). Auto-host must not `SendChatMessage`, `SendAddonMessage`, or `JoinPermanentChannel` from UNIT_SPELLCAST / CHAT_MSG_* / OnUpdate / WorldFrame / C_Timer. After the fire lands, host locally; send hidden-channel **chat** `H:` on the next Find or `/smores host` click. Do not hook WorldFrame / UIParent or EnableKeyboard. Other host pins only after Find. Continent **overview** (EK / Kalimdor) has no pins; a continent-typed **leaf** map (Zephras Isle) still draws.
+- Minimap pins use **zone map** east/north (Y flipped), not instance world X/Y. The fire stays world-fixed; walking moves you on the disc
+- Do not call `ChatFrame_RemoveChannel` (taints chat). Auto-host must not `SendChatMessage` or `JoinPermanentChannel` from UNIT_SPELLCAST / OnUpdate / WorldFrame / C_Timer / kit Use. After the fire lands, host locally. Join from Find / `/smores host`. When `S:` arrives in the same zone, reply addon-whisper `H:` to that seeker. Do not hook WorldFrame / UIParent or EnableKeyboard. Other host pins only after Find. Continent **overview** (EK / Kalimdor) has no pins; a continent-typed **leaf** map (Zephras Isle) still draws.
 - Do not occupy `/1` General, `/2` Trade, or `/3` Local Defense. Join the named channel with `JoinChannelByName` (no chat window). Send by name/id after join. If we land on 1–3, swap **by channel index** (`C_ChatInfo.SwapChatChannelsByChannelIndex`) with the zone channel that belongs there (`General - Zephras Isle` still counts as General). Snap the edit box off `[n. SmoreSkills]`.
 - Keep broadcasting the **fire coords** if the host walks away (do not key hosting to current feet)
 - Nested city maps (Elwynn/Stormwind, Dun Morogh/IF, Durotar/Org): still draw **zone** pins if `GetMapID()` is the city. Sibling zones (Elwynn vs Duskwood) must not share 39,70-style pins. Forever new zones (Zephras Isle, Hyjal, Shen'dralas, Riverglades) use the same C_Map rules — do not hardcode an Elwynn-only list.

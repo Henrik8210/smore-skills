@@ -7,7 +7,7 @@ if not strtrim then
 end
 
 SmoreSkills = SmoreSkills or {}
-SmoreSkills.VERSION = "0.5.78"
+SmoreSkills.VERSION = "0.6.7"
 SmoreSkills.AUTHOR = "Weber8210"
 SmoreSkills.TESTER = "Stik"
 SmoreSkills.LOGO = "Interface\\AddOns\\SmoreSkills\\Art\\SmoreSkillsLogo"
@@ -48,64 +48,160 @@ function SmoreSkills_PlayerName()
     return UnitName("player") or "Unknown"
 end
 
+-- "No Bunda" (UnitName) vs "No-Bunda" (folder) vs "No Bunda-Realm".
+-- Do not split on the first hyphen — that is often part of the name.
+function SmoreSkills_NormalizePlayerName(name)
+    if type(name) ~= "string" then
+        return nil
+    end
+    name = strlower(strtrim(name))
+    if name == "" or name == "unknown" or name == "unk" then
+        return nil
+    end
+    local cut = name:match("^(.-)%-.+$")
+    if cut and cut:find("%s") then
+        name = strtrim(cut)
+    end
+    name = name:gsub("%-", " "):gsub("%s+", " ")
+    return name
+end
+
 function SmoreSkills_PlayerNamesMatch(a, b)
+    a = SmoreSkills_NormalizePlayerName(a)
+    b = SmoreSkills_NormalizePlayerName(b)
     if not a or not b then
         return false
     end
-    a = strlower(a)
-    b = strlower(b)
     if a == b then
         return true
     end
-    local aShort = a:match("^([^%-]+)") or a
-    local bShort = b:match("^([^%-]+)") or b
-    return aShort == bShort
+    return a:gsub("%s+", "") == b:gsub("%s+", "")
+end
+
+local function EnsureAccountDB()
+    -- Only fill subkeys if Blizzard already applied the table. Creating
+    -- SmoreSkillsDB when it is still nil can make the client skip the file.
+    if type(SmoreSkillsDB) ~= "table" then
+        return false
+    end
+    SmoreSkillsDB.camps = SmoreSkillsDB.camps or {}
+    SmoreSkillsDB.settings = SmoreSkillsDB.settings or { dataVersion = 1 }
+    SmoreSkillsDB.learnedCamping = SmoreSkillsDB.learnedCamping or {}
+    SmoreSkillsDB.hostByChar = nil
+    SmoreSkillsDB.sessionCount = nil
+    for key in pairs(SmoreSkillsDB) do
+        if type(key) == "string" and key:sub(1, 2) == "h_" then
+            SmoreSkillsDB[key] = nil
+        end
+    end
+    return true
+end
+
+local function TryRestoreHost(reason)
+    if type(SmoreSkillsDB) == "table" then
+        EnsureAccountDB()
+    end
+    -- Never create an empty SmoreSkillsDB just to have a table. Forever then
+    -- skips the SavedVariables file and we lose the camp that is still on disk.
+    if type(SmoreSkillsDB) ~= "table" then
+        local blob = SmoreSkills_ReadHostPersistBlob and SmoreSkills_ReadHostPersistBlob()
+        local hostDb = type(SmoreSkillsHostDB) == "table" and tonumber(SmoreSkillsHostDB.mapId)
+        if blob or (hostDb and hostDb > 0) then
+            SmoreSkillsDB = { camps = {}, settings = { dataVersion = 1 }, learnedCamping = {} }
+        else
+            return false
+        end
+    end
+    if SmoreSkills.Sync and SmoreSkills.Sync.RestoreHostSession then
+        return pcall(function()
+            return SmoreSkills.Sync:RestoreHostSession()
+        end)
+    end
+    if SmoreSkills_RestoreOwnedHost then
+        return pcall(SmoreSkills_RestoreOwnedHost)
+    end
+    return false
 end
 
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("ADDON_LOADED")
+frame:RegisterEvent("VARIABLES_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("PLAYER_LOGOUT")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:SetScript("OnEvent", function(_, event, name)
     if event == "ADDON_LOADED" and name == ADDON_NAME then
-        SmoreSkillsDB = SmoreSkillsDB or { camps = {}, settings = { dataVersion = 1 } }
-        SmoreSkillsDB.camps = SmoreSkillsDB.camps or {}
-        SmoreSkillsDB.settings = SmoreSkillsDB.settings or { dataVersion = 1 }
-        SmoreSkillsDB.learnedCamping = SmoreSkillsDB.learnedCamping or {}
-        if type(SmoreSkillsHostDB) ~= "table" then
-            SmoreSkillsHostDB = {}
-        end
-        -- 0.5.70 test builds mirrored the host snapshot account-wide. Drop those leftovers.
-        SmoreSkillsDB.hostByChar = nil
-        SmoreSkillsDB.sessionCount = nil
-        for key in pairs(SmoreSkillsDB) do
-            if type(key) == "string" and key:sub(1, 2) == "h_" then
-                SmoreSkillsDB[key] = nil
-            end
-        end
-        if SmoreSkills_RestoreOwnedHost then
-            SmoreSkills_RestoreOwnedHost()
-        end
-        if ReloadUI and hooksecurefunc and not SmoreSkills._snapshotOnReloadHook then
+        -- Do not create SmoreSkillsHostDB / SmoreSkillsHP here if they are nil.
+        -- A late SavedVariables apply will still fill those globals.
+        EnsureAccountDB()
+        if hooksecurefunc and not SmoreSkills._snapshotOnReloadHook then
             SmoreSkills._snapshotOnReloadHook = true
-            hooksecurefunc("ReloadUI", function()
+            local function snapHost()
                 if SmoreSkills_SnapshotOwnedHost then
                     SmoreSkills_SnapshotOwnedHost()
+                end
+                if SmoreSkills_SaveSettings then
+                    SmoreSkills_SaveSettings()
+                end
+            end
+            if ReloadUI then
+                hooksecurefunc("ReloadUI", snapHost)
+            end
+            pcall(function()
+                if C_UI and C_UI.Reload then
+                    hooksecurefunc(C_UI, "Reload", snapHost)
                 end
             end)
         end
         if SmoreSkills.Sync and SmoreSkills.Sync.Init then
             SmoreSkills.Sync:Init()
         end
+        TryRestoreHost("loaded")
+    elseif event == "VARIABLES_LOADED" then
+        SmoreSkills._settingsSvReady = true
+        TryRestoreHost("vars")
+        if SmoreSkills_EnsureSettings then
+            SmoreSkills_EnsureSettings()
+        end
+        if SmoreSkills_SaveSettings then
+            SmoreSkills_SaveSettings()
+        end
     elseif event == "PLAYER_LOGOUT" then
         if SmoreSkills_SnapshotOwnedHost then
             SmoreSkills_SnapshotOwnedHost()
         end
+        if SmoreSkills_SaveSettings then
+            SmoreSkills_SaveSettings()
+        end
     elseif event == "PLAYER_LOGIN" then
-        SmoreSkills_EnsureSettings()
+        TryRestoreHost("login")
+        if C_Timer and C_Timer.After and not SmoreSkills._hostPersistRetry then
+            SmoreSkills._hostPersistRetry = true
+            local delays = { 0.5, 1.5, 4, 8 }
+            for i = 1, #delays do
+                C_Timer.After(delays[i], function()
+                    -- SavedVariables had their chance. If the global is still
+                    -- missing (pack-up left no persist blob), create settings only.
+                    if type(SmoreSkillsDB) ~= "table" and delays[i] >= 4 then
+                        SmoreSkillsDB = { camps = {}, settings = { dataVersion = 1 }, learnedCamping = {} }
+                    end
+                    TryRestoreHost("retry")
+                    if SmoreSkills_EnsureSettings then
+                        SmoreSkills_EnsureSettings()
+                    end
+                    if SmoreSkills.Map and SmoreSkills.Map.RefreshPins then
+                        pcall(function()
+                            SmoreSkills.Map:RefreshPins()
+                        end)
+                    end
+                end)
+            end
+        end
+        if SmoreSkills_EnsureSettings then
+            SmoreSkills_EnsureSettings()
+        end
         SmoreSkills_Print(string.format(
-            "%s By %s loaded. Host a camp by placing down a Basic Campfire Kit or find camps in your zone by clicking the s'more on your world map. Happy camping :)",
+            "%s By %s loaded. Host a camp by placing a Campfire Kit (Basic, Journeyman, or Expert) or find camps in your zone by clicking the s'more on your world map. Happy camping :)",
             SmoreSkills.VERSION,
             SmoreSkills.AUTHOR or "Weber8210"
         ))

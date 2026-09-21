@@ -2,7 +2,7 @@
 
 **Product is Forever.** TBC Anniversary is only the two-client share testbed. Do not design for Anniversary and back-port.
 
-**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). Servers dropped overnight; they were **up again 18 Sep**. Last CurseForge full file before this pass was **v0.5.62**. Host persist + kit Use vs Create: CurseForge **beta** `v0.5.78-beta`. How `/reload` keeps the pin: [HOST-PERSIST.md](HOST-PERSIST.md).
+**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). Servers dropped overnight; they were **up again 18 Sep**. Last CurseForge full file before this pass was **v0.5.62**. Current CurseForge **beta** `v0.6.7-beta` (settings persist, 15 min fire, camp-panel General announce). How `/reload` keeps the pin and settings: [HOST-PERSIST.md](HOST-PERSIST.md).
 
 ---
 
@@ -44,7 +44,7 @@ Forever pops *SmoreSkills has been blocked from an action only available to the 
 - `JoinPermanentChannel` / `JoinChannelByName` from login, zoning, or the campfire timer
 - `SendChatMessage` or `SendAddonMessage` from `UNIT_SPELLCAST`, combat log, `C_Timer`, or `OnUpdate`
 
-**Working rule:** lighting the kit writes a **local pin** only. Join + `H:` / `S:` / `X:` only from **Find** or `/smores host` (hardware). Heartbeat and seek-reply timers must not send. TBC still needs the click for chat `H:` as well.
+**Working rule:** lighting the kit writes a **local pin**. Do **not** `JoinChannelByName` or `SendChatMessage` from kit **Use** on Forever (that toast is *Interface action failed*). Join from Find / `/smores host`. When a seeker clicks Find, reply addon-whisper `H:` to that player. Do not `SendChatMessage` from the campfire timer or `CHAT_MSG_*`. Channel-chat `H:` on Find / `/smores host` is the backup. Heartbeats must not send. Public `/1` is **only** the camp-panel **Announce camp in General** button (hover = exact preview).
 
 ### Camping objects (trainer **Camping** category, skill 20, 1 hour shared place CD)
 
@@ -245,8 +245,8 @@ If the isle map `mapType` is **Continent** (or World), treat that canvas like a 
 | Basic campfire / campsite | **Cooking Basic Campfire** as a **placeholder** host ping (not a Forever campsite) | Real kit: **Create** = bags; **Use Basic Campfire Kit** = fire + local pin (see [CAMPING.md](CAMPING.md)) |
 | Three object slots | Manual `/smores slot` | Auto-read when API exposed |
 | Auto host on campfire | Lights **Basic Campfire** → local pin; Find/`/smores host` for `H:` | **Create** kit = bags only. **Use** kit = local pin. Sit does not host. Find/`/smores host` for `H:`. |
-| Chat messages | General toggle; off mutes automatic addon chat. `/smores` still replies | Same |
-| Pin lifetime | Hide after **20 min from the lit fire** (same remaining time for every seeker), **3/3** slots, pack-up, or a **new** fire. `/reload` does not drop your pin. | Still up after 10 min (18 Sep). Live items: 1 hour is a **camping-feature cooldown**, not camp length. Marketing also said 1 hour **buffs**. Time a despawn before raising `CAMPFIRE_DURATION` again. |
+| Chat messages | Settings toggle mutes automatic addon chat. `/smores` still replies. Public `/1` is the camp-panel **Announce** button only. | Same. Kit Use must not join or `/1`. |
+| Pin lifetime | Hide after **15 min from the lit fire** (same remaining time for every seeker), **3/3** slots, pack-up, or a **new** fire. `/reload` does not drop your pin. | Timed live 21 Sep. Live items: 1 hour is a **camping-feature cooldown**, not camp length. Marketing also said 1 hour **buffs**. |
 | Nearby awareness | None (our pins) | Player buff **Campfire Nearby** (no coords). Do not aura-scan. Pins are the finder. |
 | Skinning camp object | n/a | **Tanning** = place-skill. Object is **Camp Chair**. Also live: Lute, Incense, Lodestone, Wheel, Banner, **Camp Tent**, **First Aid Kit**. |
 | Socket icons | Same Forever art (trainer/spell lookup; stand-ins if the client has no spell) | Live `C_Spell` / trainer icon. Banner = your faction. Camp Tent sack is a known miss. |
@@ -272,7 +272,9 @@ Use **two same-faction characters** in the **same zone**.
 
 - [ ] Open **zone** map (not only World/continent)
 - [ ] Host: **Use** a **Basic Campfire Kit** (Auto host on) or `/smores host` at a fire. Create at the trainer must not pin. Walk **100 yards** from another fire first.
-- [ ] Host `/reload` while the fire is still up — pin and `/smores status` Hosting stay until pack / 3/3 / 20 min. Chat **Your campfire is still yours**. Not “Host a camp first”. See [HOST-PERSIST.md](HOST-PERSIST.md).
+- [ ] Host `/reload` while the fire is still up — pin and `/smores status` Hosting stay until pack / 3/3 / 15 min. Chat **Your campfire in … is still yours**. Not “Host a camp first”. See [HOST-PERSIST.md](HOST-PERSIST.md).
+- [ ] Change General / Host / Seeker options, `/reload` — they stay (not reset to defaults).
+- [ ] **Announce camp in General** on the camp panel posts `/1`. Hover shows that exact line. Kit Use / fire land / Find do **not** post `/1`. No *Interface action failed* while placing.
 - [ ] Seeker: map **Find** button (or `/smores find`); minimap S'more icon opens map only
 - [ ] Bonfire pin appears at host coords on **zone** map
 - [ ] Seeker does **not** get a pin of their own — only hosted camps appear
@@ -285,7 +287,7 @@ Use **two same-faction characters** in the **same zone**.
 - [ ] Nested city (Elwynn/Stormwind): pin still shows on the Elwynn canvas; `/smores status` Zone vs Map view
 - [ ] Seeker chat: `Camp found` when the ping arrived (host seeing the pin is **not** enough)
 - [ ] Zoom out to continent/world — note whether pins hide (document map ids)
-- [ ] Time a real Forever campsite (how long the fire/site stays up). Do **not** treat the **1 hour buff** as pin lifetime. Still up after 10 min (18 Sep); pin is **20 min**. Time a despawn before raising `CAMPFIRE_DURATION`. Pins still drop on 3/3, pack-up, or a new fire — not on `/reload`. Find at minute 7 must leave 13 min, not a new 20.
+- [ ] Time a real Forever campsite (how long the fire/site stays up). Do **not** treat the **1 hour buff** as pin lifetime. Live fire is **15 min** (21 Sep). Pins still drop on 3/3, pack-up, or a new fire — not on `/reload`. Find at minute 7 must leave 8 min, not a new 15.
 
 ### Matching & settings
 

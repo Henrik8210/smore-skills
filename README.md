@@ -4,7 +4,7 @@ Find **WoW Forever** campsites while you level: see fires near you, which of the
 
 **Testing now:** Forever is the product. `_classic_beta_` (1.60.1) when servers are up; TBC Anniversary (`_anniversary_`) only for two-client share while they are down. See [CAMPING.md](CAMPING.md), [FOREVER.md](FOREVER.md), and [HOST-PERSIST.md](HOST-PERSIST.md).
 
-**CurseForge:** beta `v0.5.78-beta` for **WoW Forever 1.60.1**. `CF_API_KEY` secret + version tag via GitHub Actions (webhook stays off). See [GUIDELINES.md](GUIDELINES.md). Last full file was **v0.5.62**.
+**CurseForge:** beta `v0.6.7-beta` for **WoW Forever 1.60.1**. `CF_API_KEY` secret + version tag via GitHub Actions (webhook stays off). See [GUIDELINES.md](GUIDELINES.md). Last full file was **v0.5.62**.
 
 ## The idea
 
@@ -14,16 +14,16 @@ Meanwhile a blacksmith sits alone at a fire across the zone and sends a **host s
 
 All opt-in. No login dump. Community channel, not guild chat.
 
-## Status (v0.5.78)
+## Status (v0.6.7)
 
 | | |
 | --- | --- |
-| **Sync** | Seek/host/pack (`S:` / `H:` / `X:`), matching, rate limits, same-faction filter. Host keeps the **fire coords** if you walk away. `/reload` restores your hosted pin from **flat account fields** until pack-up, 3/3, or 20 min ([HOST-PERSIST.md](HOST-PERSIST.md)). |
+| **Sync** | Seek/host/pack (`S:` / `H:` / `X:`), matching, rate limits, same-faction filter. Host keeps the **fire coords** if you walk away. `/reload` restores your hosted pin from **flat account fields** until pack-up, 3/3, or 15 min ([HOST-PERSIST.md](HOST-PERSIST.md)). |
 | **Map** | Zone pins for **hosts only** (bonfire + sockets); hidden at continent/world zoom. Find button, custom hover tooltip, seek fade pulse. Nested city maps (Elwynn/Stormwind) still draw zone pins. |
-| **Minimap** | S'more icon opens world map; right-click settings; drag to move (can hide or lock in General) |
-| **Settings** | Larger centered window. General: auto-host, pin size, minimap, chat, guild mark, cross-layer. Host/Seeker profession + camping-object filters |
+| **Minimap** | S'more icon opens world map; right-click settings; drag to move (can hide or lock in General). Nearby hosted campfires also get a fire pin (same hover/click as the world map). |
+| **Settings** | Larger centered window. General: auto-host, pin size, minimap, chat, guild mark, cross-layer. Host/Seeker profession + camping-object filters. All of those survive `/reload` (CVar + flat fields). No General-chat checkbox — `/1` is the camp-panel button. |
 | **Professions** | Auto-detect all trades; TBC specs map to base (Spellfire → Tailoring, etc.) |
-| **Host camp panel** | After you place a fire: sockets, this-camp request chips, camping-objects dropdown, Pack up (`/smores camp`). Defaults stay in settings. Open slots pulse the faded S'more. Your socket only lists recipes you have learned. |
+| **Host camp panel** | After you place a fire: sockets, this-camp request chips, camping-objects dropdown, **Pack up** (left) and **Announce camp in General** (right). Hover announce to preview the exact `/1` line. Defaults stay in settings. Open slots pulse the faded S'more. Your socket only lists recipes you have learned. |
 | **Camping objects** | 36 confirmed item IDs (Wowhead). Tiny icons in settings match the camp panel. Banner is your faction |
 | **Art** | Forever-style logo (`SmoreSkillsLogo`) + cropped icon (`SmoreSkillsIcon`) |
 | **Forever beta** | Real campfire/object API, auto-fill slots, Camp Tent live icon |
@@ -33,11 +33,12 @@ All opt-in. No login dump. Community channel, not guild chat.
 | Control | Action |
 | --- | --- |
 | **Minimap (S'more icon)** | Left-click: open world map. Right-click: settings. Drag: reposition (unless locked). Hide from General if you want. |
+| **Minimap camp pin** | Appears when a hosted fire is inside the minimap view. Same tooltip and clicks as the world-map pin. |
 | **Map Find button** | Bottom-right of the map, left of the quest-log hide tab. Left-click: seek in zone (switches to your zone map). Right-click: clear **other** pins; your hosted pin stays. |
 | **Own camp pin** | Left-click: host camp panel. Right-click: pack up (confirm). Hover: **Layer N — Your camp**. |
 | **Other camp pin** | Left-click: whisper the host. Hover: **Layer N — same as you** or **Layer N — you are on Layer M**. |
-| **Host camp panel** | Opens when you host. Socket 1 = your profession or a **learned** camping object. Empty sockets pulse the faded S'more. Request chips and the objects dropdown are this fire only (settings stay the defaults). |
-| **Settings popup** | General: auto-host, pin size, minimap/chat/guild options. Host/Seeker profession + camping-object grids. |
+| **Host camp panel** | Opens when you host. Socket 1 = your profession or a **learned** camping object. Empty sockets pulse the faded S'more. Request chips and the objects dropdown are this fire only (settings stay the defaults). **Announce camp in General** (bottom right) is the only `/1` send; hover shows the exact line. |
+| **Settings popup** | General: auto-host, pin size, minimap/chat/guild options. Host/Seeker profession + camping-object grids. Choices persist across `/reload`. |
 | **Camp pin hover** | Custom tooltip: host, three gold-ring sockets (camping object, or profession if unnamed, or faded S'more if empty), coords, guild hint if applicable. |
 
 ## Commands
@@ -48,6 +49,7 @@ All opt-in. No login dump. Community channel, not guild chat.
 | `/smores list` | Print visible hosted camps in this zone (max 12, same as map pins) |
 | `/smores find` | Seek camps in this zone |
 | `/smores host` | Re-share your current fire (does not move it). A **new** campfire replaces the old pin. |
+| `/smores host basic` / `journeyman` / `expert` | Test 3 / 5 / 10 sockets (`jm` / `exp` also work). Does not move the pin. |
 | `/smores camp` | Open the host camp panel (sockets + this-camp requests) |
 | `/smores stop` | Stop hosting rebroadcasts |
 | `/smores pack` | Pack up your camp (same Yes/No confirm as the map pin) |

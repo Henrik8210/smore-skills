@@ -1,7 +1,123 @@
 SmoreSkills = SmoreSkills or {}
 
--- A basic campfire holds up to three placed objects. Each player may place one.
-SmoreSkills.MAX_SLOTS = 3
+-- Basic = 3 sockets. Journeyman / Expert raise capacity; MAX_SLOTS is the hard cap.
+SmoreSkills.BASIC_SLOTS = 3
+SmoreSkills.MAX_SLOTS = 10
+SmoreSkills.FIRE_TYPES = {
+    basic = { id = "basic", slots = 3, label = "Basic" },
+    journeyman = { id = "journeyman", slots = 5, label = "Journeyman" },
+    expert = { id = "expert", slots = 10, label = "Expert" },
+}
+
+local FIRE_ALIASES = {
+    basic = "basic",
+    b = "basic",
+    journeyman = "journeyman",
+    jm = "journeyman",
+    j = "journeyman",
+    expert = "expert",
+    exp = "expert",
+    e = "expert",
+}
+
+function SmoreSkills_NormalizeFireType(value)
+    if type(value) == "number" then
+        if value >= 10 then
+            return "expert"
+        end
+        if value >= 5 then
+            return "journeyman"
+        end
+        if value >= 3 then
+            return "basic"
+        end
+        return nil
+    end
+    if type(value) ~= "string" then
+        return nil
+    end
+    return FIRE_ALIASES[strlower(strtrim(value))]
+end
+
+function SmoreSkills_FireTypeFromName(name)
+    if type(name) ~= "string" or name == "" then
+        return nil
+    end
+    local key = strlower(name)
+    if key:find("expert", 1, true) then
+        return "expert"
+    end
+    if key:find("journeyman", 1, true) then
+        return "journeyman"
+    end
+    if key:find("campfire", 1, true) or key:find("campsite", 1, true) then
+        return "basic"
+    end
+    return nil
+end
+
+function SmoreSkills_FireSlotCount(fireType)
+    local id = SmoreSkills_NormalizeFireType(fireType) or "basic"
+    local row = SmoreSkills.FIRE_TYPES[id]
+    return (row and row.slots) or SmoreSkills.BASIC_SLOTS
+end
+
+function SmoreSkills_FireTypeLabel(fireType)
+    local id = SmoreSkills_NormalizeFireType(fireType) or "basic"
+    local row = SmoreSkills.FIRE_TYPES[id]
+    return (row and row.label) or "Basic"
+end
+
+function SmoreSkills_CampFireType(camp)
+    return SmoreSkills_NormalizeFireType(camp and camp.fireType) or "basic"
+end
+
+function SmoreSkills_CampSlotCount(camp)
+    return SmoreSkills_FireSlotCount(SmoreSkills_CampFireType(camp))
+end
+
+function SmoreSkills_FormatSlotsFilled(camp)
+    local n = SmoreSkills_CampSlotCount(camp)
+    local filled = SmoreSkills_CountFilledSlots(camp)
+    local fire = SmoreSkills_CampFireType(camp)
+    if fire == "basic" then
+        return string.format("%d/%d slots filled", filled, n)
+    end
+    return string.format("%s — %d/%d slots filled", SmoreSkills_FireTypeLabel(fire), filled, n)
+end
+
+-- Tooltip / host-panel rows. Basic is one row of three; 5 is 2+3; 10 is 5+5.
+function SmoreSkills_FireSocketRows(slotCount)
+    slotCount = tonumber(slotCount) or SmoreSkills.BASIC_SLOTS
+    if slotCount >= 10 then
+        return { { 1, 2, 3, 4, 5 }, { 6, 7, 8, 9, 10 } }
+    end
+    if slotCount >= 5 then
+        return { { 1, 2 }, { 3, 4, 5 } }
+    end
+    return { { 1, 2, 3 } }
+end
+
+function SmoreSkills_SetCampFireType(camp, fireType)
+    if not camp then
+        return false
+    end
+    local id = SmoreSkills_NormalizeFireType(fireType)
+    if not id then
+        return false
+    end
+    local oldN = SmoreSkills_CampSlotCount(camp)
+    camp.fireType = id
+    local n = SmoreSkills_FireSlotCount(id)
+    SmoreSkills_EnsureSlots(camp)
+    if n < oldN then
+        for i = n + 1, SmoreSkills.MAX_SLOTS do
+            camp.slots[i] = { index = i }
+        end
+    end
+    camp.updatedAt = SmoreSkills_Now()
+    return true
+end
 
 -- Short wire codes. Gathering is included — Herbalism incense is a camp object.
 SmoreSkills.PROFESSIONS = {
@@ -191,8 +307,8 @@ function SmoreSkills_GetProfessionSkill(profId)
 end
 
 SmoreSkills.SIGNAL_TTL = 3 * 60
--- Addon pin TTL. Forever camp was still up after 10 min (18 Sep); pin is 20 min until we time a despawn.
-SmoreSkills.CAMPFIRE_DURATION = 20 * 60
+-- Addon pin TTL. Live Forever campfire is 15 minutes (21 Sep).
+SmoreSkills.CAMPFIRE_DURATION = 15 * 60
 SmoreSkills.MAX_PINS_PER_ZONE = 12
 
 -- Wire timestamps are unix seconds. Layer ids (e.g. 15654) must not be treated as times.
@@ -986,9 +1102,248 @@ function SmoreSkills_SetPlayerProfession(idOrCode)
     return true
 end
 
-function SmoreSkills_EnsureSettings()
-    SmoreSkillsDB.settings = SmoreSkillsDB.settings or { dataVersion = 1 }
-    local s = SmoreSkillsDB.settings
+local sessionSettings
+
+local SETTINGS_SPEC = {
+    { key = "autoHostOnCampfire", short = "ah", kind = "bool" },
+    { key = "announceHostInGeneral", short = "ag", kind = "bool" },
+    { key = "showMinimapButton", short = "mm", kind = "bool" },
+    { key = "lockMinimapButton", short = "lk", kind = "bool" },
+    { key = "chatEnabled", short = "ch", kind = "bool" },
+    { key = "showGuildMark", short = "gm", kind = "bool" },
+    { key = "crossLayerEnabled", short = "xl", kind = "bool" },
+    { key = "hostFilterEnabled", short = "hf", kind = "bool" },
+    { key = "seekerFilterEnabled", short = "sf", kind = "bool" },
+    { key = "pinScalePct", short = "pin", kind = "num" },
+    { key = "minimapAngle", short = "ma", kind = "num" },
+    { key = "hostProfession", short = "hp", kind = "str" },
+    { key = "hostObject", short = "ho", kind = "str" },
+    { key = "hostWant", short = "hw", kind = "str" },
+    { key = "seekerWant", short = "sw", kind = "str" },
+    { key = "hostWantItems", short = "hi", kind = "str" },
+    { key = "seekerWantItems", short = "si", kind = "str" },
+}
+
+local function RegisterSettingsCVar()
+    pcall(function()
+        if C_CVar and C_CVar.RegisterCVar then
+            C_CVar.RegisterCVar("SmoreSkillsSS", "")
+            C_CVar.RegisterCVar("SmoreSkillsST", "")
+            C_CVar.RegisterCVar("SmoreSkillsAG", "1")
+        end
+    end)
+end
+
+local function EncodeSettingValue(spec, v)
+    if spec.kind == "bool" then
+        return (v == true) and "1" or "0"
+    end
+    if spec.kind == "num" then
+        return tostring(math.floor(tonumber(v) or 0))
+    end
+    return tostring(v or ""):gsub("|", "/"):gsub("=", ":")
+end
+
+local function EncodeSettingsPersist(s)
+    if type(s) ~= "table" then
+        return nil
+    end
+    local parts = { "SSv1" }
+    for i = 1, #SETTINGS_SPEC do
+        local spec = SETTINGS_SPEC[i]
+        table.insert(parts, spec.short .. "=" .. EncodeSettingValue(spec, s[spec.key]))
+    end
+    return table.concat(parts, "|")
+end
+
+local function EncodeSettingsCVars(s)
+    if type(s) ~= "table" then
+        return nil, nil
+    end
+    local flags = { "SSv1" }
+    local strings = { "STv1" }
+    for i = 1, #SETTINGS_SPEC do
+        local spec = SETTINGS_SPEC[i]
+        local token = spec.short .. "=" .. EncodeSettingValue(spec, s[spec.key])
+        if spec.kind == "str" then
+            table.insert(strings, token)
+        else
+            table.insert(flags, token)
+        end
+    end
+    return table.concat(flags, "|"), table.concat(strings, "|")
+end
+
+local function DecodeSettingsPersist(text)
+    if type(text) ~= "string" then
+        return nil
+    end
+    local tag = text:sub(1, 4)
+    if tag ~= "SSv1" and tag ~= "STv1" then
+        return nil
+    end
+    local out = {}
+    local any = false
+    for token in string.gmatch(text, "[^|]+") do
+        if token ~= "SSv1" and token ~= "STv1" then
+            local short, raw = token:match("^([^=]+)=(.*)$")
+            if short then
+                for i = 1, #SETTINGS_SPEC do
+                    local spec = SETTINGS_SPEC[i]
+                    if spec.short == short then
+                        any = true
+                        if spec.kind == "bool" then
+                            out[spec.key] = raw == "1" or raw == "true"
+                        elseif spec.kind == "num" then
+                            out[spec.key] = tonumber(raw)
+                        else
+                            out[spec.key] = raw
+                        end
+                        break
+                    end
+                end
+            end
+        end
+    end
+    return any and out or nil
+end
+
+local function MergePersist(into, extra)
+    if not extra then
+        return into
+    end
+    into = into or {}
+    for key, value in pairs(extra) do
+        into[key] = value
+    end
+    return into
+end
+
+local function ReadFlatsPersist()
+    if type(SmoreSkillsDB) ~= "table" then
+        return nil
+    end
+    local flats = {}
+    local anyFlat = false
+    for i = 1, #SETTINGS_SPEC do
+        local spec = SETTINGS_SPEC[i]
+        local v = SmoreSkillsDB["set_" .. spec.short]
+        if v ~= nil then
+            anyFlat = true
+            if spec.kind == "bool" then
+                flats[spec.key] = v == 1 or v == true or v == "1"
+            elseif spec.kind == "num" then
+                flats[spec.key] = tonumber(v)
+            else
+                flats[spec.key] = tostring(v)
+            end
+        end
+    end
+    return anyFlat and flats or nil
+end
+
+local function ReadSettingsPersist()
+    RegisterSettingsCVar()
+    local flags, strings
+    pcall(function()
+        flags = GetCVar and GetCVar("SmoreSkillsSS")
+        strings = GetCVar and GetCVar("SmoreSkillsST")
+    end)
+    local fromCVar = MergePersist(DecodeSettingsPersist(flags), DecodeSettingsPersist(strings))
+    if fromCVar then
+        if type(SmoreSkillsSS) == "string" then
+            fromCVar = MergePersist(DecodeSettingsPersist(SmoreSkillsSS), fromCVar)
+        end
+        return fromCVar
+    end
+    if type(SmoreSkillsSS) == "string" then
+        local fromSv = DecodeSettingsPersist(SmoreSkillsSS)
+        if fromSv then
+            return fromSv
+        end
+    end
+    if type(SmoreSkillsDB) == "table" then
+        local fromDb = DecodeSettingsPersist(SmoreSkillsDB.ss)
+        if fromDb then
+            return fromDb
+        end
+        if type(SmoreSkillsDB.settings) == "table" then
+            fromDb = DecodeSettingsPersist(SmoreSkillsDB.settings.ss)
+            if fromDb then
+                return fromDb
+            end
+        end
+    end
+    return ReadFlatsPersist()
+end
+
+local function ApplySettingsPersist(s)
+    local persist = ReadSettingsPersist()
+    if persist then
+        for i = 1, #SETTINGS_SPEC do
+            local spec = SETTINGS_SPEC[i]
+            if persist[spec.key] ~= nil then
+                s[spec.key] = persist[spec.key]
+            end
+        end
+        return s
+    end
+    -- Older announce-only CVar if the full blob is not there yet.
+    local ag
+    pcall(function()
+        ag = GetCVar and GetCVar("SmoreSkillsAG")
+    end)
+    if ag == "0" or ag == "false" then
+        s.announceHostInGeneral = false
+    elseif ag == "1" or ag == "true" then
+        s.announceHostInGeneral = true
+    end
+    return s
+end
+
+function SmoreSkills_SaveSettings()
+    local s = SmoreSkills_EnsureSettings()
+    local blob = EncodeSettingsPersist(s)
+    if not blob then
+        return
+    end
+    local flags, strings = EncodeSettingsCVars(s)
+    RegisterSettingsCVar()
+    pcall(function()
+        if SetCVar then
+            if flags then
+                SetCVar("SmoreSkillsSS", flags)
+            end
+            if strings then
+                SetCVar("SmoreSkillsST", strings)
+            end
+            SetCVar("SmoreSkillsAG", s.announceHostInGeneral and "1" or "0")
+        end
+    end)
+    -- Same rule as host persist: do not create the SavedVariable before it applies.
+    if type(SmoreSkillsSS) == "string" or SmoreSkills._settingsSvReady then
+        SmoreSkillsSS = blob
+    end
+    if type(SmoreSkillsDB) == "table" then
+        SmoreSkillsDB.ss = blob
+        SmoreSkillsDB.announceGen = s.announceHostInGeneral and 1 or 0
+        SmoreSkillsDB.announceHostInGeneral = s.announceHostInGeneral and true or false
+        SmoreSkillsDB.settings = SmoreSkillsDB.settings or s
+        SmoreSkillsDB.settings.ss = blob
+        for i = 1, #SETTINGS_SPEC do
+            local spec = SETTINGS_SPEC[i]
+            local v = s[spec.key]
+            if spec.kind == "bool" then
+                SmoreSkillsDB["set_" .. spec.short] = (v == true) and 1 or 0
+            else
+                SmoreSkillsDB["set_" .. spec.short] = v
+            end
+        end
+    end
+end
+
+local function FillSettingsDefaults(s)
+    s = s or {}
     if s.hostFilterEnabled == nil then
         s.hostFilterEnabled = false
     end
@@ -1006,6 +1361,9 @@ function SmoreSkills_EnsureSettings()
     if (s.dataVersion or 3) < 4 then
         s.profession = nil
         s.dataVersion = 4
+    end
+    if (s.dataVersion or 4) < 5 then
+        s.dataVersion = 5
     end
     if s.autoHostOnCampfire == nil then
         s.autoHostOnCampfire = true
@@ -1043,7 +1401,29 @@ function SmoreSkills_EnsureSettings()
     if s.pinScalePct == nil then
         s.pinScalePct = 100
     end
+    if s.announceHostInGeneral == nil then
+        s.announceHostInGeneral = true
+    end
+    if not s._persistApplied then
+        ApplySettingsPersist(s)
+        s._persistApplied = true
+    end
     return s
+end
+
+function SmoreSkills_EnsureSettings()
+    -- Do not create SmoreSkillsDB here. Forever skips the SavedVariables file
+    -- if that global already exists when the file would apply.
+    if type(SmoreSkillsDB) == "table" then
+        if sessionSettings and type(SmoreSkillsDB.settings) ~= "table" then
+            SmoreSkillsDB.settings = sessionSettings
+            sessionSettings = nil
+        end
+        SmoreSkillsDB.settings = SmoreSkillsDB.settings or { dataVersion = 1 }
+        return FillSettingsDefaults(SmoreSkillsDB.settings)
+    end
+    sessionSettings = sessionSettings or { dataVersion = 1 }
+    return FillSettingsDefaults(sessionSettings)
 end
 
 function SmoreSkills_GetHostFilterEnabled()
@@ -1056,6 +1436,7 @@ function SmoreSkills_SetHostFilterEnabled(enabled)
     if s.hostFilterEnabled and (not s.hostWant or s.hostWant == "any") then
         s.hostWant = ""
     end
+    SmoreSkills_SaveSettings()
     SmoreSkills_RefreshOwnedCampWant()
 end
 
@@ -1069,6 +1450,7 @@ function SmoreSkills_SetSeekerFilterEnabled(enabled)
     if s.seekerFilterEnabled and (not s.seekerWant or s.seekerWant == "any") then
         s.seekerWant = ""
     end
+    SmoreSkills_SaveSettings()
 end
 
 function SmoreSkills_GetAutoHostOnCampfire()
@@ -1077,6 +1459,16 @@ end
 
 function SmoreSkills_SetAutoHostOnCampfire(enabled)
     SmoreSkills_EnsureSettings().autoHostOnCampfire = enabled and true or false
+    SmoreSkills_SaveSettings()
+end
+
+function SmoreSkills_GetAnnounceHostInGeneral()
+    return SmoreSkills_EnsureSettings().announceHostInGeneral ~= false
+end
+
+function SmoreSkills_SetAnnounceHostInGeneral(enabled)
+    SmoreSkills_EnsureSettings().announceHostInGeneral = enabled and true or false
+    SmoreSkills_SaveSettings()
 end
 
 function SmoreSkills_GetChatEnabled()
@@ -1085,6 +1477,7 @@ end
 
 function SmoreSkills_SetChatEnabled(enabled)
     SmoreSkills_EnsureSettings().chatEnabled = enabled and true or false
+    SmoreSkills_SaveSettings()
 end
 
 function SmoreSkills_GetShowMinimapButton()
@@ -1093,6 +1486,7 @@ end
 
 function SmoreSkills_SetShowMinimapButton(enabled)
     SmoreSkills_EnsureSettings().showMinimapButton = enabled and true or false
+    SmoreSkills_SaveSettings()
 end
 
 function SmoreSkills_GetLockMinimapButton()
@@ -1101,6 +1495,7 @@ end
 
 function SmoreSkills_SetLockMinimapButton(enabled)
     SmoreSkills_EnsureSettings().lockMinimapButton = enabled and true or false
+    SmoreSkills_SaveSettings()
 end
 
 function SmoreSkills_GetShowGuildMark()
@@ -1109,6 +1504,7 @@ end
 
 function SmoreSkills_SetShowGuildMark(enabled)
     SmoreSkills_EnsureSettings().showGuildMark = enabled and true or false
+    SmoreSkills_SaveSettings()
 end
 
 function SmoreSkills_GetCrossLayerEnabled()
@@ -1117,6 +1513,7 @@ end
 
 function SmoreSkills_SetCrossLayerEnabled(enabled)
     SmoreSkills_EnsureSettings().crossLayerEnabled = enabled and true or false
+    SmoreSkills_SaveSettings()
 end
 
 function SmoreSkills_GetPinScalePct()
@@ -1138,6 +1535,7 @@ function SmoreSkills_SetPinScalePct(pct)
         v = 150
     end
     SmoreSkills_EnsureSettings().pinScalePct = v
+    SmoreSkills_SaveSettings()
     return v
 end
 
@@ -1159,7 +1557,46 @@ function SmoreSkills_SetHostProfession(idOrCode)
     if not id then
         return false
     end
-    SmoreSkills_EnsureSettings().hostProfession = id
+    local s = SmoreSkills_EnsureSettings()
+    s.hostProfession = id
+    local objectId = SmoreSkills_NormalizeItem and s.hostObject and SmoreSkills_NormalizeItem(s.hostObject)
+    local item = objectId and SmoreSkills_ItemFromId and SmoreSkills_ItemFromId(objectId)
+    if item and item.profession ~= id then
+        s.hostObject = nil
+    end
+    SmoreSkills_SaveSettings()
+    return true
+end
+
+function SmoreSkills_GetHostObjectId()
+    local s = SmoreSkills_EnsureSettings()
+    local id = SmoreSkills_NormalizeItem and SmoreSkills_NormalizeItem(s.hostObject)
+    if not id then
+        return nil
+    end
+    if SmoreSkills_PlayerKnowsCampingObject and not SmoreSkills_PlayerKnowsCampingObject(id) then
+        return nil
+    end
+    return id
+end
+
+function SmoreSkills_SetHostObject(idOrLabel)
+    local s = SmoreSkills_EnsureSettings()
+    if not idOrLabel or idOrLabel == "" then
+        s.hostObject = nil
+        SmoreSkills_SaveSettings()
+        return true
+    end
+    local id = SmoreSkills_NormalizeItem and SmoreSkills_NormalizeItem(idOrLabel)
+    if not id then
+        return false
+    end
+    s.hostObject = id
+    local item = SmoreSkills_ItemFromId and SmoreSkills_ItemFromId(id)
+    if item and item.profession then
+        s.hostProfession = item.profession
+    end
+    SmoreSkills_SaveSettings()
     return true
 end
 
@@ -1171,14 +1608,22 @@ function SmoreSkills_ApplyHostProfession(camp, force)
         return camp
     end
     local prof = SmoreSkills_GetHostProfession()
-    if not prof then
-        return camp
-    end
     SmoreSkills_EnsureSlots(camp)
     local object = camp.slots[1] and camp.slots[1].object
     if force then
         object = nil
         camp.slot1Override = nil
+    end
+    if (force or not object) then
+        local oid = SmoreSkills_GetHostObjectId and SmoreSkills_GetHostObjectId()
+        local item = oid and SmoreSkills_ItemFromId and SmoreSkills_ItemFromId(oid)
+        if item then
+            prof = item.profession or prof
+            object = item.label
+        end
+    end
+    if not prof then
+        return camp
     end
     SmoreSkills_SetSlot(camp, 1, camp.owner or SmoreSkills_PlayerName(), prof, object)
     return camp
@@ -1424,7 +1869,11 @@ function SmoreSkills_SetCampSlotDeclaration(camp, index, profession, object)
         camp.slot1Override = true
     end
     local player = index == 1 and (camp.owner or SmoreSkills_PlayerName()) or nil
-    return SmoreSkills_SetSlot(camp, index, player, profId, object)
+    local ok = SmoreSkills_SetSlot(camp, index, player, profId, object)
+    if ok and SmoreSkills_SnapshotOwnedHost then
+        SmoreSkills_SnapshotOwnedHost()
+    end
+    return ok
 end
 
 function SmoreSkills_ClearCampSlotDeclaration(camp, index)
@@ -1432,12 +1881,15 @@ function SmoreSkills_ClearCampSlotDeclaration(camp, index)
         return false
     end
     index = tonumber(index)
-    if not index or index < 2 or index > SmoreSkills.MAX_SLOTS then
+    if not index or index < 2 or index > SmoreSkills_CampSlotCount(camp) then
         return false
     end
     SmoreSkills_EnsureSlots(camp)
     camp.slots[index] = { index = index }
     camp.updatedAt = SmoreSkills_Now()
+    if SmoreSkills_SnapshotOwnedHost then
+        SmoreSkills_SnapshotOwnedHost()
+    end
     return true
 end
 
@@ -1453,10 +1905,11 @@ function SmoreSkills_GetEffectiveSeekerWant()
 end
 
 function SmoreSkills_SetHostWant(want)
-    SmoreSkillsDB.settings = SmoreSkillsDB.settings or {}
+    local s = SmoreSkills_EnsureSettings()
     want = strlower(strtrim(want or ""))
     if want == "" or want == "any" then
-        SmoreSkillsDB.settings.hostWant = "any"
+        s.hostWant = "any"
+        SmoreSkills_SaveSettings()
         return true
     end
     local codes = {}
@@ -1471,15 +1924,17 @@ function SmoreSkills_SetHostWant(want)
     if #codes == 0 then
         return false
     end
-    SmoreSkillsDB.settings.hostWant = table.concat(codes, ",")
+    s.hostWant = table.concat(codes, ",")
+    SmoreSkills_SaveSettings()
     return true
 end
 
 function SmoreSkills_SetSeekerWant(want)
-    SmoreSkillsDB.settings = SmoreSkillsDB.settings or {}
+    local s = SmoreSkills_EnsureSettings()
     want = strlower(strtrim(want or ""))
     if want == "" or want == "any" then
-        SmoreSkillsDB.settings.seekerWant = "any"
+        s.seekerWant = "any"
+        SmoreSkills_SaveSettings()
         return true
     end
     local codes = {}
@@ -1494,7 +1949,8 @@ function SmoreSkills_SetSeekerWant(want)
     if #codes == 0 then
         return false
     end
-    SmoreSkillsDB.settings.seekerWant = table.concat(codes, ",")
+    s.seekerWant = table.concat(codes, ",")
+    SmoreSkills_SaveSettings()
     return true
 end
 
@@ -1524,10 +1980,10 @@ function SmoreSkills_ToggleWantProfession(wantKey, profId)
             end
         end
     end
+    local s = SmoreSkills_EnsureSettings()
     if not found then
         table.insert(codes, row.code)
     else
-        local s = SmoreSkillsDB.settings
         if wantKey == "seekerWant" then
             s.seekerWantItems = DropItemsForProfession(s.seekerWantItems, profId)
         else
@@ -1535,11 +1991,12 @@ function SmoreSkills_ToggleWantProfession(wantKey, profId)
         end
     end
     if wantKey == "seekerWant" then
-        SmoreSkillsDB.settings.seekerWant = #codes > 0 and table.concat(codes, ",") or ""
+        s.seekerWant = #codes > 0 and table.concat(codes, ",") or ""
     else
-        SmoreSkillsDB.settings.hostWant = #codes > 0 and table.concat(codes, ",") or ""
+        s.hostWant = #codes > 0 and table.concat(codes, ",") or ""
         SmoreSkills_RefreshOwnedCampWant()
     end
+    SmoreSkills_SaveSettings()
     return true
 end
 
@@ -1762,12 +2219,14 @@ function SmoreSkills_ToggleWantItem(wantKey, itemId)
         table.insert(nextList, item.id)
     end
     local joined = table.concat(nextList, ",")
+    local s = SmoreSkills_EnsureSettings()
     if wantKey == "seekerWant" then
-        SmoreSkillsDB.settings.seekerWantItems = joined
+        s.seekerWantItems = joined
     else
-        SmoreSkillsDB.settings.hostWantItems = joined
+        s.hostWantItems = joined
         SmoreSkills_RefreshOwnedCampWant()
     end
+    SmoreSkills_SaveSettings()
     return true
 end
 
@@ -1778,7 +2237,7 @@ function SmoreSkills_CampHasItem(camp, itemId)
     end
     SmoreSkills_EnsureSlots(camp)
     local needle = strlower(item.label)
-    for i = 1, SmoreSkills.MAX_SLOTS do
+    for i = 1, SmoreSkills_CampSlotCount(camp) do
         local slot = camp.slots[i]
         if slot then
             local object = slot.object and strlower(strtrim(slot.object)) or ""
@@ -1934,7 +2393,7 @@ function SmoreSkills_FormatProfessionList(professionOrList)
 end
 
 function SmoreSkills_CountEmptySlots(camp)
-    return SmoreSkills.MAX_SLOTS - SmoreSkills_CountFilledSlots(camp)
+    return SmoreSkills_CampSlotCount(camp) - SmoreSkills_CountFilledSlots(camp)
 end
 
 function SmoreSkills_MapsShareZone(a, b)
@@ -2328,7 +2787,7 @@ function SmoreSkills_SeekerWantsCamp(camp, seekerWant, seekerItems)
         return true
     end
     SmoreSkills_EnsureSlots(camp)
-    for i = 1, SmoreSkills.MAX_SLOTS do
+    for i = 1, SmoreSkills_CampSlotCount(camp) do
         local slot = camp.slots[i]
         if slot and slot.profession and SmoreSkills_WantAccepts(want, slot.profession) then
             return true
@@ -2345,97 +2804,180 @@ function SmoreSkills_CampLitTime(camp)
     return tonumber(camp.litAt) or tonumber(camp.updatedAt) or 0
 end
 
--- Realm seconds left from a snapshot. Same-scale GetServerTime subtracts elapsed
--- (an hour later the fire is dead). Unit jumps (ms vs sec, now==0) keep remaining.
-local function RemainingAfterElapsed(remaining, savedClock)
-    remaining = tonumber(remaining)
-    if remaining == nil then
-        return nil
+-- One clock for WTF + both pins: GetServerTime() only. Never time(), never GetTime().
+-- Prefer age from litAt (when the fire was placed). If that stamp is a 9-hour
+-- Denmark/US jump, fall back to remaining minus time since the last snapshot.
+-- Do not treat a clock jump as a fresh 15 min fire.
+local function SameTimeUnit(a, b)
+    a, b = tonumber(a), tonumber(b)
+    if not a or not b or a <= 0 or b <= 0 then
+        return false
     end
-    local now = SmoreSkills_Now()
-    savedClock = tonumber(savedClock)
-    if now <= 0 or not savedClock or savedClock <= 0 then
-        return remaining
-    end
-    local nowMs = now > 1000000000000
-    local clockMs = savedClock > 1000000000000
-    if nowMs ~= clockMs then
-        return remaining
-    end
-    local elapsed = now - savedClock
-    if elapsed < -60 then
-        return remaining
-    end
-    return remaining - elapsed
+    return (a > 1000000000000) == (b > 1000000000000)
 end
 
-function SmoreSkills_CampPinActive(camp)
+local function PersistSecondsLeft(remaining, savedServer, litAt)
+    local duration = SmoreSkills.CAMPFIRE_DURATION or 900
+    local maxAge = duration + 120
+    local now = SmoreSkills_Now()
+    remaining = tonumber(remaining)
+    savedServer = tonumber(savedServer)
+    litAt = tonumber(litAt)
+
+    local fromRemain
+    if remaining ~= nil then
+        if now <= 0 or not savedServer or savedServer <= 1000000000 or not SameTimeUnit(now, savedServer) then
+            fromRemain = remaining
+        else
+            local elapsed = now - savedServer
+            if elapsed < -120 then
+                fromRemain = remaining
+            elseif elapsed >= 2 * 3600 then
+                -- Hours off is a clock jump (Denmark vs US), not a 15 min fire.
+                fromRemain = remaining
+            elseif elapsed > maxAge then
+                fromRemain = remaining - elapsed
+            else
+                fromRemain = remaining - math.max(0, elapsed)
+            end
+        end
+    end
+
+    local fromLit
+    if now > 0 and litAt and litAt > 1000000000 and SameTimeUnit(now, litAt) then
+        local age = now - litAt
+        if age >= 0 and age <= maxAge then
+            fromLit = duration - age
+        end
+    end
+
+    -- Leftover remaining is what we wrote on snapshot. litAt is a hint only —
+    -- a stale or jumped litAt must not hide a still-positive leftover.
+    if fromRemain ~= nil and fromRemain > 0 then
+        return fromRemain
+    end
+    if fromLit ~= nil and fromLit > 0 then
+        return fromLit
+    end
+    if fromRemain ~= nil then
+        return fromRemain
+    end
+    return fromLit
+end
+
+local function ReadPersistRemaining()
+    local remaining, server, litAt, id
+    local db = SmoreSkillsHostDB
+    if type(db) == "table" then
+        remaining = tonumber(db.remaining)
+        server = tonumber(db.server) or tonumber(db.clock)
+        litAt = tonumber(db.litAt)
+        id = db.id
+    end
+    if SmoreSkillsDB then
+        remaining = remaining or tonumber(SmoreSkillsDB.hostSnapRemaining) or tonumber(SmoreSkillsDB.hostSnap_remaining)
+        server = server or tonumber(SmoreSkillsDB.hostSnap_server) or tonumber(SmoreSkillsDB.hostSnap_clock)
+        litAt = litAt or tonumber(SmoreSkillsDB.hostSnap_litAt)
+        id = id or SmoreSkillsDB.hostSnap_id or SmoreSkillsDB.hostCampId
+    end
+    return remaining, server, litAt, id
+end
+
+function SmoreSkills_IsOwnHostCamp(camp)
     if not camp then
         return false
     end
-    if SmoreSkills_CountEmptySlots(camp) < 1 then
+    local id = camp.id
+    if id then
+        if SmoreSkillsDB and SmoreSkillsDB.hostCampId and id == SmoreSkillsDB.hostCampId then
+            return true
+        end
+        if SmoreSkillsDB and SmoreSkillsDB.hostSnap_id and id == SmoreSkillsDB.hostSnap_id then
+            return true
+        end
+        local sync = SmoreSkills.Sync
+        if sync and sync.hostCampId and id == sync.hostCampId then
+            return true
+        end
+        if type(SmoreSkillsHostDB) == "table" and SmoreSkillsHostDB.id and id == SmoreSkillsHostDB.id then
+            return true
+        end
+    end
+    local me = SmoreSkills_PlayerName and SmoreSkills_PlayerName()
+    if me and SmoreSkills_PlayerNamesMatch(camp.owner, me) then
+        return true
+    end
+    if camp.owner and SmoreSkillsDB and SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkillsDB.hostSnap_owner) then
+        if not id or not SmoreSkillsDB.hostCampId or id == SmoreSkillsDB.hostCampId then
+            return true
+        end
+    end
+    return false
+end
+
+function SmoreSkills_StampOwnHostIdentity(camp)
+    if not camp then
+        return
+    end
+    local me = SmoreSkills_PlayerName and SmoreSkills_PlayerName()
+    if me and me ~= "Unknown" and (not camp.owner or camp.owner == "" or camp.owner == "Unknown") then
+        camp.owner = me
+    end
+    local fac = SmoreSkills_PlayerFaction and SmoreSkills_PlayerFaction()
+    if fac and fac ~= "Unknown" and (not camp.faction or camp.faction == "" or camp.faction == "Unknown") then
+        camp.faction = fac
+    end
+end
+
+function SmoreSkills_CampPinActive(camp)
+    if not camp or camp.packed then
         return false
     end
-    if camp.packed then
+    local mine = SmoreSkills_IsOwnHostCamp(camp)
+    if not mine and SmoreSkills_CountEmptySlots(camp) < 1 then
         return false
     end
     local remain = SmoreSkills_OwnedHostRemaining(camp)
     if remain ~= nil then
         return remain > 0
     end
-    local lit = SmoreSkills_CampLitTime(camp)
-    if lit <= 0 then
-        return false
-    end
-    return (SmoreSkills_Now() - lit) < (SmoreSkills.CAMPFIRE_DURATION or 1200)
+    return mine
 end
 
--- Seconds left on YOUR fire. Realm elapsed from the snapshot clock, then session GetTime.
+-- Same remaining for world map and minimap. Session GetTime() wins after restore.
 function SmoreSkills_OwnedHostRemaining(camp)
     if not camp or camp.packed then
         return nil
     end
-    local me = SmoreSkills_PlayerName and SmoreSkills_PlayerName()
-    local mine = SmoreSkills_PlayerNamesMatch(camp.owner, me)
-        or (SmoreSkillsDB and SmoreSkillsDB.hostCampId and camp.id == SmoreSkillsDB.hostCampId)
-    if not mine then
+    if not SmoreSkills_IsOwnHostCamp(camp) then
         return nil
     end
-    local duration = SmoreSkills.CAMPFIRE_DURATION or 1200
-    local db = SmoreSkillsHostDB
-    local remaining = type(db) == "table" and tonumber(db.remaining)
-    local savedClock = type(db) == "table" and tonumber(db.clock)
-    if not remaining and SmoreSkillsDB then
-        remaining = tonumber(SmoreSkillsDB.hostSnapRemaining)
-        savedClock = savedClock or tonumber(SmoreSkillsDB.hostSnap_clock)
-    end
-    local realmLeft = RemainingAfterElapsed(remaining, savedClock)
-    if realmLeft == nil then
-        local lit = SmoreSkills_CampLitTime(camp)
-        local now = SmoreSkills_Now()
-        if lit > 0 and now > 0 then
-            realmLeft = duration - (now - lit)
+    local sync = SmoreSkills.Sync
+    if sync and tonumber(sync.hostRemainAt) and tonumber(sync.hostRemainStarted) and GetTime then
+        local left = sync.hostRemainAt - (GetTime() - sync.hostRemainStarted)
+        if left > 0 then
+            return left
         end
-    end
-    if realmLeft ~= nil and realmLeft <= 0 then
         return 0
     end
-    local sync = SmoreSkills.Sync
-    if sync and tonumber(sync.hostRemainAt) then
-        local sessionLeft = (tonumber(sync.hostRemainAt) or 0)
-            - (((GetTime and GetTime()) or 0) - (tonumber(sync.hostRemainStarted) or 0))
-        if realmLeft ~= nil then
-            if sessionLeft < realmLeft then
-                return sessionLeft
-            end
-            return realmLeft
-        end
-        return sessionLeft
+    local remaining, server, snapLit, snapId = ReadPersistRemaining()
+    if snapId and camp.id and tostring(snapId) ~= tostring(camp.id) then
+        remaining, server, snapLit = nil, nil, nil
     end
-    if realmLeft ~= nil then
-        return realmLeft
+    local left = PersistSecondsLeft(remaining, server, tonumber(camp.litAt) or snapLit)
+    if left ~= nil and left > 0 then
+        return left
     end
-    return 0
+    if tonumber(camp.ttlLeft) and camp.ttlLeft > 0 then
+        return tonumber(camp.ttlLeft)
+    end
+    if remaining and remaining > 0 then
+        return remaining
+    end
+    if left ~= nil then
+        return left
+    end
+    return nil
 end
 
 function SmoreSkills_CampHiddenReason(camp, mapId, seekerProfession)
@@ -2443,14 +2985,22 @@ function SmoreSkills_CampHiddenReason(camp, mapId, seekerProfession)
         return "missing"
     end
     if SmoreSkills_CountEmptySlots(camp) < 1 then
-        return "full (3/3)"
+        return string.format("full (%d/%d)", SmoreSkills_CampSlotCount(camp), SmoreSkills_CampSlotCount(camp))
     end
     if camp.packed then
         return "packed up"
     end
-    local lit = SmoreSkills_CampLitTime(camp)
-    if lit <= 0 or (SmoreSkills_Now() - lit) >= (SmoreSkills.CAMPFIRE_DURATION or 1200) then
-        return "expired"
+    if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName())
+        or (SmoreSkillsDB and SmoreSkillsDB.hostCampId and camp.id == SmoreSkillsDB.hostCampId) then
+        local left = SmoreSkills_OwnedHostRemaining(camp)
+        if left ~= nil and left <= 0 then
+            return "expired"
+        end
+    else
+        local lit = SmoreSkills_CampLitTime(camp)
+        if lit <= 0 or (SmoreSkills_Now() - lit) >= (SmoreSkills.CAMPFIRE_DURATION or 900) then
+            return "expired"
+        end
     end
     if not SmoreSkills_IsHostedCamp(camp) then
         return "not a host pin"
@@ -2476,14 +3026,14 @@ function SmoreSkills_IsHostedCamp(camp)
     if not camp then
         return false
     end
-    if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
+    if SmoreSkills_IsOwnHostCamp(camp) then
         return true
     end
     if camp.source == "host" then
         return true
     end
     local sync = SmoreSkills.Sync
-    if sync and camp.id and sync.hostCampId == camp.id and sync.IsHosting and sync:IsHosting() then
+    if sync and camp.id and sync.hostCampId == camp.id then
         return true
     end
     return false
@@ -2499,7 +3049,7 @@ function SmoreSkills_CampVisibleToSeeker(camp, mapId, seekerProfession)
     if not SmoreSkills_IsHostedCamp(camp) then
         return false
     end
-    if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
+    if SmoreSkills_IsOwnHostCamp(camp) then
         return true
     end
     if not mapId then
@@ -2532,9 +3082,10 @@ function SmoreSkills_LayerAllowsCamp(camp)
     return mine == host
 end
 
-local function EmptySlots()
+local function EmptySlots(count)
     local slots = {}
-    for i = 1, SmoreSkills.MAX_SLOTS do
+    count = tonumber(count) or SmoreSkills.BASIC_SLOTS
+    for i = 1, count do
         slots[i] = { index = i }
     end
     return slots
@@ -2699,6 +3250,28 @@ local function MakeMapVector(x, y)
     return { x = x, y = y, GetXY = function(self) return self.x, self.y end }
 end
 
+function SmoreSkills_WorldPosFromMap(mapId, x, y)
+    mapId = tonumber(mapId)
+    x, y = tonumber(x), tonumber(y)
+    if not mapId or not x or not y or not C_Map or not C_Map.GetWorldPosFromMapPos then
+        return nil
+    end
+    local continentId, worldPos = C_Map.GetWorldPosFromMapPos(mapId, MakeMapVector(x, y))
+    if not continentId or not worldPos then
+        return nil
+    end
+    local wx, wy
+    if worldPos.GetXY then
+        wx, wy = worldPos:GetXY()
+    else
+        wx, wy = worldPos.x, worldPos.y
+    end
+    if not wx or not wy then
+        return nil
+    end
+    return wx, wy, continentId
+end
+
 function SmoreSkills_CampPinPosOnMap(camp, viewMapId)
     if not camp then
         return nil
@@ -2767,8 +3340,9 @@ function SmoreSkills_TranslateMapPos(fromMapId, x, y, toMapId)
 end
 
 function SmoreSkills_EnsureSlots(camp)
-    camp.slots = camp.slots or EmptySlots()
-    for i = 1, SmoreSkills.MAX_SLOTS do
+    local n = SmoreSkills_CampSlotCount(camp)
+    camp.slots = camp.slots or EmptySlots(n)
+    for i = 1, n do
         camp.slots[i] = camp.slots[i] or { index = i }
         camp.slots[i].index = i
     end
@@ -2777,7 +3351,7 @@ end
 
 function SmoreSkills_CountFilledSlots(camp)
     local n = 0
-    for i = 1, SmoreSkills.MAX_SLOTS do
+    for i = 1, SmoreSkills_CampSlotCount(camp) do
         local slot = camp.slots and camp.slots[i]
         if slot and (slot.profession or slot.player or slot.object) then
             n = n + 1
@@ -2799,7 +3373,8 @@ function SmoreSkills_UpsertCamp(incoming)
         return existing
     end
     incoming.id = id
-    incoming.slots = incoming.slots or (existing and existing.slots) or EmptySlots()
+    incoming.slots = incoming.slots or (existing and existing.slots) or EmptySlots(SmoreSkills_CampSlotCount(incoming))
+    incoming.fireType = incoming.fireType or (existing and existing.fireType) or "basic"
     incoming.zone = incoming.zone or (existing and existing.zone)
     incoming.want = incoming.want or (existing and existing.want)
     incoming.wantItems = incoming.wantItems or (existing and existing.wantItems)
@@ -2835,7 +3410,7 @@ function SmoreSkills_UpsertCamp(incoming)
             elseif existing and existing.litAt then
                 -- Keep the original light. Old clients send "now" on every H:.
                 local oldLit = tonumber(existing.litAt) or 0
-                local live = oldLit > 0 and (SmoreSkills_Now() - oldLit) < (SmoreSkills.CAMPFIRE_DURATION or 1200)
+                local live = oldLit > 0 and (SmoreSkills_Now() - oldLit) < (SmoreSkills.CAMPFIRE_DURATION or 900)
                 if live and stamp >= oldLit then
                     incoming.litAt = oldLit
                 end
@@ -2853,18 +3428,33 @@ function SmoreSkills_UpsertCamp(incoming)
 end
 
 function SmoreSkills_GetOwnedActiveCamp()
-    local me = SmoreSkills_PlayerName()
+    local function live(camp)
+        if not camp or camp.packed or not camp.mapId then
+            return nil
+        end
+        SmoreSkills_StampOwnHostIdentity(camp)
+        if not SmoreSkills_CampPinActive(camp) then
+            return nil
+        end
+        camp.source = "host"
+        return camp
+    end
+    local id = (SmoreSkills.Sync and SmoreSkills.Sync.hostCampId)
+        or (SmoreSkillsDB and SmoreSkillsDB.hostCampId)
+        or (SmoreSkillsDB and SmoreSkillsDB.hostSnap_id)
+        or (type(SmoreSkillsHostDB) == "table" and SmoreSkillsHostDB.id)
+    if id and SmoreSkillsDB and SmoreSkillsDB.camps and SmoreSkillsDB.camps[id] then
+        local owned = live(SmoreSkillsDB.camps[id])
+        if owned then
+            return owned
+        end
+    end
     local best = nil
-    for _, camp in pairs(SmoreSkillsDB.camps or {}) do
-        if SmoreSkills_PlayerNamesMatch(camp.owner, me) and not camp.packed then
-            if (not tonumber(camp.litAt) or tonumber(camp.litAt) <= 0) and camp.updatedAt then
-                camp.litAt = tonumber(camp.updatedAt)
-            end
-            if SmoreSkills_CampPinActive(camp) then
-                camp.source = "host"
-                if not best or (camp.litAt or 0) > (best.litAt or 0) then
-                    best = camp
-                end
+    for _, camp in pairs((SmoreSkillsDB and SmoreSkillsDB.camps) or {}) do
+        if SmoreSkills_IsOwnHostCamp(camp) then
+            local owned = live(camp)
+            if owned and (not best or (owned.litAt or 0) > (best.litAt or 0)) then
+                best = owned
             end
         end
     end
@@ -2901,19 +3491,38 @@ function SmoreSkills_ClearOwnedHostSnapshot()
     if SmoreSkillsDB then
         SmoreSkillsDB.hostCampId = nil
         SmoreSkillsDB.hostSnapRemaining = nil
+        SmoreSkillsDB.hp = nil
+        if type(SmoreSkillsDB.settings) == "table" then
+            SmoreSkillsDB.settings.hp = nil
+        end
         for k in pairs(SmoreSkillsDB) do
             if type(k) == "string" and k:sub(1, 9) == "hostSnap_" then
                 SmoreSkillsDB[k] = nil
             end
         end
     end
+    SmoreSkillsHP = nil
+    pcall(function()
+        if SetCVar then
+            SetCVar("SmoreSkillsHP", "")
+        end
+    end)
+    pcall(function()
+        local idx = GetMacroIndexByName and GetMacroIndexByName("S~Camp")
+        if idx and idx > 0 and DeleteMacro then
+            DeleteMacro(idx)
+        end
+    end)
 end
 
 local HOST_SNAP_KEYS = {
     "id", "mapId", "x", "y", "zone", "faction", "owner", "want", "wantItems",
-    "litAt", "updatedAt", "remaining", "clock", "layer", "layerOrdinal",
-    "wantOverride", "slot1Override",
+    "litAt", "updatedAt", "remaining", "clock", "server", "layer", "layerOrdinal",
+    "wantOverride", "slot1Override", "fireType",
     "p1", "o1", "n1", "p2", "o2", "n2", "p3", "o3", "n3",
+    "p4", "o4", "n4", "p5", "o5", "n5",
+    "p6", "o6", "n6", "p7", "o7", "n7", "p8", "o8", "n8", "p9", "o9", "n9",
+    "p10", "o10", "n10",
 }
 
 local function WriteAccountHostSnap(db)
@@ -2973,25 +3582,382 @@ local function HostSnapHasCoords(db)
         and tonumber(db.x) and tonumber(db.y)
 end
 
--- Flat primitives only. Nested camp tables in SmoreSkillsDB.camps did not survive /reload.
-function SmoreSkills_SnapshotOwnedHost()
-    local camp = SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp()
-    if camp and SmoreSkills_CampPinActive(camp) then
-        -- write below
-    else
-        local db = SmoreSkillsHostDB
-        local rem = RemainingAfterElapsed(
-            type(db) == "table" and db.remaining or (SmoreSkillsDB and SmoreSkillsDB.hostSnapRemaining),
-            type(db) == "table" and db.clock or (SmoreSkillsDB and SmoreSkillsDB.hostSnap_clock)
-        )
-        if rem ~= nil and rem <= 0 and SmoreSkills_ClearOwnedHostSnapshot then
-            SmoreSkills_ClearOwnedHostSnapshot()
+-- Forever sometimes applies SavedVariables late, or skips a table we created
+-- empty on ADDON_LOADED. A second account SV that is only a string survives
+-- that: we never assign SmoreSkillsHP when it is nil.
+local function WirePersistField(s)
+    return (tostring(s or ""):gsub("|", "/"):gsub("\n", " "))
+end
+
+local function PersistObjectToken(object)
+    if type(object) ~= "string" or object == "" then
+        return ""
+    end
+    if SmoreSkills_NormalizeItem then
+        local id = SmoreSkills_NormalizeItem(object)
+        if id then
+            return id
         end
+    end
+    return WirePersistField(object)
+end
+
+local function ExpandPersistObject(token, fallbackProf)
+    if type(token) ~= "string" or token == "" then
+        return nil, fallbackProf
+    end
+    if SmoreSkills_NormalizeItem and SmoreSkills_ItemFromId then
+        local item = SmoreSkills_ItemFromId(SmoreSkills_NormalizeItem(token))
+        if item then
+            return item.label, item.profession or fallbackProf
+        end
+    end
+    return token, fallbackProf
+end
+
+function SmoreSkills_EncodeHostPersistClock(db)
+    if not db or not tonumber(db.mapId) then
+        return nil
+    end
+    -- CVars/macros truncate HPv1. HPc2 keeps remaining + sockets as item ids.
+    local parts = {
+        "HPc2",
+        tostring(tonumber(db.mapId) or 0),
+        string.format("%.5f", tonumber(db.x) or 0),
+        string.format("%.5f", tonumber(db.y) or 0),
+        tostring(math.floor(tonumber(db.remaining) or 0)),
+        tostring(math.floor(tonumber(db.server) or tonumber(db.clock) or 0)),
+        tostring(math.floor(tonumber(db.litAt) or 0)),
+        WirePersistField(db.fireType or "basic"),
+        WirePersistField(db.zone),
+        tostring(tonumber(db.slot1Override) == 1 and 1 or (db.slot1Override and 1 or 0)),
+    }
+    local n = SmoreSkills_CampSlotCount and SmoreSkills_CampSlotCount({ fireType = db.fireType }) or 3
+    if n < 3 then
+        n = 3
+    end
+    if n > 10 then
+        n = 10
+    end
+    for i = 1, n do
+        table.insert(parts, WirePersistField(db["p" .. i]))
+        table.insert(parts, PersistObjectToken(db["o" .. i]))
+    end
+    return table.concat(parts, "|")
+end
+
+function SmoreSkills_EncodeHostPersist(db)
+    if not db or not tonumber(db.mapId) then
+        return nil
+    end
+    local parts = {
+        "HPv1",
+        tostring(tonumber(db.mapId) or 0),
+        string.format("%.6f", tonumber(db.x) or 0),
+        string.format("%.6f", tonumber(db.y) or 0),
+        WirePersistField(db.faction),
+        WirePersistField(db.owner),
+        WirePersistField(db.zone),
+        WirePersistField(db.fireType or "basic"),
+        tostring(tonumber(db.remaining) or 0),
+        tostring(tonumber(db.server) or tonumber(db.clock) or 0),
+        WirePersistField(db.want or "any"),
+        WirePersistField(db.wantItems),
+        tostring(tonumber(db.layer) or 0),
+        tostring(tonumber(db.litAt) or 0),
+    }
+    for i = 1, SmoreSkills.MAX_SLOTS do
+        table.insert(parts, WirePersistField(db["p" .. i]))
+        table.insert(parts, WirePersistField(db["o" .. i]))
+        table.insert(parts, WirePersistField(db["n" .. i]))
+    end
+    return table.concat(parts, "|")
+end
+
+function SmoreSkills_DecodeHostPersist(text)
+    if type(text) ~= "string" then
+        return nil
+    end
+    local tag = text:sub(1, 4)
+    local parts = { strsplit("|", text) }
+    if tag == "HPc1" or tag == "HPc2" then
+        if #parts < 8 then
+            return nil
+        end
+        local mapId, x, y = tonumber(parts[2]), tonumber(parts[3]), tonumber(parts[4])
+        if not (mapId and x and y) then
+            return nil
+        end
+        local db = {
+            id = SmoreSkills_CampId(mapId, x, y),
+            mapId = mapId,
+            x = x,
+            y = y,
+            remaining = tonumber(parts[5]),
+            server = tonumber(parts[6]),
+            clock = tonumber(parts[6]),
+            litAt = tonumber(parts[7]),
+            fireType = parts[8],
+            zone = parts[9],
+        }
+        if tag == "HPc2" then
+            db.slot1Override = tonumber(parts[10]) == 1 and 1 or 0
+            local idx = 11
+            for i = 1, SmoreSkills.MAX_SLOTS do
+                local p = parts[idx]
+                local o = parts[idx + 1]
+                if p == nil and o == nil then
+                    break
+                end
+                local label, prof = ExpandPersistObject(o, p)
+                db["p" .. i] = (prof and prof ~= "" and prof) or p
+                db["o" .. i] = label or o
+                idx = idx + 2
+            end
+        end
+        return db
+    end
+    if tag ~= "HPv1" or #parts < 13 then
+        return nil
+    end
+    local mapId, x, y = tonumber(parts[2]), tonumber(parts[3]), tonumber(parts[4])
+    local db = {
+        mapId = mapId,
+        x = x,
+        y = y,
+        faction = parts[5],
+        owner = parts[6],
+        zone = parts[7],
+        fireType = parts[8],
+        remaining = tonumber(parts[9]),
+        server = tonumber(parts[10]),
+        clock = tonumber(parts[10]),
+        want = parts[11],
+        wantItems = parts[12],
+        layer = tonumber(parts[13]),
+    }
+    local idx = 14
+    local maybeLit = tonumber(parts[14])
+    if maybeLit and maybeLit > 1000000000 then
+        db.litAt = maybeLit
+        idx = 15
+    end
+    for i = 1, SmoreSkills.MAX_SLOTS do
+        db["p" .. i] = parts[idx]
+        db["o" .. i] = parts[idx + 1]
+        db["n" .. i] = parts[idx + 2]
+        idx = idx + 3
+    end
+    if mapId and x and y then
+        db.id = SmoreSkills_CampId(mapId, x, y)
+        return db
+    end
+    return nil
+end
+
+local function IsHostPersistBlob(text)
+    if type(text) ~= "string" then
+        return false
+    end
+    local tag = text:sub(1, 4)
+    return tag == "HPv1" or tag == "HPc1" or tag == "HPc2"
+end
+
+local function RegisterHostPersistCVar()
+    if SmoreSkills._hpCVar then
         return
+    end
+    pcall(function()
+        if C_CVar and C_CVar.RegisterCVar then
+            C_CVar.RegisterCVar("SmoreSkillsHP", "")
+        end
+    end)
+    SmoreSkills._hpCVar = true
+end
+
+local function WriteHostPersistMacro(blob)
+    if type(blob) ~= "string" or blob == "" then
+        return false
+    end
+    if InCombatLockdown and InCombatLockdown() then
+        return false
+    end
+    if not GetMacroIndexByName or not (CreateMacro or EditMacro) then
+        return false
+    end
+    if #blob > 255 then
+        blob = blob:sub(1, 255)
+    end
+    local idx = GetMacroIndexByName("S~Camp")
+    if idx and idx > 0 then
+        return pcall(EditMacro, idx, "S~Camp", "INV_Misc_Food_15", blob)
+    end
+    if CreateMacro then
+        return pcall(CreateMacro, "S~Camp", "INV_Misc_Food_15", blob, 1)
+    end
+    return false
+end
+
+local function ReadHostPersistMacro()
+    if not GetMacroIndexByName or not GetMacroBody then
+        return nil
+    end
+    local idx = GetMacroIndexByName("S~Camp")
+    if not idx or idx <= 0 then
+        return nil
+    end
+    local body = GetMacroBody(idx)
+    if IsHostPersistBlob(body) then
+        return body
+    end
+    return nil
+end
+
+function SmoreSkills_ReadHostPersistBlob()
+    local candidates = {}
+    local function add(text, source)
+        if IsHostPersistBlob(text) then
+            table.insert(candidates, { text = text, source = source, full = text:sub(1, 4) == "HPv1" })
+        end
+    end
+    add(SmoreSkillsHP, "SmoreSkillsHP")
+    if type(SmoreSkillsDB) == "table" then
+        add(SmoreSkillsDB.hp, "db.hp")
+        if type(SmoreSkillsDB.settings) == "table" then
+            add(SmoreSkillsDB.settings.hp, "settings.hp")
+        end
+    end
+    RegisterHostPersistCVar()
+    local cvar
+    pcall(function()
+        cvar = GetCVar and GetCVar("SmoreSkillsHP")
+    end)
+    add(cvar, "cvar")
+    add(ReadHostPersistMacro(), "macro")
+    local best
+    for i = 1, #candidates do
+        local row = candidates[i]
+        if row.full then
+            return row.text, row.source
+        end
+        if not best or (row.text:sub(1, 4) == "HPc2" and best.text:sub(1, 4) ~= "HPc2") then
+            best = row
+        end
+    end
+    if best then
+        return best.text, best.source
+    end
+    return nil
+end
+
+function SmoreSkills_WriteHostPersistBlob(db)
+    local blob = SmoreSkills_EncodeHostPersist(db)
+    if not blob then
+        return
+    end
+    SmoreSkillsHP = blob
+    if type(SmoreSkillsDB) == "table" then
+        SmoreSkillsDB.hp = blob
+        SmoreSkillsDB.settings = SmoreSkillsDB.settings or {}
+        SmoreSkillsDB.settings.hp = blob
+    end
+    local clock = SmoreSkills_EncodeHostPersistClock(db) or blob
+    RegisterHostPersistCVar()
+    pcall(function()
+        if SetCVar then
+            SetCVar("SmoreSkillsHP", clock)
+        end
+    end)
+    WriteHostPersistMacro(clock)
+end
+
+function SmoreSkills_HostPersistChannels()
+    local list = {}
+    if IsHostPersistBlob(SmoreSkillsHP) then
+        table.insert(list, "SmoreSkillsHP")
+    end
+    if type(SmoreSkillsDB) == "table" and IsHostPersistBlob(SmoreSkillsDB.hp) then
+        table.insert(list, "db.hp")
+    end
+    if type(SmoreSkillsDB) == "table" and type(SmoreSkillsDB.settings) == "table"
+        and IsHostPersistBlob(SmoreSkillsDB.settings.hp) then
+        table.insert(list, "settings.hp")
+    end
+    local cvar
+    pcall(function()
+        cvar = GetCVar and GetCVar("SmoreSkillsHP")
+    end)
+    if IsHostPersistBlob(cvar) then
+        table.insert(list, "cvar")
+    end
+    if ReadHostPersistMacro() then
+        table.insert(list, "macro")
+    end
+    return list
+end
+
+-- Flat primitives only. Nested camp tables in SmoreSkillsDB.camps did not survive /reload.
+local function FindOwnedHostCamp()
+    local camp = SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp()
+    if camp then
+        return camp
+    end
+    local id = (SmoreSkillsDB and SmoreSkillsDB.hostCampId)
+        or (SmoreSkills.Sync and SmoreSkills.Sync.hostCampId)
+    if id and SmoreSkillsDB and SmoreSkillsDB.camps and SmoreSkillsDB.camps[id] then
+        local stored = SmoreSkillsDB.camps[id]
+        if stored and not stored.packed then
+            return stored
+        end
+    end
+    local best
+    for _, stored in pairs((SmoreSkillsDB and SmoreSkillsDB.camps) or {}) do
+        if stored and not stored.packed and stored.mapId and SmoreSkills_IsOwnHostCamp(stored) then
+            if not best or (stored.litAt or 0) > (best.litAt or 0) then
+                best = stored
+            end
+        end
+    end
+    return best
+end
+
+function SmoreSkills_SnapshotOwnedHost()
+    local camp = FindOwnedHostCamp()
+    if not (camp and camp.mapId and not camp.packed) then
+        return
+    end
+    local duration = SmoreSkills.CAMPFIRE_DURATION or 900
+    local now = SmoreSkills_Now()
+    local litAt = tonumber(camp.litAt) or tonumber(camp.updatedAt)
+    local remaining
+    local sync = SmoreSkills.Sync
+    if sync and tonumber(sync.hostRemainAt) then
+        remaining = PersistSecondsLeft(sync.hostRemainAt, sync.hostRemainServer, nil)
+    end
+    if (remaining == nil or remaining <= 0) and tonumber(camp.ttlLeft) then
+        remaining = tonumber(camp.ttlLeft)
+    end
+    if (remaining == nil or remaining <= 0) and litAt and now > 0 and SameTimeUnit(now, litAt) then
+        local age = now - litAt
+        if age >= 0 and age <= duration then
+            remaining = duration - age
+        end
+    end
+    if remaining == nil or remaining <= 0 then
+        remaining = duration
+    end
+    if remaining > duration then
+        remaining = duration
+    end
+    local server = now
+    if server <= 0 then
+        server = 0
+    end
+    if (not litAt or litAt <= 0) and server > 0 then
+        litAt = server - (duration - remaining)
     end
     local db = EnsureHostDB()
     local id = camp.id or SmoreSkills_CampId(camp.mapId, camp.x, camp.y)
-    local litAt = tonumber(camp.litAt) or tonumber(camp.updatedAt) or SmoreSkills_Now()
     local updatedAt = tonumber(camp.updatedAt) or litAt
     WipeHostDB(db)
     db.v = 1
@@ -3006,23 +3972,14 @@ function SmoreSkills_SnapshotOwnedHost()
     db.wantItems = camp.wantItems or ""
     db.litAt = litAt
     db.updatedAt = updatedAt
-    local duration = SmoreSkills.CAMPFIRE_DURATION or 1200
-    local now = SmoreSkills_Now()
-    local remaining = SmoreSkills_OwnedHostRemaining(camp)
-    if not remaining then
-        remaining = duration - (now - litAt)
-    end
-    if remaining < 0 then
-        remaining = 0
-    elseif remaining > duration then
-        remaining = duration
-    end
     db.remaining = remaining
-    db.clock = now
+    db.server = server
+    db.clock = server
     db.layer = tonumber(camp.layer) or 0
     db.layerOrdinal = tonumber(camp.layerOrdinal) or 0
     db.wantOverride = camp.wantOverride and 1 or 0
     db.slot1Override = camp.slot1Override and 1 or 0
+    db.fireType = SmoreSkills_CampFireType(camp)
     for i = 1, SmoreSkills.MAX_SLOTS do
         local slot = camp.slots and camp.slots[i] or {}
         db["p" .. i] = slot.profession or ""
@@ -3034,15 +3991,64 @@ function SmoreSkills_SnapshotOwnedHost()
         SmoreSkillsDB.hostSnapRemaining = remaining
         WriteAccountHostSnap(db)
     end
+    if SmoreSkills_WriteHostPersistBlob then
+        SmoreSkills_WriteHostPersistBlob(db)
+    end
+end
+
+local function MergeHostSnapFields(into, from)
+    if type(into) ~= "table" or type(from) ~= "table" then
+        return into
+    end
+    local keys = { "owner", "faction", "zone", "fireType", "want", "wantItems", "slot1Override" }
+    for i = 1, #keys do
+        local k = keys[i]
+        if (into[k] == nil or into[k] == "") and from[k] and from[k] ~= "" then
+            into[k] = from[k]
+        end
+    end
+    for i = 1, SmoreSkills.MAX_SLOTS do
+        local p, o, n = "p" .. i, "o" .. i, "n" .. i
+        if (into[p] == nil or into[p] == "") and from[p] and from[p] ~= "" then
+            into[p] = from[p]
+            if (into[o] == nil or into[o] == "") and from[o] then
+                into[o] = from[o]
+            end
+            if (into[n] == nil or into[n] == "") and from[n] then
+                into[n] = from[n]
+            end
+        end
+    end
+    return into
 end
 
 -- Returns camp, or nil plus why it was turned down, so login can say so out loud.
 function SmoreSkills_RestoreOwnedHost()
-    local db = HostSnapHasCoords(SmoreSkillsHostDB) and SmoreSkillsHostDB or nil
+    SmoreSkills._restoringHost = true
+    local camp, reason = SmoreSkills_RestoreOwnedHostInner()
+    SmoreSkills._restoringHost = nil
+    return camp, reason
+end
+
+function SmoreSkills_RestoreOwnedHostInner()
+    local db
+    local blob, source
+    if SmoreSkills_ReadHostPersistBlob then
+        blob, source = SmoreSkills_ReadHostPersistBlob()
+    end
+    if blob and SmoreSkills_DecodeHostPersist then
+        db = SmoreSkills_DecodeHostPersist(blob)
+        SmoreSkills._hpSource = source
+    end
+    if not HostSnapHasCoords(db) then
+        db = HostSnapHasCoords(SmoreSkillsHostDB) and SmoreSkillsHostDB or nil
+    end
     db = db or ReadAccountHostSnap()
     if not HostSnapHasCoords(db) then
         return nil, "no saved campfire"
     end
+    MergeHostSnapFields(db, HostSnapHasCoords(SmoreSkillsHostDB) and SmoreSkillsHostDB)
+    MergeHostSnapFields(db, ReadAccountHostSnap())
     local mapId = tonumber(db.mapId)
     local x, y = tonumber(db.x), tonumber(db.y)
     local camp = {
@@ -3051,23 +4057,31 @@ function SmoreSkills_RestoreOwnedHost()
         x = x,
         y = y,
         zone = (db.zone ~= "" and db.zone) or nil,
-        faction = (db.faction ~= "" and db.faction) or nil,
-        owner = (db.owner ~= "" and db.owner) or nil,
+        faction = (db.faction ~= "" and db.faction)
+            or (SmoreSkillsDB and SmoreSkillsDB.hostSnap_faction)
+            or (type(SmoreSkillsHostDB) == "table" and SmoreSkillsHostDB.faction)
+            or nil,
+        owner = (db.owner ~= "" and db.owner)
+            or (SmoreSkillsDB and SmoreSkillsDB.hostSnap_owner)
+            or (type(SmoreSkillsHostDB) == "table" and SmoreSkillsHostDB.owner)
+            or nil,
         want = db.want or "any",
         wantItems = db.wantItems or "",
         source = "host",
-        litAt = tonumber(db.litAt) or tonumber(db.updatedAt),
+        litAt = tonumber(db.litAt) or tonumber(db.updatedAt)
+            or (type(SmoreSkillsHostDB) == "table" and tonumber(SmoreSkillsHostDB.litAt))
+            or (SmoreSkillsDB and tonumber(SmoreSkillsDB.hostSnap_litAt))
+            or nil,
         updatedAt = tonumber(db.updatedAt) or tonumber(db.litAt),
         layer = tonumber(db.layer),
         layerOrdinal = tonumber(db.layerOrdinal),
         wantOverride = tonumber(db.wantOverride) == 1 or nil,
         slot1Override = tonumber(db.slot1Override) == 1 or nil,
+        fireType = SmoreSkills_NormalizeFireType(db.fireType) or "basic",
         slots = {},
     }
-    if not camp.litAt or camp.litAt <= 0 then
-        camp.litAt = SmoreSkills_Now()
-        camp.updatedAt = camp.updatedAt or camp.litAt
-    end
+    -- Never stamp litAt = now. That restarted a 15 min pin on every /reload
+    -- when the CVar blob had no litAt (truncated).
     if camp.layer == 0 then
         camp.layer = nil
     end
@@ -3085,37 +4099,56 @@ function SmoreSkills_RestoreOwnedHost()
             player = (type(n) == "string" and n ~= "" and n) or nil,
         }
     end
-    local duration = SmoreSkills.CAMPFIRE_DURATION or 1200
+    local duration = SmoreSkills.CAMPFIRE_DURATION or 900
     local remaining = tonumber(db.remaining)
     if not remaining and SmoreSkillsDB then
         remaining = tonumber(SmoreSkillsDB.hostSnapRemaining)
     end
-    if remaining == nil then
-        local now = SmoreSkills_Now()
-        local lit = tonumber(camp.litAt) or 0
-        if now > 0 and lit > 0 then
-            remaining = duration - (now - lit)
-        else
-            remaining = 0
-        end
-    else
-        remaining = RemainingAfterElapsed(remaining, db.clock or db.litAt or (SmoreSkillsDB and SmoreSkillsDB.hostSnap_clock))
+    local server = tonumber(db.server) or tonumber(db.clock)
+    if not server and SmoreSkillsDB then
+        server = tonumber(SmoreSkillsDB.hostSnap_server) or tonumber(SmoreSkillsDB.hostSnap_clock)
     end
-    if not remaining or remaining <= 0 then
-        if SmoreSkills_ClearOwnedHostSnapshot then
-            SmoreSkills_ClearOwnedHostSnapshot()
+    local hadRemain = remaining ~= nil
+    if remaining == nil then
+        remaining = duration
+    end
+    remaining = PersistSecondsLeft(remaining, server, camp.litAt)
+    if remaining == nil or remaining <= 0 then
+        remaining = PersistSecondsLeft(tonumber(db.remaining), server, nil)
+    end
+    if remaining == nil or remaining <= 0 then
+        remaining = tonumber(db.remaining)
+    end
+    if remaining == nil or remaining <= 0 then
+        if hadRemain or tonumber(db.remaining) ~= nil then
+            return nil, "the fire burned out"
         end
-        return nil, "the fire burned out"
+        remaining = duration
     end
     if remaining > duration then
         remaining = duration
     end
-    camp.ttlLeft = remaining
     local now = SmoreSkills_Now()
-    if now > 0 then
-        camp.litAt = now - (duration - remaining)
-        camp.updatedAt = now
+    if camp.litAt and now > 0 and SameTimeUnit(now, camp.litAt) then
+        local age = now - camp.litAt
+        if age > duration + 120 then
+            local leftover = PersistSecondsLeft(tonumber(db.remaining), server, nil)
+            if leftover == nil or leftover <= 0 then
+                return nil, "the fire burned out"
+            end
+            remaining = leftover
+        end
     end
+    SmoreSkills_StampOwnHostIdentity(camp)
+    if remaining > duration then
+        remaining = duration
+    end
+    if (not camp.litAt or camp.litAt <= 0) and SmoreSkills_Now() > 0 then
+        camp.litAt = SmoreSkills_Now() - (duration - remaining)
+    end
+    camp.updatedAt = camp.updatedAt or camp.litAt
+    camp.ttlLeft = remaining
+    camp.fireType = SmoreSkills_NormalizeFireType(db.fireType) or camp.fireType or "basic"
     SmoreSkillsDB = SmoreSkillsDB or { camps = {}, settings = { dataVersion = 1 } }
     SmoreSkillsDB.camps = SmoreSkillsDB.camps or {}
     SmoreSkillsDB.camps[camp.id] = camp
@@ -3127,9 +4160,8 @@ function SmoreSkills_ForEachOwnedActiveCamp(callback)
     if type(callback) ~= "function" then
         return
     end
-    local me = SmoreSkills_PlayerName()
-    for _, camp in pairs(SmoreSkillsDB.camps or {}) do
-        if SmoreSkills_PlayerNamesMatch(camp.owner, me) and SmoreSkills_CampPinActive(camp) and SmoreSkills_IsHostedCamp(camp) then
+    for _, camp in pairs((SmoreSkillsDB and SmoreSkillsDB.camps) or {}) do
+        if SmoreSkills_IsOwnHostCamp(camp) and SmoreSkills_CampPinActive(camp) and SmoreSkills_IsHostedCamp(camp) then
             callback(camp)
         end
     end
@@ -3164,7 +4196,7 @@ function SmoreSkills_AlreadyHaveCampMessage(camp)
         if lit <= 0 then
             lit = SmoreSkills_Now()
         end
-        left = math.max(0, math.ceil((lit + (SmoreSkills.CAMPFIRE_DURATION or 1200)) - SmoreSkills_Now()))
+        left = math.max(0, math.ceil((lit + (SmoreSkills.CAMPFIRE_DURATION or 900)) - SmoreSkills_Now()))
     end
     local wait
     if left >= 60 then
@@ -3240,7 +4272,7 @@ function SmoreSkills_ClearLocalSlot(index)
 end
 
 function SmoreSkills_SetSlot(camp, index, player, profession, object)
-    if not camp or not index or index < 1 or index > SmoreSkills.MAX_SLOTS then
+    if not camp or not index or index < 1 or index > SmoreSkills_CampSlotCount(camp) then
         return false
     end
     SmoreSkills_EnsureSlots(camp)
@@ -3251,6 +4283,10 @@ function SmoreSkills_SetSlot(camp, index, player, profession, object)
         object = object,
     }
     camp.updatedAt = SmoreSkills_Now()
+    if not SmoreSkills._restoringHost and SmoreSkills_IsOwnHostCamp and SmoreSkills_IsOwnHostCamp(camp)
+        and SmoreSkills_SnapshotOwnedHost then
+        SmoreSkills_SnapshotOwnedHost()
+    end
     return true
 end
 
@@ -3299,7 +4335,7 @@ function SmoreSkills_CampDiscoveredForSeeker(camp)
     if not camp or not camp.id then
         return false
     end
-    if SmoreSkills_PlayerNamesMatch(camp.owner, SmoreSkills_PlayerName()) then
+    if SmoreSkills_IsOwnHostCamp(camp) then
         return true
     end
     local sync = SmoreSkills.Sync
@@ -3310,7 +4346,7 @@ local function SmoreSkills_MaybeAddVisibleCamp(list, seen, camp, mapId, seekerPr
     if not camp or not camp.id or seen[camp.id] then
         return
     end
-    if camp.faction and camp.faction ~= SmoreSkills_PlayerFaction() then
+    if camp.faction and camp.faction ~= SmoreSkills_PlayerFaction() and not SmoreSkills_IsOwnHostCamp(camp) then
         return
     end
     if not SmoreSkills_CampDiscoveredForSeeker(camp) then
@@ -3387,22 +4423,21 @@ function SmoreSkills_ForgetStaleCamps(maxAge)
     local now = SmoreSkills_Now()
     local me = SmoreSkills_PlayerName()
     for id, camp in pairs(SmoreSkillsDB.camps or {}) do
-        local owned = SmoreSkills_PlayerNamesMatch(camp.owner, me)
+        local owned = SmoreSkills_IsOwnHostCamp(camp)
         local liveOwned = owned and not camp.packed and SmoreSkills_CampPinActive(camp)
-        if liveOwned then
-            -- Hosted fire stays until pack / 3/3 / 20 min, including across /reload.
+        if liveOwned or (owned and not camp.packed) then
+            -- Hosted fire stays until pack / leftover remaining hits 0.
         elseif owned then
-            SmoreSkillsDB.camps[id] = nil
-            if SmoreSkills.Sync and SmoreSkills.Sync.seekDiscoveredIds then
-                SmoreSkills.Sync.seekDiscoveredIds[id] = nil
-            end
-            -- Only the clock or a pack-up may destroy the snapshot. Everything else can be retried.
-            local lit = SmoreSkills_CampLitTime(camp)
-            local burnedOut = lit <= 0 or (now - lit) >= (SmoreSkills.CAMPFIRE_DURATION or 1200)
-            if (camp.packed or burnedOut)
-                and SmoreSkillsHostDB and SmoreSkillsHostDB.id == id
-                and SmoreSkills_ClearOwnedHostSnapshot then
-                SmoreSkills_ClearOwnedHostSnapshot()
+            -- Pack-up only. Never expire an owned fire from realm now-litAt
+            -- (Denmark vs US is 9 hours and wipes a live pin).
+            if camp.packed then
+                SmoreSkillsDB.camps[id] = nil
+                if SmoreSkills.Sync and SmoreSkills.Sync.seekDiscoveredIds then
+                    SmoreSkills.Sync.seekDiscoveredIds[id] = nil
+                end
+                if SmoreSkills_ClearOwnedHostSnapshot then
+                    SmoreSkills_ClearOwnedHostSnapshot()
+                end
             end
         elseif (now - (camp.updatedAt or camp.litAt or 0)) > maxAge then
             SmoreSkillsDB.camps[id] = nil
@@ -3463,7 +4498,7 @@ function SmoreSkills_CampHasGuildie(camp)
     if SmoreSkills_IsGuildie(camp.owner) then
         return true
     end
-    for i = 1, SmoreSkills.MAX_SLOTS do
+    for i = 1, SmoreSkills_CampSlotCount(camp) do
         local slot = camp.slots and camp.slots[i]
         if slot and SmoreSkills_IsGuildie(slot.player) then
             return true
@@ -3521,7 +4556,7 @@ end
 function SmoreSkills_FormatSlots(camp)
     SmoreSkills_EnsureSlots(camp)
     local parts = {}
-    for i = 1, SmoreSkills.MAX_SLOTS do
+    for i = 1, SmoreSkills_CampSlotCount(camp) do
         local slot = camp.slots[i]
         if slot and slot.profession then
             local label = SmoreSkills_ProfessionLabel(slot.profession)

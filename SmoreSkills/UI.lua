@@ -146,7 +146,7 @@ function UI:Refresh()
             camp.zone or "?",
             SmoreSkills_FormatCoords(camp),
             filled,
-            SmoreSkills.MAX_SLOTS,
+            SmoreSkills_CampSlotCount and SmoreSkills_CampSlotCount(camp) or SmoreSkills.MAX_SLOTS,
             camp.owner or ""
         ))
         row.slots:SetText(SmoreSkills_FormatSlots(camp))

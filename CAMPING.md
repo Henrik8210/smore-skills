@@ -26,7 +26,7 @@ This is the panel write-up. **Live item text wins** where they disagree (Sharpen
 - Named examples beyond BS/tailor/herb:
   - Alchemy: **Alchemy Lab**
   - Leatherworking: **Tanning Rack** (needed for advanced LW recipes)
-  - Cooking: **upgraded campfires** that allow **five or ten** objects — not a Basic 3-slot camp. `SmoreSkills.MAX_SLOTS = 3` is Basic only; do not extend the `H:` wire until we see a 5/10 fire on beta.
+  - Cooking: **upgraded campfires** that allow **five or ten** objects — not a Basic 3-slot camp. `SmoreSkills.MAX_SLOTS = 10` is the hard cap. Basic is 3; Journeyman 5; Expert 10. `/smores host journeyman|expert` tests the panel and tooltip. `H:` sends that many `p:o` pairs (old clients still read the first three). Time a real 5/10 fire before treating those kits as measured.
 - Panel examples still say Sharpening Wheel = **Attack Power**. Live Zephras trainer is **+6 Strength** (pre-beta client said +34). Keep Strength.
 
 **Addon notes from this recap**
@@ -51,7 +51,7 @@ Source: trade-skill / campsite copy shared 15 Sep 2026. Treat as current marketi
 
 Do not confuse **three items per profession** (your personal unlocks) with **three object slots on a camp** (three different players, one object each). The camp still has three slots.
 
-**Buffs vs camp lifetime:** the Deep Dive recap says sit a moment, then leave with **one-hour buffs**. Live item tooltips instead spell a **1 hour cooldown** on placing camping features. Those can both be true. Neither is how long the campsite stays lit. **18 Sep:** a placed Forever camp was still up after 10 minutes, so `SmoreSkills.CAMPFIRE_DURATION` is **20 min**. Classic cooking fire is still 5 min in-game. Time a despawn before raising it again.
+**Buffs vs camp lifetime:** the Deep Dive recap says sit a moment, then leave with **one-hour buffs**. Live item tooltips instead spell a **1 hour cooldown** on placing camping features. Those can both be true. Neither is how long the campsite stays lit. **21 Sep:** a placed Forever campfire lasts **15 minutes**. `SmoreSkills.CAMPFIRE_DURATION` matches that. Classic cooking fire is still 5 min in-game.
 
 ## Blacksmithing (live tooltips)
 
@@ -142,7 +142,7 @@ When their signals **match**, the night elf sees a **map pin**: a bonfire icon w
 
 **One camp at a time.** Lighting a **new** campfire (Auto host) packs up the previous pin (`X:`) and hosts the new site — Elwynn then Stormwind does not leave both pins. Walking away, or `/smores host` without a new fire, keeps the **original fire coords**. Pack-up (right-click own pin or `/smores pack`) also ends the camp. There is no `/smores here` snapshot command; sharing a fire is host only.
 
-The **host's pin is local.** Lighting a fire writes a **flat account snapshot** (plus a per-character copy) and draws it on *your* map. `/reload` restores it until pack-up, 3/3, or 20 min — see [HOST-PERSIST.md](HOST-PERSIST.md). Do not rely on nested `SmoreSkillsDB.camps` after reload. Slot 1 and the Host tooltip line use the Host-tab profession. A seeker only draws that pin after **their** client receives your host ping (`H:`). Standing next to each other is not enough.
+The **host's pin is local.** Lighting a fire writes a **flat account snapshot** (plus a per-character copy) and draws it on *your* map. `/reload` restores it until pack-up, 3/3, or 15 min — see [HOST-PERSIST.md](HOST-PERSIST.md). Do not rely on nested `SmoreSkillsDB.camps` after reload. Slot 1 and the Host tooltip line use the Host-tab profession. A seeker only draws that pin after **their** client receives your host ping (`H:`). Standing next to each other is not enough.
 
 ## Two roles
 
@@ -153,7 +153,9 @@ The **host's pin is local.** Lighting a fire writes a **flat account snapshot** 
 
 Signals are **addon messages** on the hidden `SmoreSkills` channel (not guild/party/raid, not `/1` General). If CHANNEL addon messages are dropped, the same hidden channel carries a prefixed chat fallback (`SmoreSk …`). A chat filter hides those lines; it is a quiet bus between clients with the addon, same faction. Anyone else on the channel can hear `S:` / `H:` / `X:` — not a private 1-to-1 link.
 
-When a host answers a seek, we do **not** `SendChatMessage` or `SendAddonMessage` from the `CHAT_MSG_*` handler or from a campfire timer (Forever: *blocked from an action only available to the Blizzard UI*; TBC: *Interface action failed*). **Channel chat `H:` is sent on the next Find or `/smores host` click** (hardware). Lighting a fire hosts locally; click **Find** once so the other player can see it. Addon **whisper** is only if the channel is not joined, and only from that click.
+Lighting a fire hosts **locally** (your pin and camp panel). A seeker only draws that pin after **their** Find — they send `S:`, you answer with addon-whisper `H:` (the TBC two-client path). Do **not** `SendChatMessage` from `CHAT_MSG_*`, kit Use, or the campfire timer. Channel-chat `H:` on Find / `/smores host` is the backup if that whisper is blocked. Join the hidden channel from Find / `/smores host` (hardware) or TBC login so you can hear `S:`. Forever kit Use must not `JoinChannelByName` or post `/1` — that is *Interface action failed*.
+
+**Public General (`/1`)** is optional and **manual**. The only send is the camp-panel button **Announce camp in General** (bottom right, opposite Pack up). Hover shows the exact line. Kit Use, the fire landing, Find, `/smores host`, and settings never post that message.
 
 ## Map UX (Forever target)
 
@@ -161,7 +163,7 @@ When a host answers a seek, we do **not** `SendChatMessage` or `SendAddonMessage
 - **Seeker click** → one seek ping; listen for matching **host** pings; show those pins only. Seekers never get a pin of their own. Switches the map to the **player's zone** (not a nested city map).
 - **Host click** (while at/near a fire) → host ping with coords + slot state + who you want. Walking away does **not** move or drop the pin; we keep broadcasting the **fire's original coords**. Lighting a **new** campfire does move it: the old pin is packed (`X:`) and the new fire is the only campsite.
 - **Find right-click** → clear *other* people's markers. Your own hosted pin stays until the fire ends, the camp is full, or you pack up.
-- **Own pin left-click** or `/smores camp` → host camp panel (your socket + request chips for this fire). Chips, sockets, the camping-objects bar, dropdown rows, and Pack up use a **faint gold hover** (same hue as selected, weaker fill) so they read as clickable. Own pin right-click or `/smores pack` → confirm pack-up. Sends `X:` so seekers drop that pin immediately (overrides the 20 min / 3/3 lifetime).
+- **Own pin left-click** or `/smores camp` → host camp panel (your socket + request chips for this fire). Chips, sockets, the camping-objects bar, dropdown rows, Pack up, and **Announce camp in General** use a **faint gold hover** (same hue as selected, weaker fill) so they read as clickable. Announce hover also shows the exact `/1` line. Own pin right-click or `/smores pack` → confirm pack-up. Sends `X:` so seekers drop that pin immediately (overrides the 15 min / 3/3 lifetime).
 - **Pin art:** bonfire + three sockets (camping **object** icon when the slot names one — live item texture on Forever, stored stand-in on Anniversary; profession icon if only a trade is set; faded greyscale S'more if empty). Hover: zone, coords, layer, `2/3`, owner, slot detail with **object — short benefit** (`Camp Chair — +2% crit`, from each catalog `note`), camping-object requests. Left-click another host to whisper.
 - A green **G** on a pin or list row means a guildie is on that camp. Hint only — guild is not how data moves. You do not see **G** on your own hosted pin.
 - **`/smores list`** prints the same set as the map: hosted camps you can see, **max 12** per zone (not every camp still in memory).
@@ -188,7 +190,7 @@ Seekers who click find at the same time may all see the same camp — that is in
 | Seek cooldown | 45 s | One click ≠ spam |
 | Host rebroadcast | 90 s while “open” | Heartbeat, not flood |
 | Signal TTL | 3 min | Seek listen window; stale seek/host *signals* |
-| Campfire pin lifetime | **20 min from `litAt`** (when that fire was lit) | Same clock for every seeker — Find at minute 7 means **13 min left**, not a new 20. Heartbeats do not restart it. Hide when time is up, 3/3, pack-up, or a **new** fire (`X:`). Forever camp was still up after 10 min (18 Sep); time a despawn before raising `CAMPFIRE_DURATION` again. |
+| Campfire pin lifetime | **15 min from `litAt`** (when that fire was lit) | Same clock for every seeker — Find at minute 7 means **8 min left**, not a new 15. Heartbeats do not restart it. Hide when time is up, 3/3, pack-up, or a **new** fire (`X:`). Live Forever fire is 15 min (21 Sep). |
 | Camp memory | 30 min | Same as today |
 | Max pins per zone | 12 | Cap map clutter. `/smores list` uses this same cap. |
 | Payload size | &lt; 250 bytes | WoW addon message limit. If `H:` would exceed it, **shrink** rather than drop the ping: (1) host item list, (2) object display names (keep profession codes), (3) shorten `own` to 24 characters. Host gets one chat line. **Revisit if Forever two-part names + full item lists still clip useful tooltip data** — seekers would still see the pin, but miss item/object names. Do not split one camp across two messages. |
@@ -213,9 +215,9 @@ Hidden channel: `SmoreSkills`. Prefix: `SmoreSk`. Same faction only.
 - `layer` = `zoneUID` or `zoneUID/N` on the wire. Tooltip: own pin **Layer N — Your camp**; others **Layer N — same as you** / **Layer N — you are on Layer M**. N is the host's display number so both clients agree. `0` or omitted if unknown.
 - Coords use the same fixed-point wire encoding as `C:`
 
-A late seeker (logged in after the fire is already up) does **not** get a dump on login. They click Find → `S:` → the host replies with `H:` on the **next Find or `/smores host` click** (not from a `CHAT_MSG_*` timer). Addon **whisper** is only if that channel is not joined, and only from that click. Walking away from the fire does not stop hosting; we keep the **original fire coords**.
+A late seeker (logged in after the fire is already up) does **not** get a dump on login. They click Find → `S:` → the host replies with addon-whisper `H:` to that seeker. Walking away from the fire does not stop hosting; we keep the **original fire coords**.
 
-Do **not** call `ChatFrame_RemoveChannel` from this addon (login, ping, or channel events). That taints Blizzard chat and shows *Interface action failed because of an AddOn*. Hide `SmoreSk` payloads with a chat filter. Auto-host must not `SendChatMessage`, `SendAddonMessage`, or `JoinPermanentChannel` from `UNIT_SPELLCAST`, combat log, login, zoning, or `C_Timer`. After the fire **lands**, host locally. Hidden-channel **chat** `H:` on **Find** or `/smores host`. Do not hook WorldFrame / UIParent or steal the keyboard to flush. Interrupted casts never host. Other players still only get a pin after **Find**. Continent / world **overview** has no pins — stay on the **zone** map (or a continent-typed leaf island like Zephras).
+Do **not** call `ChatFrame_RemoveChannel` from this addon (login, ping, or channel events). That taints Blizzard chat and shows *Interface action failed because of an AddOn*. Hide `SmoreSk` payloads with a chat filter. Auto-host must not `SendChatMessage` or `JoinPermanentChannel` from `UNIT_SPELLCAST`, combat log, Forever login, zoning, kit Use, or `C_Timer`. After the fire **lands**, host locally. Join from Find / `/smores host` (hardware) or TBC login. When `S:` arrives in the same zone, reply addon-whisper `H:`. `/1` only from the camp-panel **Announce camp in General** button. Do not hook WorldFrame / UIParent or steal the keyboard. Interrupted casts never host. Other players still only get a pin after **their** Find. Continent / world **overview** has no pins — stay on the **zone** map (or a continent-typed leaf island like Zephras).
 
 Join the named `SmoreSkills` channel (temporary `JoinChannelByName`, no chat window). Do **not** steal `/1` General, `/2` Trade, or `/3` Local Defense — those numbers are WoW’s, not ours. Send by `GetChannelName("SmoreSkills")` after any swap. Zone General on a leaf isle is still General (`General - Zephras Isle` on `/3` until we swap). If we land on 1–3, swap **by channel index** (`C_ChatInfo.SwapChatChannelsByChannelIndex`) with the zone channel that belongs there — name-swap is not enough on Forever 1.60. If the edit box is `[1. SmoreSkills]`, put it back on General (or SAY). Never `ChatFrame_RemoveChannel`. `/smores status` prints `/1 is …`.
 
@@ -300,19 +302,19 @@ Cooking’s kit is the campsite, not a filterable slot. Host/seeker **Camping ob
 
 ### Two-client smoke test (Elwynn — **passed** 16 Sep 2026)
 
-**v0.5.48** two-client Elwynn passed (pins visible both ways after Find). First CurseForge upload is **beta** tag `v0.5.48-beta` (not a full release). Lighting a fire hosts locally; **both** click Find on the zone map so `H:` actually goes out.
+**v0.5.48** two-client Elwynn passed (pins visible both ways after Find). **v0.5.89** restores the earlier working path: host lights the fire (local pin); seeker clicks Find; host auto-replies `H:`. First CurseForge upload is **beta** tag `v0.5.48-beta` (not a full release).
 
 Earlier that evening: lighting printed *Interface action failed*, then *Wait a moment before sending again* on Find — `H:` never left (fixed in 0.5.48).
 
 1. Deploy: `.\scripts\deploy-to-wow.ps1 -Client anniversary` — **both** `/reload`, load line **v0.5.48**
 2. Both: `/smores status` — Channel joined, Cross-layer on, Host want **Anyone**, Seeker filter Anyone
-3. **Each** lights **Basic Campfire** (Auto host on). Chat: `Hosting in Elwynn Forest` and **Click Find or /smores host once**. No *Interface action failed*.
-4. **Both** open the **Elwynn Forest** zone map (not Eastern Kingdoms) and click **Find**
-5. Chat: `Camp found` and **1 other camp**. Pin on Elwynn only — **not** Duskwood
+3. **Each** lights **Basic Campfire** (Auto host on). Chat: `Hosting in Elwynn Forest` and **Your pin is up**. No *Interface action failed*.
+4. The **seeker** opens the **Elwynn Forest** zone map (not Eastern Kingdoms) and clicks **Find**. Host chat: `Someone is looking for camps in this zone — sharing yours.`
+5. Seeker chat: `Camp found` and **1 other camp**. Pin on Elwynn only — **not** Duskwood
 6. Host walks ~10 yards — pin stays on the fire
 7. Find right-click clears the seeker's other markers, not the host's own pin
 8. Host packs up → seeker pin vanishes (`X:`)
-9. Optional: light a **second** fire in Stormwind before the 20 min is up. Host chat should pack Elwynn; the forest pin is gone. A pin on the Elwynn map in the Stormwind corner is the **new** city camp (nested map), not the old forest site.
+9. Optional: light a **second** fire in Stormwind before the 15 min is up. Host chat should pack Elwynn; the forest pin is gone. A pin on the Elwynn map in the Stormwind corner is the **new** city camp (nested map), not the old forest site.
 
 **Elwynn / nested city maps:** Stormwind City is a child of Elwynn Forest. The map *art* can still be Elwynn (Stormwind in the corner) while `WorldMapFrame:GetMapID()` reports Stormwind City. Pins must still draw at **Elwynn** coords. Same family: Ironforge on Dun Morogh, Orgrimmar on Durotar. **Ashenvale has no nested capital**, so that glitch does not apply there. `/smores status` prints `Zone:` vs `Map view:` so you can see a mismatch.
 
@@ -331,7 +333,7 @@ Earlier that evening: lighting printed *Interface action failed*, then *Wait a m
 | Host socket objects | n/a | Only recipes this character has learned (open the profession window once). **Tanning** is not an object. Guest sockets still mark by hand. |
 | Object icons | Stand-ins until Forever textures | Item ID / trainer/`C_Spell`. Banner = your faction. Tent Wowhead file is still scrap. |
 | Auto-read placed objects | No | Still no API — host marks sockets by hand |
-| Pin lifetime | 20 min from lit fire | Still up after 10 min (18 Sep). 1 hour is feature CD / buffs. `/reload` keeps the host pin |
+| Pin lifetime | 15 min from lit fire | Timed live 21 Sep. 1 hour is feature CD / buffs. `/reload` keeps the host pin |
 | Two-client share | Passed 16 Sep | **Not re-tested** (18 Sep was trainer/icon pass) |
 
 ---
@@ -347,7 +349,7 @@ If **only the host** has the addon, guests cannot update camp state — the host
 # Later (Forever beta onward)
 
 - Read campfire / placed-object API when exposed
-- **Pin lifetime:** pin is **20 min from when that fire was lit** (Find at minute 7 = 13 min left). Forever camp was still up after 10 min (18 Sep). Copy says **buffs** last 1 hour — that is not the campsite duration. Time a despawn before raising `CAMPFIRE_DURATION` again. Pins also drop when **3/3**, the host packs up (`X:`), or they light a **new** fire.
+- **Pin lifetime:** pin is **15 min from when that fire was lit** (Find at minute 7 = 8 min left). Live Forever fire is 15 min (21 Sep). Copy says **buffs** last 1 hour — that is not the campsite duration. Pins also drop when **3/3**, the host packs up (`X:`), or they light a **new** fire.
 - Fill a slot automatically when you place an object
 - Occupancy: sitters at fire vs object slots (different numbers)
 - **Cooking 5/10-slot campfires:** pin sockets and `H:` slot fields are built for Basic **3**. Measure before extending the wire.

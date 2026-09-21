@@ -30,7 +30,8 @@ After you host, the **Your camp** panel opens (also `/smores camp` or left-click
 - Three sockets. Yours is the object **you have learned** (open your profession window once so we can see Camp Chair vs Field Guide). Guest sockets you mark by hand — the game does not tell addons what is on the ground yet.
 - Empty sockets pulse the faded S'more so you know they still need a mark.
 - **Looking for** chips and the camping-objects dropdown are **this fire only**. Default Host settings stay put until you edit them.
-- **Pack up** from the panel, or right-click your pin.
+- **Pack up** (bottom left), or right-click your pin.
+- **Announce camp in General** (bottom right) posts one public `/1` line when you click it — fire type, your object, coords, layer, who you want, time left. Hover the button to read that line first. Nothing else sends `/1`.
 
 The addon reads this character's professions. If you have Leatherworking, hosts who asked for leatherworkers can find you — you do not have to tick it yourself.
 
@@ -70,11 +71,13 @@ Sit nearby for the buff. Skill-20 objects are exclusive with a class buff (Bless
 
 `/smores` (also `/sms` or `/smoreskills`) opens settings.
 
-- **General** — auto-host when you place a Basic Campfire Kit, pin size, minimap button, chat messages, guild mark
-- **Host** — defaults when you host (profession, who may see you, optional objects). The camp panel can override this fire only.
+- **General** — auto-host when you place a Campfire Kit, pin size, minimap button, chat messages, guild mark, other-layer camps. These survive `/reload`.
+- **Host** — defaults when you host (profession, learned camping object, who may see you, optional objects). The camp panel can override this fire only.
 - **Seeker** — which camps you want to find (professions and optional objects)
 
-The minimap S'more opens the world map (left-click) and settings (right-click).
+Public `/1` is not a setting. Use **Announce camp in General** on the camp panel.
+
+The minimap S'more opens the world map (left-click) and settings (right-click). Nearby hosted campfires also show a fire pin on the minimap.
 
 ## Commands
 
@@ -83,6 +86,7 @@ The minimap S'more opens the world map (left-click) and settings (right-click).
 | `/smores`, `/sms`, `/smoreskills` | Open settings |
 | `/smores find` | Look for camps in this zone |
 | `/smores host` | Share your campfire with seekers |
+| `/smores host basic` / `journeyman` / `expert` | Test 3 / 5 / 10 sockets (`jm` / `exp`) |
 | `/smores camp` | Open the host camp panel (sockets + this-camp requests) |
 | `/smores stop` | Stop hosting |
 | `/smores pack` | Pack up your camp (same confirm as the map pin) |

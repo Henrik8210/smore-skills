@@ -1,5 +1,168 @@
 # Changelog
 
+## v0.6.7
+
+Beta since **v0.5.78**. Forever 1.60.1 (`_classic_beta_`).
+
+### Host camp panel
+
+- **Announce camp in General** sits bottom-right, opposite **Pack up**. That click is the **only** way `/1` is sent — not kit Use, not the fire landing, not Find, not `/smores host`, not a settings checkbox.
+- Hover the button to preview the exact line (fire type, camping object or profession, coords, zone, who you want, minutes left, layer, and that you use S'more Skills).
+- Example: `I am hosting a Basic campfire with "Camp Tent" now at 64.5, 48.9 in The Barrens. Looking for anyone. About 15 min left. Layer 2. I am using the S'more Skills addon to automatically broadcast this message.`
+
+### Settings survive `/reload`
+
+Forever often drops nested `SmoreSkillsDB.settings`. Every General / Host / Seeker option is now snapshotted to CVars (`SmoreSkillsSS` / `SmoreSkillsST`) plus flat account fields whenever you change it, and restored after `/reload`. That includes auto-host, chat, minimap show/lock/angle, guild mark, cross-layer, pin scale, host profession/object, both filters, and both want lists.
+
+### Hosted fire across `/reload`
+
+- Your pin stays until pack-up, a full fire, a **new** fire, or the live **15 minute** Forever clock (not 20). Same remaining time for every seeker.
+- Ownership uses `hostCampId`, not `UnitName` (`Unknown`, `No Bunda` vs `No-Bunda`).
+- Do not create an empty `SmoreSkillsDB` before SavedVariables apply (that makes Forever skip the file).
+- Slot edits are snapshotted when you change them. Restore prefers the full `HPv1` blob, then `HPc2` (coords + item-id sockets). Heartbeat no longer stamps default profession over socket 1.
+- When time runs out the pin packs **locally** (no `X:` from a timer). Denmark PC vs US realm (~9 h) is a clock jump, not burnout.
+
+### Forever taint
+
+- Kit Use no longer joins the hidden channel or posts `/1` in that same click — that was *Interface action failed because of an AddOn*.
+- Lighting a kit writes a **local** pin. Seekers see it after **their** Find (`S:` → addon-whisper `H:`). Channel-chat `H:` on Find / `/smores host` is the backup.
+
+### Host defaults
+
+- Host settings include learned camping objects. A new fire uses that object on your socket. The General line names `"Camp Tent"` or, if you only picked a trade, `"Leatherworking"`.
+
+### Older notes (this beta)
+
+- v0.6.6 — announce moved from a setting to the camp-panel button.
+- v0.6.3 — all settings persisted like announce used to be.
+- v0.6.0–0.6.2 — announce text and the old checkbox persist (checkbox is gone).
+- v0.5.99 — pin lifetime 15 minutes.
+- v0.5.95–0.5.98 — persist / socket / pack-up-nil fixes.
+
+## v0.6.6
+
+- General announce is a camp-panel button (**Announce camp in General**, bottom right, opposite Pack up), not a settings checkbox. It only sends `/1` when you click it.
+
+## v0.6.5
+
+- General announce waits until the campfire is actually lit. Clicking the kit (or cancelling the place) does not send `/1`.
+
+## v0.6.4
+
+- General announce actually posts after you light a fire. Kit Use no longer joins the hidden channel in the same click (that was the *Interface action failed* toast), and a blocked send is retried when you click the camp panel or minimap button.
+
+## v0.6.3
+
+- General, Host, and Seeker settings all survive `/reload` the same way Announce in General does: a CVar snapshot plus flat account fields, written whenever any of those options change.
+
+## v0.6.2
+
+- Unchecking Announce in General survives `/reload`. The choice is stored in a CVar (`1`/`0`) so a missing settings table cannot turn it back on.
+
+## v0.6.1
+
+- Announce in General (/1) stays on after `/reload` (saved as a flat account field) and is **on by default**.
+
+## v0.6.0
+
+- General announce names your default socket: a camping object (`with "Camp Tent"`) or, if you only picked a profession, `with "Leatherworking"`.
+
+## v0.5.101
+
+- Host defaults include learned camping objects. A new fire uses that object on your socket, and the General announce names it (`with "Camp Tent"`).
+
+## v0.5.100
+
+- General camp announce uses the 15-minute fire clock and includes the host's layer when we know it.
+
+## v0.5.99
+
+- Campfire pin lifetime is **15 minutes** (the live Forever fire), not 20.
+
+## v0.5.98
+
+- Slot edits survive `/reload`: the CVar backup now stores sockets (`HPc2` item ids), restore does not rewrite SavedVariables with the default host profession, and the host heartbeat no longer stamps settings over your sockets. When the 20 minutes run out the pin is packed locally (no `X:` from a timer).
+
+## v0.5.97
+
+- Slot edits (host socket or other sockets) are snapshotted when you change them, not only on logout. `/reload` was restoring the camp as it looked when you first hosted because share-from-click never wrote the new sockets, and restore then stamped the default host profession back onto socket 1.
+
+## v0.5.96
+
+- Pack-up then `/reload` no longer errors when `SmoreSkillsDB` is still nil (`EnsureSettings` used a session table until SavedVariables apply). Restored host camps take your default host profession/socket again — the short CVar clock blob had coords but no slots.
+
+## v0.5.95
+
+- Host persist after `/reload`: the saved fire is still yours even when UnitName is `Unknown`, the CVar blob has no owner, or the name is `No Bunda` vs `No-Bunda`. We no longer create an empty `SmoreSkillsDB` that makes Forever skip the file on disk. Own-pin remaining counts down with `GetTime()` for the rest of the session so a jumped realm clock cannot hide the pin.
+
+## v0.5.94
+
+- Host persist: a dead leftover snapshot no longer blocks saving the current fire, and restore no longer gives up when remaining looks empty. Snapshot always writes this camp's countdown. `/smores status` no longer talks about channel #5 — H: to a seeker is a hidden addon whisper; the named `SmoreSkills` bus is only how we hear Find.
+
+## v0.5.93
+
+- General settings: announce-in-General is item 2, under Auto host. The pin-size slider sits below it (it had been laid out on top of that checkbox when Auto host hid the Host camp button).
+
+## v0.5.92
+
+- Persist no longer hides a live host pin because a stale `litAt` looks older than 20 minutes. Saved `remaining` wins when `litAt` would burn the camp. Login text says any Campfire Kit, not only Basic. `/smores status` labels the hidden channel and prints whether the HP blob is still there.
+
+## v0.5.91
+
+- General setting **Announce your camp in General chat (/1)** (off by default). When you host, sends a public line with fire type, coordinates, who you want, time left, and that you use S'more Skills. Sent from the kit Use or Host click so Forever does not block it.
+
+## v0.5.90
+
+- Host pin remaining counts down from when the fire was **lit**, not from the last `/reload`. The CVar backup was truncated and had no `litAt`, so restore stamped a fresh 20 minutes (19 min left after another reload). CVar/macro now store a short clock blob (`remaining` + `litAt`).
+
+## v0.5.89
+
+- Lighting a fire still hosts **locally** (your pin and camp panel). When a seeker clicks Find in that zone, the host automatically answers with `H:` (addon whisper to that player — the TBC two-client path). Channel chat `H:` from a click stays the backup if that reply is blocked.
+
+## v0.5.88
+
+- Host persist writes the camp to **five independent places**: account string `SmoreSkillsHP`, `SmoreSkillsDB.hp`, `settings.hp` (the settings table that already survives), a `SmoreSkillsHP` CVar, and a character macro `S~Camp`. Restore uses the first that comes back. Addon SavedVariables alone are no longer trusted on this client.
+
+## v0.5.87
+
+- Host persist no longer depends on nested `SmoreSkillsDB.camps` or a per-character table coming back after `/reload`. The camp is also saved as a single account string (`SmoreSkillsHP` / `SmoreSkillsDB.hp`). That global is never created empty on load (so a late SavedVariables apply can still fill it). Restore retries through `VARIABLES_LOADED` and the first few seconds.
+
+## v0.5.86
+
+- Persist uses **GetServerTime() only** in WTF (`remaining` + `server`) and for both world-map and minimap pins. `GetTime()` / PC `time()` are not part of the pin clock. A 9-hour Denmark/US gap is not subtracted.
+
+## v0.5.85
+
+- Owned camp TTL no longer uses `GetServerTime()` or `time()`. Those are 9 hours apart (US realm 2pm vs Denmark 11pm) and wiped the pin on `/reload`. Remaining now counts down with `GetTime()` (client uptime), which survives `/reload` and does not move with timezones.
+
+## v0.5.84
+
+- Host persist actually puts the fire back after `/reload` for Basic, Journeyman, and Expert (saved `fireType` + 3 / 5 / 10 sockets). Restore uses saved `remaining` only; a 9-hour Denmark/US gap is ignored. Chat names the fire type, the zone map is switched to the pin, and the host panel opens. `/smores persist` reprints that state.
+
+## v0.5.83
+
+- Host persist no longer treats the Denmark PC clock vs the US realm clock (~9 hours) as a burned-out fire. `/reload` counts down saved `remaining`, not `now - litAt`. A gap larger than 3 hours is a clock jump and keeps the pin.
+
+## v0.5.82
+
+- Host persist no longer dies after `/reload` when a session `GetTime()` check, a full fire, or a failed remaining write wiped the snapshot. Your pin, host panel, and remaining time come back from the flat account snapshot.
+- Minimap campfire pins stay locked to the fire’s map position (east/north). Walking moves *you* on the disc; the pin no longer slides off in a wrong direction.
+
+## v0.5.81
+
+- Minimap pin refresh can no longer abort host restore or wipe a live fire. Snapshot remaining comes from the live `litAt` (realm clock), not a stale leftover; a `0` clock after `/reload` waits instead of treating the camp as burned out.
+
+## v0.5.80
+
+- Campfire pins show on the **minimap** when you are close enough for the fire to sit on the disc. Hover and click match the world map (tooltip, whisper, host panel, pack-up).
+- Minimap pin no longer errors when reading the fire’s world Y (`cwy` was dropped by a Lua `and`).
+
+## v0.5.79
+
+- Host panel and pin tooltip grow with the fire: Basic stays three large sockets; Journeyman is five half-size (2+3); Expert is ten (5+5). Empty sockets still pulse. The socket grid is centered on the host panel.
+- Auto host is any Campfire Kit (Basic, Journeyman, or Expert), not only Basic.
+- `/smores host basic|journeyman|expert` (aliases `jm`, `exp`) stamps the fire type so we can test 5/10 without those kits. Bare `/smores host` still just re-shares. `H:` sends 3, 5, or 10 slot pairs (old clients still read the first three).
+
 ## v0.5.78
 
 - A hosted pin more than 20 minutes old (realm time) no longer comes back after `/reload` as a fresh 20-minute camp. Saved `remaining` subtracts time since the snapshot clock; leftover snapshots are cleared when that hits 0.

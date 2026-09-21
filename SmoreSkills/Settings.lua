@@ -2,7 +2,7 @@ SmoreSkills = SmoreSkills or {}
 SmoreSkills.Settings = SmoreSkills.Settings or {}
 
 local Settings = SmoreSkills.Settings
-local SETTINGS_UI_BUILD = 65
+local SETTINGS_UI_BUILD = 67
 local ICON = SmoreSkills.ICON or "Interface\\Icons\\Spell_Fire_Fire"
 local POPUP_WIDTH = 720
 local POPUP_HEIGHT = 620
@@ -180,6 +180,9 @@ local function SetMinimapAngle(angle)
         angle = angle - 360
     end
     SmoreSkills_EnsureSettings().minimapAngle = angle
+    if SmoreSkills_SaveSettings then
+        SmoreSkills_SaveSettings()
+    end
 end
 
 local function IsRightClick(mouseButton)
@@ -315,6 +318,7 @@ local COMMAND_HELP = {
     { "/smores", "Open these settings. Also /sms or /smoreskills." },
     { "/smores find", "Look for camps in this zone. Also /smores seek." },
     { "/smores host", "Share your campfire with seekers." },
+    { "/smores host basic|journeyman|expert", "Test 3 / 5 / 10 sockets (also jm, exp)." },
     { "/smores camp", "Open the host camp panel again if you closed it. Also left-click your map pin." },
     { "/smores stop", "Stop hosting." },
     { "/smores pack", "Pack up your camp (asks you to confirm, same as the map pin)." },
@@ -871,14 +875,16 @@ function Settings:LayoutGeneralPage()
     if not self.generalPage then
         return
     end
-    if self.pinScaleRow and self.autoHostHint then
+    if self.pinScaleRow then
         local after = self.autoHostHint
         if self.hostNowBtn and self.hostNowBtn:IsShown() then
             after = self.hostNowBtn
         end
-        self.pinScaleRow:ClearAllPoints()
-        self.pinScaleRow:SetPoint("TOPLEFT", after, "BOTTOMLEFT", 0, -GAP_SECTION)
-        self.pinScaleRow:SetPoint("RIGHT", self.generalPage.content, "RIGHT", -BODY_PAD, 0)
+        if after then
+            self.pinScaleRow:ClearAllPoints()
+            self.pinScaleRow:SetPoint("TOPLEFT", after, "BOTTOMLEFT", 0, -GAP_SECTION)
+            self.pinScaleRow:SetPoint("RIGHT", self.generalPage.content, "RIGHT", -BODY_PAD, 0)
+        end
     end
     self.generalPage.bottom = self.commandHelp or self.crossLayerHint or self.guildHint or self.guildMark or self.chatHint or self.hostNowBtn
     self:LayoutPage(self.generalPage)
@@ -961,6 +967,44 @@ function Settings:RefreshHostProfessionPicker()
     block:SetHeight(math.max(headingH + 14, headingH + GAP_TITLE + math.max(shown, shown == 0 and 1 or 0) * (SETTINGS_SMALL_CHECK + 4)))
 end
 
+function Settings:RefreshHostObjectPicker()
+    local block = self.hostObjBlock
+    if not block or not block.rows then
+        return
+    end
+    local learned = {}
+    if SmoreSkills_LearnedCampingItems then
+        for _, item in ipairs(SmoreSkills_LearnedCampingItems()) do
+            learned[item.id] = true
+        end
+    end
+    local active = SmoreSkills_GetHostObjectId and SmoreSkills_GetHostObjectId()
+    local headingH = (block.heading and block.heading:GetStringHeight()) or 20
+    local y = -(headingH + GAP_TITLE)
+    local shown = 0
+    for _, row in ipairs(block.rows) do
+        local show = learned[row.itemId] == true
+        row:SetShown(show)
+        if show then
+            row:ClearAllPoints()
+            row:SetPoint("TOPLEFT", block, "TOPLEFT", 0, y)
+            row:SetPoint("RIGHT", block, "RIGHT", 0, 0)
+            row.checkbox:SetChecked(row.itemId == active)
+            y = y - (SETTINGS_SMALL_CHECK + 4)
+            shown = shown + 1
+        end
+    end
+    if block.empty then
+        block.empty:SetShown(shown == 0)
+        if shown == 0 then
+            block.empty:ClearAllPoints()
+            block.empty:SetPoint("TOPLEFT", block.heading or block, "BOTTOMLEFT", 0, -GAP_TITLE)
+            block.empty:SetPoint("RIGHT", 0, 0)
+        end
+    end
+    block:SetHeight(math.max(headingH + 14, headingH + GAP_TITLE + math.max(shown, shown == 0 and 1 or 0) * (SETTINGS_SMALL_CHECK + 4)))
+end
+
 function Settings:BuildHostProfessionPicker(parent, anchor)
     local block = CreateFrame("Frame", nil, parent)
     block:SetPoint("TOP", anchor, "BOTTOM", 0, -GAP_TITLE)
@@ -1005,6 +1049,7 @@ function Settings:BuildHostProfessionPicker(parent, anchor)
         cb:SetScript("OnClick", function()
             SmoreSkills_SetHostProfession(prof.id)
             Settings:RefreshHostProfessionPicker()
+            Settings:RefreshHostObjectPicker()
             local camp = (SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp())
                 or (SmoreSkills_GetLocalCamp and SmoreSkills_GetLocalCamp())
             if camp then
@@ -1019,6 +1064,77 @@ function Settings:BuildHostProfessionPicker(parent, anchor)
     end
     self.hostProfBlock = block
     self:RefreshHostProfessionPicker()
+    return block
+end
+
+function Settings:BuildHostObjectPicker(parent, anchor)
+    local block = CreateFrame("Frame", nil, parent)
+    block:SetPoint("TOP", anchor, "BOTTOM", 0, -GAP_SECTION)
+    block:SetPoint("LEFT", parent, "LEFT", BODY_PAD, 0)
+    block:SetPoint("RIGHT", parent, "RIGHT", -BODY_PAD, 0)
+
+    local label = block:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    label:SetPoint("TOPLEFT", 0, 0)
+    label:SetPoint("RIGHT", 0, 0)
+    label:SetJustifyH("LEFT")
+    ApplyTitleFont(label)
+    label:SetTextColor(1, 1, 1)
+    label:SetText("Default camping object when you host")
+    block.heading = label
+
+    local empty = block:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    empty:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -GAP_TITLE)
+    empty:SetPoint("RIGHT", 0, 0)
+    empty:SetJustifyH("LEFT")
+    empty:SetText("No learned camping objects yet. Open a profession window once so we can see your recipes.")
+    empty:Hide()
+    block.empty = empty
+
+    local function applyDefaultToLiveCamp()
+        Settings:RefreshHostProfessionPicker()
+        Settings:RefreshHostObjectPicker()
+        local camp = (SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp())
+            or (SmoreSkills_GetLocalCamp and SmoreSkills_GetLocalCamp())
+        if camp then
+            SmoreSkills_ApplyHostProfession(camp, true)
+            if SmoreSkills.Sync and SmoreSkills.Sync.IsHosting and SmoreSkills.Sync:IsHosting() then
+                SmoreSkills_ShareOwnedCampFromClick()
+            end
+        end
+        RefreshAll()
+    end
+
+    block.rows = {}
+    for i, item in ipairs(SmoreSkills.PROFESSION_ITEMS) do
+        local row = CreateFrame("Frame", nil, block)
+        row:SetHeight(SETTINGS_SMALL_CHECK + 4)
+        row.itemId = item.id
+        local hold, cb = MakeCheckButton(row, SETTINGS_SMALL_CHECK)
+        hold:SetPoint("LEFT", 0, 0)
+        local icon = MakeTinyIcon(row, SmoreSkills_CampingObjectIcon(item) or SmoreSkills_ProfessionIcon(item.profession))
+        icon:SetPoint("LEFT", hold, "RIGHT", 4, 0)
+        local labelBtn, text = MakeCheckLabel(row, cb, ApplySmallFont)
+        labelBtn:SetPoint("LEFT", icon, "RIGHT", 4, 0)
+        labelBtn:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+        labelBtn:SetPoint("TOP", row, "TOP", 0, 0)
+        labelBtn:SetPoint("BOTTOM", row, "BOTTOM", 0, 0)
+        text:SetText(item.label)
+        row.checkbox = cb
+        row.label = text
+        row.profIcon = icon
+        cb:SetScript("OnClick", function()
+            local current = SmoreSkills_GetHostObjectId and SmoreSkills_GetHostObjectId()
+            if current == item.id then
+                SmoreSkills_SetHostObject(nil)
+            else
+                SmoreSkills_SetHostObject(item.id)
+            end
+            applyDefaultToLiveCamp()
+        end)
+        block.rows[i] = row
+    end
+    self.hostObjBlock = block
+    self:RefreshHostObjectPicker()
     return block
 end
 
@@ -1103,6 +1219,7 @@ function Settings:Refresh()
     self:RefreshFilterVisibility()
     self:RefreshHostButton()
     self:RefreshHostProfessionPicker()
+    self:RefreshHostObjectPicker()
     self:RefreshProfessionGrid(self.hostGrid, "hostWant")
     self:RefreshProfessionGrid(self.seekerGrid, "seekerWant")
     self:LayoutHostPage()
@@ -1347,10 +1464,10 @@ function Settings:BuildGeneralPanel(parent)
     local content = page.content
 
     local title = CreateSectionTitle(content, "General", -GAP_TITLE)
-    self.autoHost = CreateCheckbox(content, "Auto host when placing a Basic Campfire Kit", title, -GAP_TITLE)
+    self.autoHost = CreateCheckbox(content, "Auto host when placing a Campfire Kit", title, -GAP_TITLE)
     self.autoHostHint = CreateHint(
         content,
-        "Use a Campfire Kit (or light a campfire) in the world to host locally. Crafting the kit at the cooking window does not host. Click Find or /smores host so seekers get the pin.",
+        "Use any Campfire Kit (Basic, Journeyman, or Expert) in the world to host. Crafting a kit at the cooking window does not host. Your pin is local until someone clicks Find in this zone — then they get the camp.",
         self.autoHost,
         -GAP_HINT
     )
@@ -1476,10 +1593,11 @@ function Settings:BuildHostPanel(parent)
         -GAP_HINT
     )
     local profBlock = self:BuildHostProfessionPicker(content, self.hostDefaultsHint)
+    local objBlock = self:BuildHostObjectPicker(content, profBlock)
     self.hostFilter = CreateCheckbox(
         content,
         "By default, only show your camp to players with specific professions",
-        profBlock,
+        objBlock,
         -GAP_SECTION
     )
     self.hostFilter.checkbox:SetScript("OnClick", function(selfCb)
@@ -1594,8 +1712,11 @@ function Settings:Init()
         self.seekerFilterHint = nil
         self.autoHost = nil
         self.autoHostHint = nil
+        self.announceGeneral = nil
+        self.announceGeneralHint = nil
         self.hostNowBtn = nil
         self.hostProfBlock = nil
+        self.hostObjBlock = nil
         self.hostPage = nil
         self.seekerPage = nil
         self.generalPage = nil

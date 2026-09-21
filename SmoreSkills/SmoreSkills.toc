@@ -1,11 +1,11 @@
 ## Interface: 16001, 20505, 20506
 ## Title: S'more Skills
-## Notes: Campsite finder for WoW Forever (TBC Anniversary testbed until Forever API). Share a fire, see three object slots.
+## Notes: Campsite finder for WoW Forever (TBC Anniversary testbed until Forever API). Share a fire, see camp object slots.
 ## Author: Henrik8210
-## Version: 0.5.78
+## Version: 0.6.7
 ## X-Curse-Project-ID: 1696940
 ## Icon: Art\SmoreSkillsLogo.tga
-## SavedVariables: SmoreSkillsDB
+## SavedVariables: SmoreSkillsDB, SmoreSkillsHP, SmoreSkillsSS
 ## SavedVariablesPerCharacter: SmoreSkillsHostDB
 
 Core.lua

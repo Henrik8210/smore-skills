@@ -26,6 +26,73 @@ local function HandleSlash(msg)
         SmoreSkills.Sync:HostHere(true)
         return
     end
+    local hostArg = lower:match("^host%s+(.+)$")
+    if hostArg then
+        local fireType = SmoreSkills_NormalizeFireType and SmoreSkills_NormalizeFireType(hostArg)
+        if not fireType then
+            SmoreSkills_Reply("Usage: /smores host [basic | journeyman | expert]")
+            return
+        end
+        SmoreSkills.Sync:HostHere(true, false, fireType)
+        return
+    end
+    if lower == "persist" then
+        local camp, reason = nil, nil
+        if SmoreSkills_RestoreOwnedHost then
+            camp, reason = SmoreSkills_RestoreOwnedHost()
+        end
+        if camp and SmoreSkills.Sync and SmoreSkills.Sync.RestoreHostSession then
+            SmoreSkills.Sync:RestoreHostSession()
+        end
+        camp = camp or (SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp())
+        if camp then
+            SmoreSkills_Reply(string.format(
+                "Persist: %s in %s — %s — %d/%d sockets — %.0fs left",
+                (SmoreSkills_FireTypeLabel and SmoreSkills_FireTypeLabel(camp.fireType)) or "Basic",
+                camp.zone or "?",
+                SmoreSkills_FormatCoords and SmoreSkills_FormatCoords(camp) or "?",
+                SmoreSkills_CountFilledSlots and SmoreSkills_CountFilledSlots(camp) or 0,
+                SmoreSkills_CampSlotCount and SmoreSkills_CampSlotCount(camp) or 3,
+                tonumber(camp.ttlLeft) or (SmoreSkills_OwnedHostRemaining and SmoreSkills_OwnedHostRemaining(camp)) or 0
+            ))
+        else
+            SmoreSkills_Reply("Persist: no camp (" .. tostring(reason or "none") .. ")")
+        end
+        local server = (type(SmoreSkillsHostDB) == "table" and tonumber(SmoreSkillsHostDB.server))
+            or (SmoreSkillsDB and tonumber(SmoreSkillsDB.hostSnap_server))
+            or (SmoreSkillsDB and tonumber(SmoreSkillsDB.hostSnap_clock))
+            or 0
+        local left = (type(SmoreSkillsHostDB) == "table" and tonumber(SmoreSkillsHostDB.remaining))
+            or (SmoreSkillsDB and tonumber(SmoreSkillsDB.hostSnapRemaining))
+            or 0
+        local now = SmoreSkills_Now()
+        SmoreSkills_Reply(string.format(
+            "TTL: server now %d  saved %d  remaining %.0f  elapsed %ds",
+            now,
+            server,
+            left,
+            (now > 0 and server > 0) and (now - server) or 0
+        ))
+        local blob, source = nil, nil
+        if SmoreSkills_ReadHostPersistBlob then
+            blob, source = SmoreSkills_ReadHostPersistBlob()
+        end
+        local channels = SmoreSkills_HostPersistChannels and SmoreSkills_HostPersistChannels() or {}
+        SmoreSkills_Reply("HP: " .. (blob and ("yes via " .. tostring(source)) or "no")
+            .. "  channels: " .. (#channels > 0 and table.concat(channels, ", ") or "none"))
+        local me = SmoreSkills_PlayerName and SmoreSkills_PlayerName() or "?"
+        local owner = camp and camp.owner or (SmoreSkillsDB and SmoreSkillsDB.hostSnap_owner) or "?"
+        local active = SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp()
+        SmoreSkills_Reply(string.format(
+            "Owner: %s  me: %s  match: %s  hostCampId: %s  GetOwned: %s",
+            tostring(owner),
+            tostring(me),
+            tostring(SmoreSkills_PlayerNamesMatch and SmoreSkills_PlayerNamesMatch(owner, me)),
+            tostring(SmoreSkillsDB and SmoreSkillsDB.hostCampId),
+            active and "yes" or "no"
+        ))
+        return
+    end
     if lower == "camp" then
         if SmoreSkills.HostPanel and SmoreSkills.HostPanel.Toggle then
             SmoreSkills.HostPanel:Toggle()
@@ -62,29 +129,66 @@ local function HandleSlash(msg)
     if lower == "status" then
         local sync = SmoreSkills.Sync
         local chOk, chId = sync:GetChannelStatus()
-        SmoreSkills_Reply("Channel: " .. (chOk and ("joined (#" .. tostring(chId) .. ")") or "NOT JOINED"))
+        SmoreSkills_Reply("Share: hidden addon whisper for H:. Find listen: " .. (chOk and "SmoreSkills (joined)" or "SmoreSkills (not joined)"))
         local id1, name1 = GetChannelName(1)
         if id1 and id1 > 0 and name1 then
             SmoreSkills_Reply("/1 is " .. tostring(name1))
         end
         if sync:IsHosting() then
             local left = math.max(0, math.ceil((sync.hostingUntil or 0) - SmoreSkills_Now()))
-            SmoreSkills_Reply(string.format("Hosting: yes (%ds left). Want: %s", left, SmoreSkills_FormatWant(SmoreSkills_GetEffectiveHostWant(), SmoreSkills_GetEffectiveHostWantItems())))
+            local camp = SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp()
+            local fireBit = ""
+            if camp and SmoreSkills_CampFireType and SmoreSkills_CampFireType(camp) ~= "basic" then
+                fireBit = " " .. (SmoreSkills_FireTypeLabel and SmoreSkills_FireTypeLabel(camp.fireType) or camp.fireType)
+            end
+            SmoreSkills_Reply(string.format("Hosting: yes (%ds left)%s. Want: %s", left, fireBit, SmoreSkills_FormatWant(SmoreSkills_GetEffectiveHostWant(), SmoreSkills_GetEffectiveHostWantItems())))
         else
             SmoreSkills_Reply("Hosting: no")
         end
         local snap = SmoreSkillsHostDB
+        if not (type(snap) == "table" and tonumber(snap.mapId) and tonumber(snap.mapId) > 0) then
+            snap = {
+                mapId = SmoreSkillsDB and SmoreSkillsDB.hostSnap_mapId,
+                x = SmoreSkillsDB and SmoreSkillsDB.hostSnap_x,
+                y = SmoreSkillsDB and SmoreSkillsDB.hostSnap_y,
+                zone = SmoreSkillsDB and SmoreSkillsDB.hostSnap_zone,
+                litAt = SmoreSkillsDB and SmoreSkillsDB.hostSnap_litAt,
+                remaining = SmoreSkillsDB and (SmoreSkillsDB.hostSnap_remaining or SmoreSkillsDB.hostSnapRemaining),
+            }
+        end
         if type(snap) == "table" and tonumber(snap.mapId) and tonumber(snap.mapId) > 0 then
             local age = math.max(0, SmoreSkills_Now() - (tonumber(snap.litAt) or 0))
             SmoreSkills_Reply(string.format(
-                "Host snapshot: %s at %.0f,%.0f (%ds old)",
-                snap.zone ~= "" and snap.zone or tostring(snap.mapId),
+                "Host snapshot: %s at %.0f,%.0f (%ds old, %ds saved)",
+                (snap.zone and snap.zone ~= "") and snap.zone or tostring(snap.mapId),
                 (tonumber(snap.x) or 0) * 100,
                 (tonumber(snap.y) or 0) * 100,
-                age
+                age,
+                tonumber(snap.remaining) or 0
             ))
         else
             SmoreSkills_Reply("Host snapshot: none")
+        end
+        if SmoreSkills_ReadHostPersistBlob then
+            local blob, source = SmoreSkills_ReadHostPersistBlob()
+            SmoreSkills_Reply("HP: " .. (blob and ("yes via " .. tostring(source)) or "no"))
+        end
+        do
+            local realm = (GetServerTime and tonumber(GetServerTime())) or 0
+            if realm > 1000000000000 then
+                realm = math.floor(realm / 1000)
+            end
+            local pc = (time and tonumber(time())) or 0
+            local snapClock = (type(SmoreSkillsHostDB) == "table" and tonumber(SmoreSkillsHostDB.clock))
+                or (SmoreSkillsDB and tonumber(SmoreSkillsDB.hostSnap_clock))
+                or 0
+            SmoreSkills_Reply(string.format(
+                "Clock: realm %d  pc %d  snap %d  gap %ds",
+                realm,
+                pc,
+                snapClock,
+                (pc > 0 and realm > 0) and (pc - realm) or 0
+            ))
         end
         if sync:IsSeeking() then
             SmoreSkills_Reply(string.format("Seeking: yes (%ds left)", sync:GetSeekingRemaining()))
@@ -146,7 +250,7 @@ local function HandleSlash(msg)
                 SmoreSkills_FormatCoords(camp),
                 layerBit,
                 SmoreSkills_CountFilledSlots(camp),
-                SmoreSkills.MAX_SLOTS,
+                SmoreSkills_CampSlotCount and SmoreSkills_CampSlotCount(camp) or SmoreSkills.MAX_SLOTS,
                 SmoreSkills_FormatSlots(camp)
             ))
         end
@@ -217,8 +321,13 @@ local function HandleSlash(msg)
         local rest = strtrim(lower:match("^slot%s+(.+)") or "")
         local indexStr, profCode, objectName = rest:match("^(%d+)%s+(%S+)(?:%s+(.+))?$")
         local index = tonumber(indexStr)
-        if not index or index < 1 or index > SmoreSkills.MAX_SLOTS then
-            SmoreSkills_Reply("Usage: /smores slot <1-3> <prof> [object name]")
+        local maxSlot = SmoreSkills.MAX_SLOTS
+        local owned = SmoreSkills_GetOwnedActiveCamp and SmoreSkills_GetOwnedActiveCamp()
+        if owned and SmoreSkills_CampSlotCount then
+            maxSlot = SmoreSkills_CampSlotCount(owned)
+        end
+        if not index or index < 1 or index > maxSlot then
+            SmoreSkills_Reply(string.format("Usage: /smores slot <1-%d> <prof> [object name]", maxSlot))
             return
         end
         if profCode == "clear" or profCode == "empty" then
