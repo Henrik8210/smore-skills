@@ -2501,8 +2501,22 @@ function SmoreSkills_LayerOrdinal(layerId, mapId)
 end
 
 
+local function InRestrictedInstance()
+    local ok, restricted = pcall(function()
+        if not IsInInstance then
+            return false
+        end
+        local inInstance, instType = IsInInstance()
+        if inInstance == true then
+            return instType == "party" or instType == "raid" or instType == "arena" or instType == "pvp"
+        end
+        return false
+    end)
+    return ok and restricted == true
+end
+
 local function LayerIdFromGuid(guid)
-    if not guid or guid == "" then
+    if type(guid) ~= "string" or guid == "" then
         return nil
     end
     local unitType, _, _, _, zoneUID = strsplit("-", guid)
@@ -2516,25 +2530,40 @@ local function LayerIdFromGuid(guid)
     return nil
 end
 
+-- Forever secrets Unit* on party/nameplates in instances. Any boolean use
+-- of a secret throws — keep the whole read inside pcall.
 local function LayerIdFromUnit(unit)
-    if not unit or unit == "" then
+    if type(unit) ~= "string" or unit == "" then
         return nil
     end
-    if not UnitExists or not UnitExists(unit) then
+    if unit == "player" or unit:find("^party") or unit:find("^raid") then
         return nil
     end
-    if UnitIsPlayer and UnitIsPlayer(unit) then
-        return nil
+    local ok, id = pcall(function()
+        if not UnitExists or not UnitExists(unit) then
+            return nil
+        end
+        if UnitIsPlayer and UnitIsPlayer(unit) then
+            return nil
+        end
+        if UnitPlayerControlled and UnitPlayerControlled(unit) then
+            return nil
+        end
+        return LayerIdFromGuid(UnitGUID(unit))
+    end)
+    if ok then
+        return id
     end
-    if UnitPlayerControlled and UnitPlayerControlled(unit) then
-        return nil
-    end
-    return LayerIdFromGuid(UnitGUID(unit))
+    return nil
 end
 
 local function CurrentLayerMapId()
-    if C_Map and C_Map.GetBestMapForUnit then
-        return C_Map.GetBestMapForUnit("player")
+    if not C_Map or not C_Map.GetBestMapForUnit then
+        return nil
+    end
+    local ok, mapId = pcall(C_Map.GetBestMapForUnit, "player")
+    if ok then
+        return mapId
     end
     return nil
 end
@@ -2616,13 +2645,13 @@ end
 
 function SmoreSkills_GetPlayerLayerId()
     ResetLayerIfMapChanged()
+    if InRestrictedInstance() then
+        return nil
+    end
     local units = {
         "target", "mouseover", "npc",
         "softenemy", "softfriend", "softinteract",
     }
-    for i = 1, 4 do
-        table.insert(units, "party" .. i)
-    end
     for i = 1, 40 do
         table.insert(units, "nameplate" .. i)
     end
@@ -2633,12 +2662,12 @@ function SmoreSkills_GetPlayerLayerId()
         end
     end
     if C_NamePlate and C_NamePlate.GetNamePlates then
-        local plates = C_NamePlate.GetNamePlates()
-        if plates then
+        local ok, plates = pcall(C_NamePlate.GetNamePlates)
+        if ok and plates then
             for i = 1, #plates do
                 local plate = plates[i]
                 local unit = plate and (plate.namePlateUnitToken or plate.unit or (plate.UnitFrame and plate.UnitFrame.unit))
-                if unit then
+                if type(unit) == "string" then
                     local id = LayerIdFromUnit(unit)
                     if id then
                         return RememberLayer(id)
@@ -2707,7 +2736,10 @@ function SmoreSkills_InitLayerWatch()
     f:RegisterEvent("ZONE_CHANGED")
     f:RegisterEvent("ZONE_CHANGED_INDOORS")
     local function ScanLayer()
-        SmoreSkills_GetPlayerLayerId()
+        if InRestrictedInstance() then
+            return
+        end
+        pcall(SmoreSkills_GetPlayerLayerId)
     end
     local function ScanLayerSoon()
         ResetLayerIfMapChanged()
@@ -2717,7 +2749,24 @@ function SmoreSkills_InitLayerWatch()
             C_Timer.After(2, ScanLayer)
         end
     end
-    f:SetScript("OnEvent", function(_, event)
+    f:SetScript("OnEvent", function(_, event, unit)
+        if InRestrictedInstance() then
+            return
+        end
+        if event == "NAME_PLATE_UNIT_ADDED" then
+            local ok, isPlayer = pcall(function()
+                if type(unit) ~= "string" or not UnitIsPlayer then
+                    return false
+                end
+                if UnitIsPlayer(unit) then
+                    return true
+                end
+                return false
+            end)
+            if not ok or isPlayer == true then
+                return
+            end
+        end
         if event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED"
             or event == "ZONE_CHANGED_INDOORS" or event == "PLAYER_ENTERING_WORLD" then
             ScanLayerSoon()
@@ -3099,16 +3148,25 @@ function SmoreSkills_GetPlayerMapPos()
     if not C_Map or not C_Map.GetBestMapForUnit then
         return nil
     end
-    local mapId = C_Map.GetBestMapForUnit("player")
-    if not mapId then
+    local okMap, mapId = pcall(C_Map.GetBestMapForUnit, "player")
+    if not okMap or not mapId then
         return nil
     end
-    local pos = C_Map.GetPlayerMapPosition(mapId, "player")
-    if not pos then
+    local okPos, pos = pcall(C_Map.GetPlayerMapPosition, mapId, "player")
+    if not okPos or not pos then
         return nil
     end
-    local x, y = pos:GetXY()
-    if not x or not y or (x == 0 and y == 0) then
+    local okXy, x, y = pcall(function()
+        local px, py = pos:GetXY()
+        if type(px) ~= "number" or type(py) ~= "number" then
+            return nil
+        end
+        if px == 0 and py == 0 then
+            return nil
+        end
+        return px, py
+    end)
+    if not okXy or not x then
         return nil
     end
     mapId, x, y = SmoreSkills_ResolveZoneMap(mapId, x, y)

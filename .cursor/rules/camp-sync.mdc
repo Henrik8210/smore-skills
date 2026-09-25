@@ -18,6 +18,7 @@ Design: **Forever first.** [CAMPING.md](../../CAMPING.md). TBC Anniversary is on
 - Apply a camp from the other faction
 - Let more object slots exist on a camp than the fire allows (Basic 3 / Journeyman 5 / Expert 10; `MAX_SLOTS` is 10)
 - Scan the whole continent for fires — addons only see what is in range or what others share
+- Read party/raid/player nameplates for layer (Forever secrets; Lua-errors in dungeons). Layer watch is open-world NPC GUIDs only
 - Block the UI thread on addon messages — cap pins, drop stale signals
 - Mix `time()` (PC local) with `GetServerTime()` (realm) for owned-pin TTL
 - Trust nested `SmoreSkillsDB.camps` after `/reload` as the source of the hosted fire

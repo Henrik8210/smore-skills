@@ -5,7 +5,7 @@ Forever camping finder. Protocol and UX are documented in [CAMPING.md](CAMPING.m
 - **Remote:** https://github.com/Henrik8210/smore-skills
 - **Addon folder:** `SmoreSkills/` (no apostrophe — WoW toc/folder rule)
 - **Title:** S'more Skills
-- **Version:** 0.6.8 (CurseForge beta `v0.6.8-beta`; last full tag `v0.5.62` for **WoW Forever 1.60.1**)
+- **Version:** 0.6.9 (CurseForge beta `v0.6.9-beta`; last full tag `v0.5.62` for **WoW Forever 1.60.1**)
 
 ## WoW install paths
 

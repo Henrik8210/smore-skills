@@ -179,7 +179,7 @@ A **host** ping is shown to a **seeker** when all of:
 3. Host has at least one **empty slot**, or explicitly wants the seeker's profession
 4. Host **want list** is `any`, or shares **at least one** profession with the seeker. Extra trades on the seeker do not matter (Engineering+Mining host vs Engineering+Mining+Cooking seeker is a match). If the host filter is on and **no professions are ticked**, want is `none` — **nobody** sees the camp. Empty item picks still mean any item. The host's **own** camp profession (slot 1) is separate — a blacksmith can still tick Blacksmithing in Host wants if they want another BS to place an object. Forever beta will tell us how stacking same-trade objects works; do not hide that checkbox.
 5. Pin count in zone is under the **display cap**
-6. **Layer:** default is **include other layers**. Uncheck Settings → **Include camps on other layers** to only match your current layer. If either side has not detected a layer yet, the camp still shows.
+6. **Layer:** default is **include other layers**. Uncheck Settings → **Include camps on other layers** to only match your current layer. If either side has not detected a layer yet, the camp still shows. Layer is read from **open-world NPC GUIDs** only — never party, raid, or player nameplates (Forever secrets; those reads Lua-error in a dungeon). The watch stays off in party/raid/arena/pvp.
 
 Seekers who click find at the same time may all see the same camp — that is intentional (light urgency).
 

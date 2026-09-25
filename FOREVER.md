@@ -2,7 +2,7 @@
 
 **Product is Forever.** TBC Anniversary is only the two-client share testbed. Do not design for Anniversary and back-port.
 
-**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). Servers dropped overnight; they were **up again 18 Sep**. Last CurseForge full file before this pass was **v0.5.62**. Current CurseForge **beta** `v0.6.8-beta`. How `/reload` keeps the pin and settings: [HOST-PERSIST.md](HOST-PERSIST.md).
+**Live first night:** 17–18 Sep 2026 on `_classic_beta_` (game **1.60.1**, Interface **16001**). Servers dropped overnight; they were **up again 18 Sep**. Last CurseForge full file before this pass was **v0.5.62**. Current CurseForge **beta** `v0.6.9-beta`. How `/reload` keeps the pin and settings: [HOST-PERSIST.md](HOST-PERSIST.md).
 
 ---
 
@@ -129,7 +129,7 @@ Beta still has to prove the retail-restriction surface:
 | Profession scan | Classic `GetNumSkillLines` / `GetSkillLineInfo` | Likely `GetProfessions` / `GetProfessionInfo` (retail). If empty, Find says set `/smores prof` |
 | Hidden channel `H:` / `S:` | Prefixed chat + addon CHANNEL; chat only from Find / `/smores host` click | Same taint rules, plus **chat lockdown in instances**. First Skyborne test is **Zephras Isle** (open world). Do not test share inside a dungeon |
 | Map coords | `C_Map.GetPlayerMapPosition` | Confirm coords are **not** secret in open world. If they are secret in combat, host while standing at the fire out of combat |
-| Layer from nameplates | Unit GUID / nameplate scan | Unit APIs may return secrets; layer may stay “unknown” more often |
+| Layer from nameplates | Unit GUID / nameplate scan | Unit APIs may return secrets; layer may stay “unknown” more often. **Never read party/raid/player nameplates** (boolean use of a secret Lua-errors). Skip the layer watch in party/raid/arena/pvp. |
 | Spell hook 818 | `UNIT_SPELLCAST_SUCCEEDED` | Keep until a real campsite event exists; retail spell APIs (`C_Spell`) already have a fallback |
 | UI frames | Classic textures / Backdrop | Mainline FrameXML — map Find button, minimap, settings may need new anchors |
 

@@ -100,6 +100,7 @@ The minimap S'more opens the world map (left-click) and settings (right-click). 
 * After you place a kit, other players need to click **Find** (or you click Find / `/smores host` once) so they can see the pin
 * One camp at a time — a new fire replaces the old pin
 * A live fire is **15 minutes**. `/reload` does not drop your pin or reset your settings
+* Layer is detected in the open world from nearby NPCs. Dungeons do not need it, and we do not scan party members there
 * **Announce camp in General** is the only `/1` send
 * All opt-in. No login dump of stored camps
 

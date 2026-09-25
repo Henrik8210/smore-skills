@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.6.9
+
+Joining a dungeon group and walking up to party members no longer floods Lua errors.
+
+Forever (Mainline secrets) treats `UnitExists` / `UnitIsPlayer` / `UnitGUID` on party tokens and player nameplates as secrets. Using those values in an `if` throws. The layer watch was doing that on every `NAME_PLATE_UNIT_ADDED` plus a 3-second ticker — so approaching the group in a dungeon meant a spam of errors.
+
+- Layer detection is **open-world NPC GUIDs only**. Party, raid, and player nameplates are never read (they cannot carry a creature `zoneUID` anyway).
+- The watch stays **off** in party / raid / arena / pvp. There are no camps there, and instance chat is locked down.
+- Remaining unit and map-position reads stay inside `pcall` so a secret cannot leak into a boolean. `GetXY` is type-checked before use.
+- Open-world layer from nearby NPCs is unchanged. Layer may stay unknown in a dungeon — that is expected.
+
 ## v0.6.8
 
 - World-map **Find campsites** is visible again: it parents to the map window at pin overlay strata, not as a `ScrollContainer` child under the parchment. Minimap pin setup can no longer abort map init.
